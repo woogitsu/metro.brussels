@@ -29,6 +29,23 @@ public sealed class SceneAxisTests
     private static SceneAxis Scene(double offsetM) => new(StraightAxis(), offsetM);
 
     [TestMethod]
+    public void FixtureBeyondPlayableEndFollowsContinuationCurveAndStopsAtItsEnd()
+    {
+        var route = Scene(2.10);
+        var tail = new SceneAxis(TrackAxis.FromJson("""
+            {"id":"TAIL","points":[[300,0,0],[310,0,0],[320,10,0],[330,20,0]],"stations":[]}
+            """), 2.10);
+        var fixture = route.FixturePoint(route.Axis.LengthM + 25.0, tail, 0.0, 3.35);
+        Assert.IsTrue(fixture.HasValue);
+        Assert.IsTrue(fixture.Value.Z < -10.0f,
+            "oprawa ma skręcać z osią scenerii, a nie iść prostą za osią jazdy");
+        Assert.IsNull(route.FixturePoint(route.Axis.LengthM + tail.Axis.LengthM + 1.0,
+            tail, 0.0, 3.35), "po końcu zmierzonej scenerii nie wolno dopisywać lamp");
+        Assert.IsNull(route.FixturePoint(route.Axis.LengthM + 1.0, null, 0.0, 3.35),
+            "bez geometrii scenerii nie wolno zgadywać przebiegu lamp");
+    }
+
+    [TestMethod]
     public void ToSceneSwapsDataAxesIntoGodotAxes()
     {
         // Dane mają Z w górę, Godot ma Y w górę i −Z do przodu: (X, Z, −Y).
@@ -171,6 +188,98 @@ public sealed class SceneAxisTests
 
         Assert.AreEqual(150.0 - 1.8, position.X, 1e-4, "kamera przesunęła się wzdłuż osi");
         Assert.AreEqual(1.0f, forward.X, 1e-5f);
+    }
+
+    [TestMethod]
+    public void SmoothCabPointSpreadsDirectionChangesAcrossTheCurve()
+    {
+        var route = TrackAxis.FromJson("""
+            {"id":"BEND","crs":"EPSG:31370",
+             "points":[[0,0,0],[20,0,0],[40,5,0],[60,20,0],[75,40,0],[80,60,0]],
+             "stations":[]}
+            """);
+        var scene = new SceneAxis(route, 2.10);
+        var largestSmoothStep = 0.0f;
+        var largestRawStep = 0.0f;
+        for (var at = 10.0; at <= route.LengthM - 11.0; at += 0.25)
+        {
+            var smoothA = scene.SmoothCabPoint(at, 0.0, 2.20, 0.0);
+            var smoothB = scene.SmoothCabPoint(at + 0.25, 0.0, 2.20, 0.0);
+            var rawA = scene.CabPoint(at, 0.0, 2.20, 0.0);
+            var rawB = scene.CabPoint(at + 0.25, 0.0, 2.20, 0.0);
+            largestSmoothStep = Math.Max(largestSmoothStep, smoothA.Forward.AngleTo(smoothB.Forward));
+            largestRawStep = Math.Max(largestRawStep, rawA.Forward.AngleTo(rawB.Forward));
+            Assert.AreEqual(2.20f, smoothA.Position.Y, 1e-3f,
+                "wygładzanie nie może zmieniać wysokości oka");
+            Assert.AreEqual(1.0f, smoothA.Forward.Length(), 1e-4f,
+                "kierunek kamery musi pozostać wektorem jednostkowym");
+        }
+
+        Assert.IsTrue(largestSmoothStep < largestRawStep * 0.7f,
+            $"Największy skok kierunku: wygładzony {largestSmoothStep}, surowy {largestRawStep}");
+    }
+
+    [TestMethod]
+    public void SmoothCabPointKeepsBothAxisEndsAndJoinsInteriorWithoutAJump()
+    {
+        var route = TrackAxis.FromJson("""
+            {"id":"ENDS","crs":"EPSG:31370",
+             "points":[[0,0,0],[20,5,0],[40,20,0],[60,40,0]],
+             "stations":[]}
+            """);
+        var scene = new SceneAxis(route, 2.10);
+        foreach (var at in new[] { 0.0, route.LengthM })
+        {
+            var original = scene.CabPoint(at, 0.0, 2.20, 0.0);
+            var smooth = scene.SmoothCabPoint(at, 0.0, 2.20, 0.0);
+            var endChord = at == 0.0
+                ? scene.Chord(0.0, Math.Min(route.LengthM, 1.0))
+                : scene.Chord(Math.Max(0.0, route.LengthM - 1.0), route.LengthM);
+            var expected = scene.CentreLinePoint(at)
+                + endChord.Right * 2.10f + endChord.Up * 2.20f;
+            Assert.AreEqual(expected.X, smooth.Position.X, 1e-5f,
+                "oko musi leżeć na końcu osi, nie w środku ostatniej cięciwy");
+            Assert.AreEqual(expected.Y, smooth.Position.Y, 1e-5f,
+                "wysokość oka nad końcem osi musi pozostać dokładna");
+            Assert.AreEqual(expected.Z, smooth.Position.Z, 1e-5f,
+                "odsunięcie oka od toru na końcu osi musi pozostać dokładne");
+            Assert.AreEqual(0.0f, original.Forward.AngleTo(smooth.Forward), 1e-5f,
+                "kierunek kamery na końcu osi nie może się zmienić");
+        }
+
+        // Granica 9 m to koniec wygaszania filtra. Sąsiednie próbki nie mogą
+        // przenieść kamery o wiele więcej niż przebyta odległość na osi.
+        foreach (var boundary in new[] { 9.0, route.LengthM - 9.0 })
+        {
+            var left = scene.SmoothCabPoint(boundary - 0.01, 0.0, 2.20, 0.0);
+            var right = scene.SmoothCabPoint(boundary + 0.01, 0.0, 2.20, 0.0);
+            Assert.IsTrue(left.Position.DistanceTo(right.Position) < 0.03f,
+                "kamera nie może przeskakiwać na granicy wygaszania filtra");
+            Assert.IsTrue(left.Forward.AngleTo(right.Forward) < 0.01f,
+                "kamera nie może obracać się skokowo na granicy filtra");
+        }
+    }
+
+    [TestMethod]
+    public void SmoothCabPointHasNoFirstOrLastFrameJumpOnRealAxesAt80Kmh()
+    {
+        var frameDistanceM = 80.0 / 3.6 / 120.0;
+        foreach (var id in new[] { "L1_A", "L1_B", "L2_E", "L5_C", "L5_D", "L6_F" })
+        {
+            var route = TrackAxis.FromJson(
+                MetroBxl.Tests.Shared.KorzenRepozytorium.Tresc("data", "track", id + ".json"));
+            var scene = new SceneAxis(route, 2.10);
+            var first = scene.SmoothCabPoint(0.0, 0.0, 2.20, 0.0);
+            var afterFirst = scene.SmoothCabPoint(frameDistanceM, 0.0, 2.20, 0.0);
+            var beforeLast = scene.SmoothCabPoint(route.LengthM - frameDistanceM, 0.0, 2.20, 0.0);
+            var last = scene.SmoothCabPoint(route.LengthM, 0.0, 2.20, 0.0);
+            var firstStep = first.Position.DistanceTo(afterFirst.Position);
+            var lastStep = beforeLast.Position.DistanceTo(last.Position);
+            Assert.IsTrue(firstStep < 0.22f && lastStep < 0.22f,
+                $"{id}: oko przeskakuje na końcu osi: pierwszy krok {firstStep:F3} m, ostatni {lastStep:F3} m");
+            Assert.AreEqual(0.0f, scene.CabPoint(0.0, 0.0, 2.20, 0.0).Forward.AngleTo(first.Forward),
+                1e-5f, $"{id}: poprawka położenia nie może obracać kamery na starcie");
+        }
     }
 
     [TestMethod]

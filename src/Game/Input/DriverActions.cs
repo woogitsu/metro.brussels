@@ -17,7 +17,7 @@ namespace MetroBxl.Game.Input;
 /// </summary>
 /// <param name="Action">Nazwa akcji w <c>InputMap</c>, np. <c>driver_power</c>.</param>
 /// <param name="KeyName">
-/// Nazwa klawisza w wierszu pomocy, np. <c>W</c>. <b>Zostaje tutaj, a nie idzie do
+/// Nazwa klawisza w wierszu pomocy, np. <c>W/Z</c>. <b>Zostaje tutaj, a nie idzie do
 /// katalogu tekstów</b> (6.D99): to napis na klawiszu, nie zdanie po polsku, a dla
 /// nazw jednoliterowych <c>DriverActionsTests</c> porównuje go wprost
 /// z <c>physical_keycode</c>.
@@ -124,8 +124,11 @@ public static class DriverActions
     {
         // Strzałki obok liter, bo tak było przed przejściem na `InputMap` i zadanie G-3
         // nie zmienia sterowania, tylko sposób jego czytania.
+        // Na belgijskim AZERTY klawisze W i Z zamieniają miejsca. Oba położenia
+        // wywołują ciąg, więc napis W/Z jest prawdziwy na obu układach.
         new DriverBinding(
-            Power, "W", UiText.Get("input.power"), new[] { (int)Key.W, (int)Key.Up }),
+            Power, "W/Z", UiText.Get("input.power"),
+            new[] { (int)Key.W, (int)Key.Z, (int)Key.Up }),
         new DriverBinding(
             Brake, "S", UiText.Get("input.brake"), new[] { (int)Key.S, (int)Key.Down }),
         new DriverBinding(Coast, "X", UiText.Get("input.coast"), new[] { (int)Key.X }),
@@ -223,16 +226,13 @@ public static class DriverActions
     /// Wiersz pomocy dla składu PRZEJĘTEGO przez gracza w trybie <c>--line</c> — MB-07.
     ///
     /// <para>Prowadzenie działa (gracz właśnie je przejął), więc wymienia te same
-    /// klawisze co <see cref="Help"/>, a do tego obsługę linii. Nie wymienia
-    /// <c>Reset</c>: przejazd linii resetu nie ma, a ta różnica jest właśnie tym,
-    /// czego <see cref="TakenOverByTheCore"/> pilnuje.</para>
+    /// klawisze co <see cref="Help"/>, a do tego obsługę linii. R restartuje
+    /// całą scenę także po przejęciu składu.</para>
     /// </summary>
     public static string HelpWhenTheDriverHasTaken { get; } = BuildDriverHasTakenHelp();
 
     private static string BuildDriverHasTakenHelp() => string.Join(
-        HelpSeparator,
-        All.Where(binding => binding.Action != Reset)
-            .Select(binding => $"{binding.KeyName} {binding.Meaning}"));
+        HelpSeparator, All.Select(binding => $"{binding.KeyName} {binding.Meaning}"));
 
     /// <summary>
     /// Akcje, które w przejeździe prowadzonym przez rdzeń (<c>--line</c>) NIE DZIAŁAJĄ,
@@ -240,10 +240,10 @@ public static class DriverActions
     ///
     /// <para><b>Skąd to się wzięło.</b> W trybie <c>--line</c> skład prowadzi
     /// <c>LineDrive</c>: <c>StepOnce</c> nadpisuje stan składu z <c>_line.State</c>,
-    /// więc polecenie maszynisty nie dojeżdża do fizyki, a reset przejazdu jest
-    /// cofany w następnym kroku. Do 05.09.2026 HUD wypisywał nad takim przejazdem ten
+    /// więc polecenie maszynisty nie dojeżdża do fizyki. R obecnie przeładowuje
+    /// całą scenę przed następnym krokiem. Do 05.09.2026 HUD wypisywał nad takim przejazdem ten
     /// sam wiersz pomocy, co nad przejazdem gracza — czyli obiecywał siedem klawiszy,
-    /// z których działały dwa. <c>reports/droga-do-grywalnosci.md</c> §5.4 nazywał to
+    /// z których działały wtedy dwa. <c>reports/droga-do-grywalnosci.md</c> §5.4 nazywał to
     /// „bezgłośnie bezskuteczne"; decyzja właściciela z 05.09.2026 brzmi: zachowanie
     /// zostaje, ale HUD ma to powiedzieć.</para>
     ///
@@ -270,7 +270,7 @@ public static class DriverActions
     /// </remarks>
     public static readonly IReadOnlyList<string> TakenOverByTheCore = new[]
     {
-        Power, Brake, Coast, Emergency, Reset,
+        Power, Brake, Coast, Emergency,
     };
 
     /// <summary>
@@ -283,6 +283,24 @@ public static class DriverActions
     /// jest obietnicą, której ten tryb nie dotrzymuje.</para>
     /// </summary>
     public static string HelpWhenTheCoreDrives { get; } = BuildCoreDrivesHelp();
+
+    /// <summary>
+    /// Starszy automatyczny --line bez sygnalizacji nie tworzy LineCore. Nie ma wtedy
+    /// składów do wybierania ani przejmowania, ale C, R i Esc nadal działają.
+    /// </summary>
+    public static string HelpWhenLegacyLineRuns { get; } = BuildLegacyLineHelp();
+
+    private static string BuildLegacyLineHelp()
+    {
+        var working = new HashSet<string> { ViewToggle, Reset, Quit };
+        return string.Join(HelpSeparator,
+                All.Where(binding => working.Contains(binding.Action))
+                    .Select(binding => $"{binding.KeyName} {binding.Meaning}"))
+            + HelpSeparator
+            + UiText.Format("help.core-drives", string.Join(", ",
+                All.Where(binding => !working.Contains(binding.Action))
+                    .Select(binding => binding.KeyName)));
+    }
 
     private static string BuildCoreDrivesHelp()
     {

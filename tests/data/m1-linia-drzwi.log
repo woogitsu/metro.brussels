@@ -1,0 +1,15 @@
+# METRO BXL — zapis wejść maszynisty
+# klawisze: W ciąg, S hamulec, X wybieg, E hamulec awaryjny (= pełny służbowy), - nic
+# wpis obowiązuje od swojego kroku do kroku następnego wpisu
+# zdarzenia linii 'kod:skład' wykonują się PRZED swoim krokiem: przejmij, oddaj, drzwi-otworz, drzwi-zamknij, obserwuj
+wersja=3
+kroki=16000
+krok;klawisze
+0;-
+2880;przejmij:KABINA
+2880;X
+3470;S
+5640;drzwi-otworz:KABINA
+6840;drzwi-zamknij:KABINA
+8040;oddaj:KABINA
+8040;-

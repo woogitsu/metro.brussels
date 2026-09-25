@@ -158,6 +158,24 @@ def test_m7_shell_doors_are_regularly_spaced_inside_each_car():
         assert max(gaps) - min(gaps) < 1e-5, f"człon {car}: nierówny rozstaw {gaps}"
 
 
+def test_m7_window_dividers_clear_door_openings_and_match_both_directions():
+    layout = _layout()
+    spans = []
+    for car in range(layout.cars):
+        doors = sorted((d for d in layout.double_doors()
+                        if d["car"] == car and d["side"] == 1),
+                       key=lambda d: d["center_x"])
+        dividers = layout.window_divider_spans(car)
+        assert len(dividers) == len(doors) - 1, f"człon {car}: liczba słupków"
+        for (start, end), before, after in zip(dividers, doors, doors[1:]):
+            assert before["x1"] < start < end < after["x0"], f"człon {car}: słupek blokuje drzwi"
+            assert abs(end - start - L.DESIGN_WINDOW_DIVIDER_WIDTH_M) < 1.1e-6, f"człon {car}: szerokość"
+        spans.extend(dividers)
+    mirrored = {(round(layout.length - end, 6), round(layout.length - start, 6))
+                for start, end in spans}
+    assert set(spans) == mirrored, "słupki nie są symetryczne po obrocie składu"
+
+
 def test_m7_shell_door_layout_is_rotationally_symmetric():
     """Skład jest dwukierunkowy: rozkład musi przejść w siebie po obrocie 180°."""
     layout = _layout()

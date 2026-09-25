@@ -16,12 +16,71 @@ namespace MetroBxl.Game.World;
 public sealed partial class TunnelView : Node3D
 {
     private readonly Dictionary<string, int> _levels = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Node3D> _detailPrototypes = new(StringComparer.Ordinal);
+    private bool _detailsPreloaded;
+    private Node3D? _visualContinuation;
 
     /// <summary>Liczba chunków rezydentnych w tej chwili.</summary>
     public int LoadedChunks => _levels.Count;
 
     /// <summary>Łączna liczba węzłów siatki w tunelu.</summary>
     public int MeshNodes { get; private set; }
+
+    /// <summary>Liczba siatek rezydentnych chunków osi jazdy, bez scenerii za końcem osi.</summary>
+    public int ResidentMeshNodes
+    {
+        get
+        {
+            var count = 0;
+            foreach (var id in _levels.Keys)
+            {
+                if (GetNodeOrNull<Node3D>(id) is { } chunk)
+                    count += CountMeshes(chunk);
+            }
+            return count;
+        }
+    }
+
+    /// <summary>Siatki osobnej scenerii za osią jazdy, łącznie z detalem toru.</summary>
+    public int VisualContinuationMeshNodes =>
+        _visualContinuation is null ? 0 : CountMeshes(_visualContinuation);
+
+    /// <summary>Obwiednia scenerii za osią jazdy; brak pary zasobów daje null.</summary>
+    public Aabb? VisualContinuationBounds() =>
+        _visualContinuation is null ? null : BoundsFor(_visualContinuation);
+
+    /// <summary>
+    /// Keep measured route scenery visible beyond the last playable stop. This
+    /// does not enter the chunk manifest, driving axis, collision or simulation.
+    /// Zero means an older asset set without the optional pair; -1 means a
+    /// partial or unreadable pair.
+    /// </summary>
+    public int LoadVisualContinuation(string tunnelPath, string detailPath,
+        StandardMaterial3D material)
+    {
+        var hasTunnel = FileAccess.FileExists(tunnelPath);
+        var hasDetail = FileAccess.FileExists(detailPath);
+        if (!hasTunnel && !hasDetail)
+            return 0;
+        if (!hasTunnel || !hasDetail)
+            return -1;
+
+        var tunnel = GlbLoader.Load(tunnelPath);
+        var detail = GlbLoader.Load(detailPath);
+        if (tunnel is null || detail is null)
+        {
+            tunnel?.Free();
+            detail?.Free();
+            return -1;
+        }
+
+        GlbLoader.ApplyNeutralMaterial(tunnel, material);
+        AddChild(tunnel);
+        tunnel.AddChild(detail);
+        _visualContinuation = tunnel;
+        MeshNodes = CountMeshes(this);
+        return CountMeshes(tunnel);
+    }
 
     /// <summary>
     /// Doprowadza zawartość węzła do stanu, jakiego dla tego chainage żąda
@@ -41,6 +100,20 @@ public sealed partial class TunnelView : Node3D
     public int Stream(ChunkManifest manifest, string assetDirectory,
         StandardMaterial3D material, double chainageM, double heading = 1.0)
     {
+        // Detale toru są niewielkie, ale parsowanie GLB podczas jazdy powoduje
+        // wyraźne przycięcie na granicy chunku. Przygotuj je przed pierwszą klatką.
+        if (!_detailsPreloaded)
+        {
+            foreach (var chunk in manifest.Chunks)
+            {
+                var path = assetDirectory.TrimEnd('/') + "/" + chunk.Id + "_detail.glb";
+                if (FileAccess.FileExists(path) && GlbLoader.Load(path) is { } prototype)
+                    _detailPrototypes.Add(chunk.Id, prototype);
+            }
+
+            _detailsPreloaded = true;
+        }
+
         var plan = StreamingPlan.LodPlan(manifest, chainageM, heading);
         var window = StreamingPlan.Window(manifest, chainageM, heading);
         WindowLowM = window.LowM;
@@ -94,12 +167,31 @@ public sealed partial class TunnelView : Node3D
             scene.Name = chunk.Id;
             AddChild(scene);
             GlbLoader.ApplyNeutralMaterial(scene, material);
+            // Blender exports design-preview track furniture in world coordinates
+            // alongside each tunnel chunk. Keep its individual rail, ballast and
+            // light materials: applying the tunnel override would make everything
+            // the same gray again. Older asset sets without detail still load.
+            if (_detailPrototypes.TryGetValue(chunk.Id, out var prototype))
+            {
+                var detail = (Node3D)prototype.Duplicate();
+                detail.Name = "TrackDetail";
+                scene.AddChild(detail);
+            }
             _levels[chunk.Id] = level;
             Loaded++;
         }
 
         MeshNodes = CountMeshes(this);
         return _levels.Count;
+    }
+
+    /// <summary>Zwalnia przygotowane siatki po zamknięciu sceny.</summary>
+    public override void _ExitTree()
+    {
+        foreach (var prototype in _detailPrototypes.Values)
+            prototype.Free();
+        _detailPrototypes.Clear();
+        base._ExitTree();
     }
 
     /// <summary>Poziom, w jakim wisi każdy rezydentny chunk. Do metadanych zrzutu.</summary>
@@ -129,7 +221,7 @@ public sealed partial class TunnelView : Node3D
     }
 
     /// <summary>
-    /// Obwiednia wczytanej geometrii tunelu w układzie świata.
+    /// Obwiednia rezydentnych chunków przejezdnej osi w układzie świata.
     ///
     /// Metryka obrazowa nie wykryje przesunięcia całej sceny, bo kamera jedzie razem
     /// z nią — dokładnie ta sama pułapka, którą <c>tools/visual/compare.py</c> opisuje
@@ -139,28 +231,37 @@ public sealed partial class TunnelView : Node3D
     public Aabb LoadedBounds()
     {
         Aabb? merged = null;
-        foreach (var instance in MeshInstances(this))
+        foreach (var id in _levels.Keys)
         {
-            var box = instance.GlobalTransform * instance.GetAabb();
-            merged = merged is null ? box : merged.Value.Merge(box);
+            if (GetNodeOrNull<Node3D>(id) is not { } chunk)
+                continue;
+            var box = BoundsFor(chunk);
+            if (box is not null)
+                merged = merged is null ? box : merged.Value.Merge(box.Value);
         }
 
         return merged ?? new Aabb();
     }
 
+    private static Aabb? BoundsFor(Node root)
+    {
+        Aabb? merged = null;
+        foreach (var instance in MeshInstances(root))
+        {
+            var box = instance.GlobalTransform * instance.GetAabb();
+            merged = merged is null ? box : merged.Value.Merge(box);
+        }
+        return merged;
+    }
+
     private static IEnumerable<MeshInstance3D> MeshInstances(Node node)
     {
+        if (node is MeshInstance3D instance)
+            yield return instance;
         foreach (var child in node.GetChildren())
         {
-            if (child is MeshInstance3D instance)
-            {
-                yield return instance;
-            }
-
             foreach (var nested in MeshInstances(child))
-            {
                 yield return nested;
-            }
         }
     }
 

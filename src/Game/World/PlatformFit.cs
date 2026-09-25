@@ -24,6 +24,57 @@ namespace MetroBxl.Game.World;
 /// </summary>
 public static class PlatformFit
 {
+    /// <summary>Actual horizontal projection of a platform mesh, rather than its
+    /// axis-aligned box (which includes empty space around a curved platform).</summary>
+    public readonly record struct Footprint(Aabb Bounds, IReadOnlyList<Vector3> Faces);
+
+    /// <summary>Whether a point's horizontal projection lies on any platform
+    /// triangle. Height is intentionally ignored for an eye above the slab.</summary>
+    public static bool Covers(IReadOnlyList<Footprint> platforms, Vector3 point)
+    {
+        foreach (var platform in platforms)
+        {
+            if (HorizontalDistanceM(platform.Bounds, point) > 0.0)
+            {
+                continue;
+            }
+
+            var faces = platform.Faces;
+            for (var i = 0; i + 2 < faces.Count; i += 3)
+            {
+                if (InTriangle(point, faces[i], faces[i + 1], faces[i + 2]))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Choose the first camera position actually above a generated
+    /// slab, or the side inspection position between stations.</summary>
+    public static Vector3 CameraPosition(
+        IReadOnlyList<Footprint> platforms, Vector3 right, Vector3 left, Vector3 fallback) =>
+        Covers(platforms, right) ? right : Covers(platforms, left) ? left : fallback;
+
+    private static bool InTriangle(Vector3 point, Vector3 a, Vector3 b, Vector3 c)
+    {
+        static double Cross(Vector3 u, Vector3 v, Vector3 w) =>
+            ((v.X - u.X) * (w.Z - u.Z)) - ((v.Z - u.Z) * (w.X - u.X));
+
+        var area = Cross(a, b, c);
+        if (Math.Abs(area) < 1e-8)
+        {
+            return false; // Vertical faces have no horizontal area.
+        }
+
+        var first = Cross(a, b, point) / area;
+        var second = Cross(b, c, point) / area;
+        var third = Cross(c, a, point) / area;
+        return first >= -1e-6 && second >= -1e-6 && third >= -1e-6;
+    }
+
     /// <summary>
     /// Odległość POZIOMA punktu od prostopadłościanu; zero, gdy rzut punktu leży
     /// wewnątrz rzutu bryły.

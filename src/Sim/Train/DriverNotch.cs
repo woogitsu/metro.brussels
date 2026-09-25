@@ -109,18 +109,22 @@ public sealed class DriverNotch
 
         if (keys.Power)
         {
+            // The same step cannot spend its full travel twice while crossing neutral.
+            var remaining = Math.Max(0.0, stepValue - brake);
             brake = Math.Max(0.0, brake - stepValue);
             if (brake <= 0.0)
             {
-                throttle = Math.Min(1.0, throttle + stepValue);
+                throttle = Math.Min(1.0, throttle + remaining);
             }
         }
         else if (keys.Brake)
         {
+            // Mirror the transition from power to braking.
+            var remaining = Math.Max(0.0, stepValue - throttle);
             throttle = Math.Max(0.0, throttle - stepValue);
             if (throttle <= 0.0)
             {
-                brake = Math.Min(1.0, brake + stepValue);
+                brake = Math.Min(1.0, brake + remaining);
             }
         }
         else if (keys.Coast)
@@ -133,7 +137,7 @@ public sealed class DriverNotch
         return Command;
     }
 
-    /// <summary>Ustawia położenie dźwigni wprost — do resetu przejazdu.</summary>
+    /// <summary>Ustawia położenie dźwigni wprost — do resetu i przejęcia innego składu.</summary>
     /// <param name="command">Położenie, od którego dźwignia ma iść dalej.</param>
     public void Set(DriverCommand command) => Command = command.Clamped();
 }

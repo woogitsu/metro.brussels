@@ -29,6 +29,13 @@ public readonly record struct ChaseAvailability(
     double RemainingM,
     double TrainLengthM)
 {
+    /// <summary>Krótka wskazówka w HUD; pełny powód zostaje w odmowie zrzutu.</summary>
+    public string HudHint => Available
+        ? string.Empty
+        : RemainingM > 0.0
+            ? string.Create(CultureInfo.InvariantCulture, $"Widok zewnętrzny za {RemainingM:F1} m")
+            : string.Create(CultureInfo.InvariantCulture, $"Widok zewnętrzny po minięciu {FromChainageM:F1} m");
+
     /// <summary>
     /// Zdanie dla HUD-u i dla odmowy zrzutu; puste, gdy widok jest dostępny.
     ///

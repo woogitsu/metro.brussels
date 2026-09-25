@@ -75,7 +75,7 @@ KSZTALTY_KOPIUJACE = {
 #: przed kropką, a nie żaden z argumentów — dlatego stoją osobno od tabeli wyżej.
 METODY_SCIEZKI = ("write_text", "write_bytes")
 
-#: Pięć zmierzonych 10.09.2026 wywołań kopiujących w `tools/tests/`, każde ze swoim
+#: Zmierzone wywołania kopiujące w `tools/tests/`, każde ze swoim
 #: rozstrzygnięciem. **To nie jest lista wyjątków** — żadne z nich nie celuje w drzewo,
 #: więc nie ma czego z bramki wyjmować. To lista ROZSTRZYGNIĘĆ, żądana przez pole
 #: „Skończone, gdy" pozycji 6.D110, i pilnują jej dwie kontrole naraz: gdy któreś
@@ -96,10 +96,28 @@ METODY_SCIEZKI = ("write_text", "write_bytes")
 ZASLEPKA_TESTOW_SWEEPA = "test_this_file_is_the_stub_not_the_real_tests"
 
 POZA_DRZEWEM = {
+    ("test_t400_evidence.py", "test_side_view_png_and_log_byte_changes_are_rejected", "Path.write_bytes"):
+        "uszkodzona kopia dowodu zapisywana wyłącznie w tempfile.TemporaryDirectory",
+    ("test_t400_evidence.py", "test_side_view_png_wrong_dimensions_rejected_even_with_updated_hash", "Path.write_bytes"):
+        "zmieniony nagłówek PNG zapisywany wyłącznie w tempfile.TemporaryDirectory",
+    ("test_t400_evidence.py", "test_side_view_png_wrong_dimensions_rejected_even_with_updated_hash", "Path.write_text"):
+        "próbny manifest z aktualną sumą zapisywany wyłącznie w tempfile.TemporaryDirectory",
+    ("test_connector_probe.py", "test_connector_probe_provenance_and_vertical_unknown", "Path.write_bytes"):
+        "próbne archiwum źródła w tempfile.TemporaryDirectory",
+    ("test_connector_probe.py", "test_connector_probe_provenance_and_vertical_unknown", "Path.write_text"):
+        "próbny manifest i osie w tempfile.TemporaryDirectory",
+    ("test_render_replay.py", "test_real_png_header", "Path.write_bytes"):
+        "naglowek probnej PNG zapisywany w tempfile.TemporaryDirectory",
     ("mutation_sweep.py", "zapisz_pokrycie", "os.replace"):
         "podmiana atomowa mapy pokrycia w `tempfile.gettempdir()`",
     ("test_ci_workflows.py", "_run_blender_installer", "shutil.copyfile"):
         "instalator kopiowany do atrapy CI w katalogu tymczasowym",
+    ("test_shot_metadata_gate.py",
+     "test_visual_continuation_uses_independent_axis_and_glb_pair", "shutil.copyfile"):
+        "niezalezna os wizualnego przedluzenia kopiowana do tempfile.TemporaryDirectory",
+    ("test_shot_metadata_gate.py",
+     "test_connector_preview_requires_explicit_kind_and_unmodelled_vertical", "shutil.copyfile"):
+        "oś prototypowego łącznika kopiowana wyłącznie do tempfile.TemporaryDirectory",
     ("test_dotnet_version.py", "_atrapa_dotnet_root", "shutil.copy2"):
         "atrapa układu .NET budowana w katalogu tymczasowym",
     ("test_mutation_sweep.py", "_cele_na_boku", "shutil.copyfile"):
@@ -483,7 +501,7 @@ def jest_zaslepka(zrodlo):
 
 
 def test_kazde_zmierzone_kopiowanie_jest_rozstrzygniete():
-    """Pięć zmierzonych wywołań kontra pięć wpisów `POZA_DRZEWEM`, bez reszty.
+    """Zmierzone wywołania kontra wpisy `POZA_DRZEWEM`, bez reszty.
 
     Tego żąda pole „Skończone, gdy" pozycji 6.D110: zmierzone miejsca mają być
     rozstrzygnięte, a suma rozstrzygnięć ma zgadzać się z pomiarem. Rozstrzygnięcia

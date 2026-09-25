@@ -19,6 +19,48 @@ namespace MetroBxl.Game.Tests;
 [TestClass]
 public sealed class PlatformFitTests
 {
+    [TestMethod]
+    public void CameraFootprintUsesCurvedSurfaceOnEitherSideAndRejectsEmptySpace()
+    {
+        // Two straight pieces joined at a right angle stand in for a swept bend.
+        // Their union's box also covers (7, 7), where no platform exists.
+        var curved = new PlatformFit.Footprint(
+            new Aabb(new Vector3(0, 0, 0), new Vector3(10, 1, 10)),
+            new Vector3[]
+            {
+                new(0, 1, 0), new(10, 1, 0), new(0, 1, 2),
+                new(10, 1, 0), new(10, 1, 2), new(0, 1, 2),
+                new(0, 1, 2), new(2, 1, 2), new(0, 1, 10),
+                new(2, 1, 2), new(2, 1, 10), new(0, 1, 10),
+            });
+        var otherSide = new PlatformFit.Footprint(
+            new Aabb(new Vector3(0, 0, -10), new Vector3(10, 1, 2)),
+            new Vector3[]
+            {
+                new(0, 1, -10), new(10, 1, -10), new(0, 1, -8),
+                new(10, 1, -10), new(10, 1, -8), new(0, 1, -8),
+            });
+
+        Assert.IsFalse(PlatformFit.Covers(new[] { curved }, new Vector3(7, 2.7f, 7)),
+            "obwiednia łuku obejmuje pustkę, lecz trójkąty płyty jej nie obejmują");
+        Assert.IsTrue(PlatformFit.Covers(new[] { curved }, new Vector3(1, 2.7f, 7)),
+            "kamera nad zakrzywioną płytą zostaje zaakceptowana");
+        Assert.IsTrue(PlatformFit.Covers(new[] { otherSide }, new Vector3(5, 2.7f, -9)),
+            "płyta po drugiej stronie osi też jest możliwym miejscem kamery");
+        Assert.IsFalse(PlatformFit.Covers(Array.Empty<PlatformFit.Footprint>(),
+            new Vector3(5, 2.7f, -9)), "między stacjami nie ma płyty");
+        var right = new Vector3(1, 2.7f, 7);
+        var left = new Vector3(5, 2.7f, -9);
+        var fallback = new Vector3(5, 2.0f, -4.2f);
+        Assert.AreEqual(right, PlatformFit.CameraPosition(new[] { curved, otherSide },
+            right, left, fallback), "gdy są obie płyty, kamera wybiera pierwszą");
+        Assert.AreEqual(left, PlatformFit.CameraPosition(new[] { otherSide },
+            right, left, fallback), "po odrzuceniu pustej obwiedni wybiera drugą płytę");
+        Assert.AreEqual(fallback, PlatformFit.CameraPosition(
+            Array.Empty<PlatformFit.Footprint>(), right, left, fallback),
+            "bez płyty wraca do widoku bocznego");
+    }
+
     /// <summary>Płyta peronu po prawej stronie osi, o zadanym zakresie wzdłuż X.</summary>
     private static Aabb Slab(float fromX, float toX, float side = 1.0f) => new(
         new Vector3(fromX, 0.0f, side > 0 ? 3.53f : -7.50f),

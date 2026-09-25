@@ -357,9 +357,10 @@ def test_allowed_labels_come_from_the_parsed_workflows():
     """
     allowed = allowed_labels()
     assert allowed, "zbiór dozwolonych etykiet jest pusty — YAML nie jest czytany"
-    assert "self-hosted" in allowed, allowed
-    assert not github_hosted_in_use(allowed), (
-        f"jakiś job chodzi na maszynie GitHuba: {sorted(allowed)}")
+    assert "ubuntu-latest" in allowed, allowed
+    assert len(allowed) == 1, allowed
+    assert github_hosted_in_use(allowed), (
+        f"brak hostowanego runnera GitHuba: {sorted(allowed)}")
     assert len(workflow_files()) >= 7, workflow_files()
 
     # Kontrola do `github_hosted_in_use` po zmianie z 05.09.2026: rozstrzyga kształt
@@ -401,8 +402,8 @@ def test_no_document_states_a_runner_that_no_workflow_uses():
     # NIE MOŻE milczeć, inaczej obecność pliku w pętli nie znaczyłaby detekcji.
     assert CLAUDE in documents(), (
         "`CLAUDE.md` wypadło z pętli — bramka wróciła do pilnowania samych odsyłaczy")
-    assert drift_in_text("Joby chodzą na `ubuntu-latest`.\n", allowed, "CLAUDE.md"), (
-        "detektor milczy na zdaniu, które ogłasza maszynę GitHuba w §9")
+    assert drift_in_text("    runs-on: ubuntu-22.04\n", allowed, "CLAUDE.md"), (
+        "detektor milczy na nieaktualnym obrazie w §9")
 
 
 def test_the_detector_catches_the_drifts_that_were_measured_on_main():

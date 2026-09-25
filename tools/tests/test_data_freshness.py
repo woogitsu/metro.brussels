@@ -94,6 +94,63 @@ def test_freshness_strict_mode_fails_only_on_expired():
         assert DF.main(["--root", directory, "--today", "2026-09-01"]) == 0
 
 
+def test_freshness_baseline_accepts_only_the_exact_known_expiry():
+    with tempfile.TemporaryDirectory() as directory:
+        path = _write(directory, "old.json", {"validity": {"valid_to": "2026-08-28"},
+                                               "retrieved_at": "2026-09-01"})
+        baseline = os.path.join(directory, "baseline.json")
+        with open(baseline, "w", encoding="utf-8") as handle:
+            json.dump({"windows": [{"file": "data/old.json", "valid_to": "2026-08-28",
+                                    "retrieved_at": "2026-09-01"}]}, handle)
+        args = ["--root", directory, "--today", "2026-09-25", "--strict",
+                "--baseline", baseline]
+        assert DF.main(args) == 0, "dokładnie znane okno ma przejść etap przejściowy"
+
+        _write(directory, "new.json", {"validity": {"valid_to": "2026-09-01"}})
+        try:
+            DF.main(args)
+        except SystemExit as exc:
+            assert "nowych przeterminowanych okien ważności: 1" in str(exc), (
+                "nowe wygasłe okno ma być nazwane w błędzie")
+        else:
+            raise AssertionError("nowe wygasłe okno musi zatrzymać CI")
+
+        os.remove(os.path.join(directory, "data", "new.json"))
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump({"validity": {"valid_to": "2027-08-28"}}, handle)
+        try:
+            DF.main(args)
+        except SystemExit as exc:
+            assert "nieaktualnych wyjątków: 1" in str(exc), (
+                "po odświeżeniu źródła lista wyjątków ma wymagać czyszczenia")
+        else:
+            raise AssertionError("po odświeżeniu źródła wyjątek trzeba usunąć")
+
+
+def test_freshness_committed_baseline_matches_only_legacy_windows():
+    baseline = os.path.join(ROOT, "tools", "track", "freshness-baseline.json")
+    today = datetime.date(2026, 9, 25)
+    rows = DF.audit(DF.data_files(ROOT), today)
+    expired = {(r["file"], r["valid_to"], r["retrieved_at"])
+               for r in rows if r["status"] == "przeterminowane"}
+    assert len(expired) == 13, "liczba znanych wygasłych okien wymaga przeglądu"
+    assert DF.known_expired(baseline) == expired, "baseline musi być zamknięta w obie strony"
+
+
+def test_freshness_baseline_rejects_unknown_fields():
+    with tempfile.TemporaryDirectory() as directory:
+        baseline = os.path.join(directory, "baseline.json")
+        with open(baseline, "w", encoding="utf-8") as handle:
+            json.dump({"windows": [{"file": "data/old.json", "valid_to": "2026-08-28",
+                                    "retrieved_at": "2026-09-01", "ignored": True}]}, handle)
+        try:
+            DF.known_expired(baseline)
+        except ValueError as exc:
+            assert str(exc).startswith("baseline row"), "błąd ma wskazywać wadliwy wiersz"
+        else:
+            raise AssertionError("dodatkowe pola nie mogą być cicho ignorowane")
+
+
 def test_freshness_committed_axis_declares_its_window():
     """Oś nie może po cichu stracić informacji o oknie ważności źródła."""
     path = os.path.join(ROOT, "data", "track", "L1_A.json")

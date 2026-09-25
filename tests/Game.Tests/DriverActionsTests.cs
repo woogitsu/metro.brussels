@@ -150,8 +150,8 @@ public sealed class DriverActionsTests
     }
 
     /// <summary>
-    /// Nazwa klawisza w wierszu pomocy zgadza się z kodem, który idzie do
-    /// <c>project.godot</c> — dla nazw jednoliterowych, czyli dla W, S, X, C i R.
+    /// Jednoliterowa nazwa klawisza w wierszu pomocy zgadza się z kodem, który idzie
+    /// do <c>project.godot</c>. Dwuklawiszowe W/Z sprawdza osobny test poniżej.
     ///
     /// <para>Kody fizyczne liter są kodami ASCII wielkich liter, więc porównanie jest
     /// tu możliwe bez drugiej tablicy nazw.</para>
@@ -186,7 +186,29 @@ public sealed class DriverActionsTests
         // 8 -> 10 (14.09.2026, MB-08): `D` i `F`, drzwi na postoju ręcznym. Z tego samego
         // powodu jednoliterowe i z tym samym skutkiem: obie nazwy wchodzą pod tę pętlę,
         // a nie pod pin z ręki niżej.
-        Assert.AreEqual(10, checkedNames, "zmieniła się liczba jednoliterowych klawiszy sterowania");
+        // W/Z jest teraz nazwą dwóch klawiszy i ma osobne sprawdzenie pary kodów.
+        Assert.AreEqual(9, checkedNames, "zmieniła się liczba jednoliterowych klawiszy sterowania");
+    }
+
+    [TestMethod]
+    public void CiagMaObaPolozeniaWZI_StrzalkeBezKolizjiZInnaAkcja()
+    {
+        var power = DriverActions.All.Single(b => b.Action == DriverActions.Power);
+        CollectionAssert.AreEqual(
+            new[] { (int)Key.W, (int)Key.Z, (int)Key.Up },
+            power.PhysicalKeycodes.ToArray(),
+            "oba położenia liter W/Z i strzałka w górę muszą dawać ciąg");
+        Assert.AreEqual("W/Z", power.KeyName,
+            "pomoc sterowania musi wymieniać oba położenia klawisza ciągu");
+
+        var mapped = InputMapFromProject();
+        foreach (var code in new[] { (int)Key.W, (int)Key.Z })
+        {
+            var actions = mapped.Where(pair => pair.Value.Any(e => e.PhysicalKeycode == code))
+                .Select(pair => pair.Key).ToArray();
+            CollectionAssert.AreEqual(new[] { DriverActions.Power }, actions,
+                $"położenie {code} nie może równocześnie wykonywać innej akcji");
+        }
     }
 
     /// <summary>
@@ -231,7 +253,10 @@ public sealed class DriverActionsTests
         foreach (var binding in DriverActions.All)
         {
             var kod = (Key)binding.PhysicalKeycodes[0];
-            var oczekiwana = binding.KeyName.Length == 1
+            // W/Z ma dwa położenia; reszta nadal używa jednoznakowego pinu albo KeyNames.
+            var oczekiwana = binding.Action == DriverActions.Power
+                ? "W/Z"
+                : binding.KeyName.Length == 1
                 ? ((char)binding.PhysicalKeycodes[0]).ToString()
                 : OczekiwaneNazwy.Single(o => o.Kod == kod).Nazwa;
 
@@ -286,6 +311,9 @@ public sealed class DriverActionsTests
         // Druga strona podziału: klawisze linii MUSZĄ stać w wierszu dla składu
         // przejętego, inaczej gracz nie ma jak oddać sterowania.
         var przejety = DriverActions.HelpWhenTheDriverHasTaken;
+        StringAssert.Contains(przejety, "R " + DriverActions.All.Single(
+            binding => binding.Action == DriverActions.Reset).Meaning,
+            "po przejęciu składu pomoc musi pokazać działający restart R");
         foreach (var binding in DriverActions.All)
         {
             if (!tylkoZLinia.Contains(binding.Action))
@@ -435,6 +463,28 @@ public sealed class DriverActionsTests
         }
     }
 
+    [TestMethod]
+    public void LiniaBezLineCoreNieObiecujeWyboruSkladuAniDrzwi()
+    {
+        var pomoc = DriverActions.HelpWhenLegacyLineRuns;
+        var dzialajace = new HashSet<string>
+            { DriverActions.ViewToggle, DriverActions.Reset, DriverActions.Quit };
+        var ogon = pomoc[pomoc.IndexOf("prowadzi rdzeń:", StringComparison.Ordinal)..];
+        foreach (var binding in DriverActions.All)
+        {
+            if (dzialajace.Contains(binding.Action))
+                StringAssert.Contains(pomoc, $"{binding.KeyName} {binding.Meaning}",
+                    $"działający klawisz {binding.KeyName} musi być opisany w pomocy");
+            else
+            {
+                StringAssert.Contains(ogon, binding.KeyName,
+                    $"nieaktywny klawisz {binding.KeyName} musi być wymieniony w ostrzeżeniu");
+                Assert.IsFalse(pomoc.Contains($"{binding.KeyName} {binding.Meaning}",
+                    StringComparison.Ordinal), $"nieaktywny klawisz {binding.KeyName}");
+            }
+        }
+    }
+
     /// <summary>
     /// Podział akcji na przejęte przez rdzeń i działające pod <c>--line</c> jest
     /// WYPISANY TU IMIENNIE — obie strony, po nazwie.
@@ -488,7 +538,7 @@ public sealed class DriverActionsTests
             new List<string>
             {
                 DriverActions.Power, DriverActions.Brake, DriverActions.Coast,
-                DriverActions.Emergency, DriverActions.Reset,
+                DriverActions.Emergency,
             },
             new List<string>(DriverActions.TakenOverByTheCore),
             "lista klawiszy przejętych przez rdzeń się zmieniła");

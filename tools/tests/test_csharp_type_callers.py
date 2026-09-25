@@ -67,9 +67,16 @@ TYP = re.compile(
 #: **Czego ten zbiór NIE twierdzi:** że typ jest niepotrzebny. Twierdzi wyłącznie,
 #: że dziś żaden plik `src/` nie wymienia go z nazwy — i to jest fakt sprawdzalny,
 #: inaczej niż „jest martwy", którego ten skan rozstrzygnąć nie może.
+#:
+#: **23.09.2026, 6.M1: jedenaście, bo `LineTrain` wyszedł ze zbioru** — woła go od tej
+#: pozycji `src/Sim/Line/LineSession.cs`, wspólna droga sceny i `Sim.Runner replay
+#: --line`. Powód wpisu zniknął, więc zniknął wpis.
 TYLKO_TESTY = frozenset({
     "CbtcTestArea", "CbtcTestStage", "DriveSegment", "JsonFields", "KcvFunction",
-    "LineRoute", "LineTrain", "ProtectionMode", "ProtectionModeRegistry",
+    # T-320: dyspozytor wejść korzysta z LineEntryGate i jest wołany przez grę
+    # oraz Sim.Runner. Walidator ciągłości pozostaje API testowym.
+    # Walidator ciągłości obiegów nie jest jeszcze polityką transferu pojazdu.
+    "BlockContinuity", "LineRoute", "ProtectionMode", "ProtectionModeRegistry",
     "ProtectionModeStatus", "ProtectionModeStatusParser", "RouteGap",
 })
 
@@ -82,6 +89,8 @@ TYLKO_TESTY = frozenset({
 NIEWOLANE_PO_NAZWIE = frozenset({
     "BrakingPoint", "BrakingReferenceRow", "BrakingRunResult", "CbtcDynamicTestSite",
     "CbtcTestSpan", "DoorInterlock", "RegistryEntry", "RouteStation",
+    # T-320: typy wynikowe walidatora są używane przez API, bez osobnego wywołania po nazwie.
+    "BlockTransition", "ProjectedBlockRun",
     "RunRestartValues", "ServiceBlock", "ServicePeak", "SignallingAssumption",
     "StationApproach",
 })

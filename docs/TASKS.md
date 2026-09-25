@@ -405,6 +405,12 @@ których agent nie ruszy bez decyzji właściciela.
   (`docs/21-measured-vs-assumed.md` §4f). Zostaje samo domknięcie taktu i obiegów
 - **Wejście z T-113:** takt 5:10 (L1/L5) i 5:40 (L2/L6), 48 kursów naraz w ruchu,
   71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
+- **Pomiar granicy pakietu A (24.09.2026):** `reports/t320-package-a-capacity.md` —
+  syntetyczny takt 5:10 na jednej osi, osobno liczba zgłoszonych i jadących składów;
+  sieciowe 48 kursów/71 obiegów nie jest miarą obsady tego pakietu.
+- **Audyt wejścia offline (24.09.2026):** `reports/t113-trip-input-gap.md` — wersjonowane
+  agregaty T-113 nie zachowują trasy ani godzin stacji pojedynczego kursu; adapter
+  jednej osi wymaga źródłowego GTFS o SHA-256 z manifestu albo jego wiernej projekcji.
 - **Wejście z T-313:** plan bloków pakietu A, zajętość, movement authority i ATP
 - **Wejście z T-314:** tryb scenariusza; dla 31.08.2026 zawsze `classic_2026`
 - **Wyjście:** `src/Sim/Line/` — LineCore z wieloma składami; testy w `tests/Sim.Tests`
@@ -430,11 +436,37 @@ których agent nie ruszy bez decyzji właściciela.
 ## Silnik
 
 ### [~] T-400 · Scena Godota i pierwszy przejazd
+- **Przegląd klatek (25.09.2026):** [raport z obrazami Parc i Beekkant](../reports/t400-visual-evidence-2026-09-25.md) dokumentuje ujęcia z silnika oraz ograniczenia kadrowania M7. Zadanie #26 pozostaje otwarte.
+- **HUD sygnalizacji po końcu linii (24.09.2026):** w `--line` skład, który zjechał
+  z planu po Merode, ma pusty autorytet. Wiersz rozróżnia teraz ten stan od składu,
+  który jeszcze czeka na pierwszy wjazd; test prowadzi rzeczywisty `LineCore` do końca.
 - **Zrobione (etap 1):** `src/Game/` — Godot 4.7.2 mono, jeden skład M7 jedzie 6,56 km po
   pakiecie A, napędzany rdzeniem. Rozjazd Godot ↔ rdzeń **0,000 m** przy progu 0, ten sam
   odcisk telemetrii przy nierównym podziale kroków. `reports/T-400-first-run.md`
+- **Pomiar bazowy 1080p (#26, 25.09.2026):** trzy ukryte przebiegi rzeczywistej sceny
+  w Xvfb/Mesa llvmpipe, z czasem klatki, liczbą wywołań rysowania, geometrią i pamięcią.
+  Jest to wynik renderingu programowego; sprzętowe GPU wymaga odrębnego pomiaru.
+  Metoda i wyniki: `reports/t400-performance-baseline-1080p.md`.
+- **Czas kroku tej samej sceny (#26, 25.09.2026):** sonda rozdziela czas klatki
+  od czasu rzeczywistego `FirstRun.StepOnce` w trzech ukrytych przebiegach.
+  Wyniki i ograniczenia: `reports/t400-scene-step-timing-2026-09-25.md`.
+- **Rozrzut mediany kroku (#26, 25.09.2026):** pierwszy krok w klatce i następne
+  mają osobne, stabilne rozkłady; agregat blisko połowy obu grup zmienia medianę.
+  Pomiar: `reports/t400-scene-step-order-2026-09-25.md`.
+- **Przejęcie i drzwi przy 30/60/120 logicznych FPS (#26, 25.09.2026):**
+  rzeczywista scena i rdzeń kończą po 8041 tickach z identyczną telemetrią,
+  czterema zdarzeniami linii, postojem i bez odmów drzwi.
+  Dowód: `reports/t400-line-takeover-doors-fps-2026-09-25.md`.
+- **Wybór kamery nie dodaje ticków Sim (#26, 25.09.2026):** ten sam zapis
+  przejęcia, drzwi i oddania w rzeczywistej scenie ma identyczną telemetrię
+  dla kabiny i aktywnego widoku zewnętrznego. Bramkę i granice dowodu opisuje
+  `reports/t400-camera-ticks-line-2026-09-25.md`.
 - **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
   odtwarzalne co do bajtu również między maszynami (`reports/T-012-godot-capture.md`)
+- **Dowód sekwencji Parc/Park (25.09.2026):** 106 kolejnych klatek jednego przebiegu
+  linii pokazuje dojazd, hamowanie, postój na 4075,4 m i otwarcie drzwi
+  (`reports/parc-arrival-sequence-2026-09-25.md`). To nie zamyka Issue #26:
+  przyspieszony zapis nie mierzy płynności w czasie rzeczywistym ani szczegółów M7.
 - **Zrobione (etap 3a):** scena **streamuje** chunki i przełącza LOD. `TunnelView.Stream`
   zastąpił `LoadAll`; predykat okna i wybór poziomu liczy `StreamingPlan` (#174), scena
   go woła (#177). Zmierzone na pakiecie A, w trójkątach, co 50 m na całej osi 6686,7 m
@@ -886,9 +918,9 @@ właściciel.
 | 6.D251 | **ZROBIONE w #PR (16.09.2026): bramka na UPROSZCZENIE HISTORII przy scalance — dług 6.D249 domknięty, i po drodze DWIE usterki samej bramki.** 6.D249 naprawiło usterkę (`git log -1 -G<def> -- <pliki>` upraszcza historię na commicie scalenia, więc `data_stalej` wskazywała commit, który wniósł RAPORT, zamiast tego, który zmienił STAŁĄ) i świadomie NIE postawiło bramki, bo wymagała repozytorium próbnego z prawdziwym scaleniem, a `main` był wówczas czerwony. **BRAMKI SĄ TRZY i każda pyta o co innego:** że poprawka działa; że `--full-history` NIE idzie do `data_raportu` (druga strona asymetrii); oraz — i to jest kontrola przyrządu — że KSZTAŁT scalanki jest WYMAGANY, a nie przypadkowy: na scalance **nie**-TREESAME obie wersje `git log` odpowiadają TAK SAMO, więc fixture o „oczywistej” topologii nie pokazałby usterki wcale. Kształt sprawdzany PORÓWNANIEM DRZEW, nie zakładany. **USTERKA WLASNEJ BRAMKI (a) — FAŁSZYWY ALARM NA KODZIE POPRAWNYM:** pierwsza wersja odejmowała z wywołania JEDNĄ flagę, a `--simplify-merges` SAMA implikuje pełną historię; zapis `--full-history --simplify-merges` jest równoważny i daje tę samą poprawną odpowiedź — a bramka się na nim zapalała (**zmierzone 23/24**), bo stała na ZAPISIE, nie na ZACHOWANIU. Odejmowana jest teraz RODZINA `BEZ_UPRASZCZANIA`. **USTERKA (b) — TRZECIA DZIURA KONFIGURACJI GITA, nieobjęta pinem z 6.D248:** `merge.verifySignatures = true` wywraca `git merge --no-ff` kodem **128**, a pin `commit.gpgsign` go NIE łapie — inny klucz, inna operacja (PISANIE podpisu wobec SPRAWDZANIA cudzego); **zmierzone 21/24** przed poprawką. **KONTROLE NEGATYWNE, przewidywania spisane PRZED przebiegami, baza 28/28:** KN-1 (`--full-history` zdjęte) przewidziane 27/28 → **27/28**, dokładnie ta bramka; KN-2 (`--simplify-merges`, KOD POPRAWNY) przewidziane 28/28 → **28/28**; KN-3 (`HOME` z `merge.verifySignatures`, KOD POPRAWNY) przewidziane 28/28 → **28/28**. Każda mutacja niesie ASERCJĘ, że się zastosowała — bo dwie wcześniejsze w tej sesji NIE zastosowały się i dały wynik NIEODRÓŻNIALNY od kontroli przechodzącej. Zapadki: `STALYCH_Z_DATA_ISO` 7 → **11** (cztery nowe stałe z datą ISO, same skalary, więc `KONTENEROW_Z_DATA_ISO` bez zmian), `MIN_REPORTS` +1; `ASERCJI_NAPISOWYCH_RAZEM` **bez zmian** — jedenaście nowych asercji stoi na ZACHOWANIU, ani jedna na napisie. Raport: `reports/6d251-bramka-na-uproszczenie-historii.md`. **Czego NIE zrobiono:** wiersza 6.D249 w tej tabeli — tamta pozycja jest scalona, a kolejka o niej MILCZY, i jest to prawdziwa luka, ale dopisanie jej tutaj byłoby drugą pozycją w jednym commicie (§4.10); inwentarza pozostałych fixture’ów wołających `git merge` pod kątem `merge.verifySignatures`. | wiersz domknięcia — pozycja wykonana i zweryfikowana, nie wymaga żadnej decyzji właściciela | S |
 | 6.D247 | **ZROBIONE w #PR (16.09.2026, DECYZJA WŁAŚCICIELA): sufit mierzalności zamiast nazwy maszyny.** Job `tools` padł na `docker-runner-02` PRZY ZESTAWIE ZIELONYM W CAŁOŚCI (2497/2497) — zabiła go bramka budżetu: CPU **517,499 s** przy progu 440,0 s, stosunek CPU/ściana **0,992**. Ten sam commit bywa zielony w **159 s ściany** na `metro-wsl-DOM-NEW-*`. **DLACZEGO NIE ZATRZYMAŁ TEGO WARUNEK MASZYNY Z 6.D149 — i to jest najważniejsze:** krok CI woła `B.werdykt(float(sys.argv[1]), float(sys.argv[2]))`, czyli DWA argumenty; `maszyna` zostaje domyślna, więc gałąź `if maszyna != MASZYNA_PROGU` **nie wykonuje się w CI ani razu**, a nic w kroku nie czyta `RUNNER_NAME`. Rozstrzygnięcie 6.D149 przez siedem dni broniło wyłącznie wywołań wewnątrz modułu. **CZTERY WARIANTY ZMIERZONE, WŁAŚCICIEL WYBRAł (d):** sufit mierzalności symetryczny do podłogi — luka 1,375 ↔ 0,992 = ×1,386, środek geometryczny **1,168**; incydent ODMÓWIONY, a wszystkie osiem przebiegów kalibracyjnych nadal PORÓWNYWANYCH. Odrzucone z pomiarem: (a) podniesienie progu wymaga **17,3 % ponad sufit** okna (392,95 ; 441,08) i zrywa regułę marginesu 6.D11, a zapas nad `metro-wsl` rosłby 1,942 → 2,295, czyli bramka przestałaby widzieć regres do +129 %; (b) odmowa po NAZWIE — §9 zabrania, a w formie głośnej czerwieni przebieg poprawny (job 34466369899, `metro-wsl-DOM-NEW-02`, 1,564 — rodzina 6.D27); (c) dopisanie puli do `POMIARY` — **dziesięć** padających asercji w trzech modułach; (e) próg NA TEST odpada z pomiaru: 0,0795–0,0919 s/test wobec 0,2072 s/test, czyli nadal ×2,25. **PIĘĆ BRAMEK PRZEPISANYCH, NIE USUNIĘTYCH**, w tym jedna z odwróconym znakiem i zmienioną nazwą (`…_podloga_by_go_NIE_zatrzymala` → `…_a_od_6D247_zatrzymuje_go_PODLOGA` — wynik dla kontenera ten sam, POWÓD inny). **CZTERY KONTROLE, KN-4 OBALIŁA PRZEWIDYWANIE I JEST NAJWAŻNIEJSZA:** spodziewałem się, że bez drugiej strony nowej bramki mutacja „podłoga 3,0” przejdzie bez śladu; wyszło **32/37**, bo łapią ją też cztery bramki starsze. Rozstrzyga nie „ile”, tylko RÓŻNICA: KN-2 **31/37**, KN-4 **32/37** — dokładnie JEDNA bramka mniej, i jest nią ta druga strona. KN-1 (podłoga cofnięta do 0,75) **32/37**; KN-3 (krok CI dostaje `maszyna=`) **36/37**. Weryfikacja: `test_all.py` **2495/2495 / 126 modułów**. Zapadki: `ASERCJI_NAPISOWYCH_RAZEM` 886 → **896**, `MINIMUM_DETAIL_BLOCKS` **309**, `MIN_REPORTS` **353**. Raport: `reports/6d247-sufit-mierzalnosci-zamiast-nazwy-maszyny.md`. **CZEGO TEN WARIANT NIE ROBI, wypisane a nie przemilczane:** na maszynie oddającej jeden rdzeń bramka MILKNIE — prawdziwy regres kodu przejdzie niezauważony. Granica liczby razem z nią: **n = 1**. **ZAUWAŻONE:** `POMIARY_RUNNERA` (89,5–116,4 s) i `POMIARY_CPU_BIEZACEGO_DRZEWA` (121,7–164,7 s) to DWA ROZŁĄCZNE PASMA tej samej maszyny i tego samego joba; `MARGIN` liczy się z uboższej. Treść pierwotna: **Próg CPU zestawu opisuje pulę, która nie jest już jedyną wykonującą joby** | cała kalibracja pochodzi z dwóch maszyn `metro-wsl-DOM-NEW-01/-03` i ośmiu logów | M |
 | 6.D242 | **ZROBIONE w #PR (16.09.2026): tar uruchamia `xz`, a nie pytał o to nikt — trzy joby naraz przy 2492/2494.** `visual-regression` (`docker-runner-03`), `tunnel-alignment (L1_A)` (`-01`) i `blender-smoke` (`-04`) padły JEDNOCZEŚNIE; w dwóch logach, w których nazwy widać, te same dwa wiersze `FAIL test_ci_blender_installer_*` i ten sam powód: `tar (child): xz: Cannot exec: No such file or directory`. **CZWARTY RAZ TA SAMA KLASA** po `unzip` (kod 127), `curl` (6.D77) i `python3-yaml` (6.D240). **DLACZEGO TRZY POPRZEDNIE RAZY NIE WYSTARCZYŁY — i to jest tu treścią:** tamte zależności były wołane PO NAZWIE, a tej nazwy w skrypcie NIE MA — `blender_install.sh:159` ma `tar -xJf`, a GNU tar nie dekompresuje xz sam, tylko uruchamia osobne binarium. `grep -rn xz tools/ci/` przed tą pozycją nie dawał w kodzie ANI JEDNEGO trafienia. **CO WESZŁO:** `xz` w sondzie **ośmiu** jobów, `xz-utils` w trzech zestawach apt, wpis NIETOŻSAMOŚCIOWY `xz` → `xz-utils` (drugi taki po `xvfb-run` → `xvfb`), czytnik `kompresory_w_skrypcie` czytający OPCJE a nie nazwy, i cztery bramki. **DLACZEGO `xz` POTRZEBUJE TEŻ JOB, KTÓRY NICZEGO NIE ROZPAKOWUJE:** `python-tests:tools` nie tyka tarballa, ale zestaw wykonuje instalator przez `_run_blender_installer` — 16.09 przeszedł tylko dlatego, że trafił na maszynę z `xz`. Bramka liczy więc DWIE drogi. **PIĘĆ KONTROLI, KN-1 OBALIŁA PRZEWIDYWANIE:** zdjęcie `xz` z `commands:` miało dać 91/92, dało **90/92** — zapaliła się TAKŻE istniejąca `test_tool_installation_is_conditional_on_the_tool_being_missing`, czyli stara bramka wiąże sondę z zestawem apt w obie strony i złapałaby połowę tej usterki — **nie złapała 16.09, bo brak był po OBU stronach i porównanie dwóch pustych zbiorów milczy**. KN-2 (pakiet zdjęty z zestawu) **91/92**; KN-3 (wpis zdjęty z tabeli) **90/92**; **KN-4 (`tar -xJf` → `tar -xf`, czyli zależność ZNIKA) 90/92 — kontrola przyrządu od strony drzewa**; KN-5 (czytnik oślepiony) **89/92**. Weryfikacja: `test_all.py` **2497/2497 / 126 modułów**. Zapadki: `JOBOW_Z_KOMPRESOREM` nowa (**8**, PODŁOGA), `NIETOZSAMOSCIOWYCH_POLECEN` nowa (**2**), `ASERCJI_NAPISOWYCH_RAZEM` 886 → **887**, `MIN_REPORTS` **353**. Raport: `reports/6d242-tar-uruchamia-xz-a-nikt-o-to-nie-pytal.md`. **Czego świadomie nie zrobiłem:** nie instalowałem niczego na maszynach właściciela (§8); nie tknąłem etykiet `runs-on` ani składu puli; nie poszerzyłem czytnika poza `tools/ci/*.sh`. **ZAUWAŻONE, ZAPISANE BO KOSZTOWAŁO:** `git checkout -- <plik>` przy przywracaniu po kontroli negatywnej skasował moją własną niezacommitowaną pracę — gałąź stała na `origin/main`, więc „przywrócenie” cofnęło całą pozycję; trzy pliki trzeba było napisać od nowa. Kopie w scratchpadzie są jedyną drogą, która tego nie robi. Treść pierwotna: **Sonda nie pyta o binaria, które `tar` uruchamia z flagi** | `tar -xJf` w `blender_install.sh` wymaga `xz`, a napisu `xz` w skrypcie nie ma | M |
-| 6.M1 | **`--replay` nie działa z `--line`, więc poleceń drzwi nie ma jak odtworzyć** | zmierzone 14.09.2026 przy MB-08, w kodzie, a nie z lektury: gałąź `LineCore` w `FirstRun.StepOnce` nie woła `_recorder.Record` **ani razu**, a `Sim.Runner replay` prowadzi skład przez `StationService`, który zna wyłącznie cykl automatyczny. Zapis wejść z drzwiami miałby więc pisarza, którego nie ma, i czytelnika, który nie ma co z nim zrobić. **Warunkiem wstępnym jest połączenie odtworzenia z trybem linii**, a nie sam format — dlatego pozycja zaczyna się od niego | L |
+| 6.M1 | **ZROBIONE w #PR (23.09.2026): odtworzenie LINII z zapisu wejść działa co do bitu — przejęcie, drzwi i oddanie sterowania są wpisami zapisu, a scena i `Sim.Runner` idą jedną klasą `LineSession`.** Zapis wejść dostał zdarzenia linii (`przejmij`, `oddaj`, `drzwi-otworz`, `drzwi-zamknij`, `obserwuj`, każde z identyfikatorem składu) i wersję 3 — wyłącznie dla plików, które je niosą; plik bez nich zapisuje się bajt w bajt jak dotąd. `--replay` łączy się z `--line` (z `--signalling`; bez planu linia nie ma maszynisty i to jest nowa odmowa), `--telemetry` z `--line --replay`, `--input-log` z `--line`. Wzorzec `tests/data/m1-linia-drzwi.log`: przejęcie w kroku 2880, postój 0,03 m od Beekkant, otwarcie i zamknięcie drzwi bez odmowy, oddanie w kroku 8040, autopilot dojeżdża do 1448 m. Telemetria sceny = rdzeń co do bajtu przy 120 i 7 krokach na klatkę (134 wiersze), zapis z odtworzenia = wzorzec (`cmp`) | L |
 | 6.M2 | **ZROBIONE w #PR (22.09.2026): okno w `LineDrive` ZOSTAJE jednostronne, a różnica jest wypisana z powodem przy obu klasach i przybita z obu stron na JEDNYM stanie składu.** `tests/Sim.Tests/StopWindowParityTests.cs` prowadzi skład RĘCZNIE po linii syntetycznej (stacje 0/600/1400/2000 m, okno 5,0 m) i zatrzymuje go **50 m za** punktem zatrzymania: `LineDrive` zakłada postój z błędem zatrzymania około +50 m, a `StationService`, któremu podano **ten sam** `DriveState`, uznaje tę stację za miniętą (`Missed`). Druga metoda pilnuje dolnej granicy: skład stojący przed oknem nie ma postoju w żadnej z klas, czyli jednostronność dotyczy **wyłącznie** góry. **Dlaczego jednostronne zostaje:** dwustronne okno wymagałoby reguły dla składu stojącego ZA oknem, której żaden dokument nie podaje — `LineDrive` nie ma rejestru minięć, a odjazd bez obsługi z MB-08 jest gałęzią TRWAJĄCEGO postoju, więc bez założonego postoju nie miałby jak zadziałać. Autopilot staje z błędem rzędu 0,3 m, więc przy tej odpowiedzi ślad sześciu osi jest **ten sam co do bajtu** (`[SLAD] sześć osi zgadza się z wzorcem co do bajtu`, 515 807 wierszy). **Trzy kontrole negatywne, `md5sum -c: OK` po każdej:** KN-1 (`LineDrive` dwustronne) 1/2, KN-2 (dolna granica `LineDrive` poszerzona do 20 m) 1/2, KN-3 (`StationService` jednostronne) 1/2 — każda zapala dokładnie tę metodę, która pilnuje jej strony. **Pierwsza wersja drugiej metody była błędna i mówię to wprost:** maszynista celujący w −6 m stanął na −1,76 m, czyli już W oknie — rozrzut ręcznego maszynisty jest większy niż margines; cel przesunięty na −15 m, a przyrząd sprawdza, gdzie skład NAPRAWDĘ stanął, zanim cokolwiek orzeknie. Weryfikacja: `dotnet test tests/Sim.Tests` **673 → 675**, kod 0. Czego nie zrobiłem: nie zmieniłem `DesignAssumptions.StationStopWindowM` ani `LineRunSettings.StopWindowM` („Poza zakresem”), nie zmieniłem reguły drzwi. **Zauważone, zapisane jako 6.M3 i nie wzięte:** skutek dla GRACZA zostaje — w trybie linii skład ręczny 50 m za peronem dostaje postój i wolno mu otworzyć drzwi; komentarz MB-08 w `LineDrive.Step` mówi to wprost („wolno mu jeszcze otworzyć drzwi”), więc zmiana byłaby odwróceniem zapisanej decyzji, a nie poprawką. Treść pierwotna: **Okno zatrzymania w `LineDrive` jest JEDNOSTRONNE, a w `StationService` dwustronne — i różnicy nie pilnuje nic** | zmierzone 14.09.2026 przy MB-08: `LineDrive` zakłada postój przy `chainage >= target - StopWindowM`, **bez ograniczenia od góry**, podczas gdy `StationService` ma je z obu stron i przybite testem `WindowIsTwoSidedUnlikeTheAutopilot`. Dla autopilota bez skutku — nigdy nie przestrzeliwuje — dla GRACZA znaczy, że można „obsłużyć" peron stojąc pięćdziesiąt metrów za nim. Rozstrzygnięcie **nie jest oczywiste**: dwustronne okno w `LineDrive` zmieniłoby warunek zakładania postoju, czyli ślad przejazdu | M |
-| 6.M3 | **Skład ręczny 50 m za peronem dostaje w trybie linii postój i może otworzyć drzwi** | zmierzone 22.09.2026 przy 6.M2 (`StopWindowParityTests`): `LineDrive` zakłada postój przy dowolnym przestrzeleniu, a `RequestDoorOpen` odmawia wyłącznie wtedy, gdy postoju NIE MA — więc drzwi otwierają się w tunelu. Komentarz MB-08 w `LineDrive.Step` mówi wprost „wolno mu jeszcze otworzyć drzwi”, a trening M1 przez `StationService` uznaje ten sam stan za stację MINIĘTĄ. Zmiana jest odwróceniem zapisanej decyzji MB-08, więc czeka na właściciela | S |
+| 6.M3 | **ZROBIONE w #PR (23.09.2026, DECYZJA WŁAŚCICIELA „odmowa drzwi poza ±5 m”): okno DRZWI w `LineDrive` jest dwustronne, okno ZAKŁADANIA postoju zostaje jednostronne (6.M2).** `RequestDoorOpen` odmawia z powodem `OutsidePlatformWindow` („skład stoi poza peronem”), gdy `|chainage − cel| > okno`, także NA założonym postoju — czyli dokładnie tym zdaniem, którym `StationService` rozstrzyga okno w treningu M1. Skład za oknem może już tylko odjechać; stacja zostaje w `Calls` z czasem odjazdu jako odjazd bez obsługi (MB-08). **Druga strona tej samej decyzji, której nie było w pytaniu, a bez której reguła byłaby dziurawa:** autopilot dopilnowujący postoju ręcznego (MB-08) woła `StationStop.RequestOpen` WPROST, z pominięciem odmowy maszynisty — po oddaniu sterowania za peronem otworzyłby więc drzwi w tunelu, a z samą odmową stałby tam do końca przejazdu. Dziś kończy taki postój odjazdem bez obsługi, tym samym, który dostaje maszynista. Komentarz MB-08 w `LineDrive.Step` („wolno mu jeszcze otworzyć drzwi”) PRZEPISANY, nie dopisany obok. **Trzy testy w `StopWindowParityTests.cs`:** odmowa 50 m za peronem z właściwym powodem i drzwi zamknięte przez 2000 kroków; odjazd po odmowie z czasem odjazdu i następną stacją na osi; oddanie autopilotowi — zero kroków z drzwiami innymi niż zamknięte i dojazd do następnej stacji. **Dwie kontrole negatywne, `md5sum -c: OK` po każdej:** KN-1 (odmowa bez okna drzwi) 2/15 czerwone — obie metody maszynisty; KN-2 (autopilot bez porzucenia postoju) 1/15 — wyłącznie metoda autopilota. Pierwsza wersja KN-2 (`if (false)`) nie skompilowała się i NIE jest liczona jako wynik. Weryfikacja: `dotnet test tests/Sim.Tests` **675 → 678**, `tests/Game.Tests` 324, `[SLAD] sześć osi zgadza się z wzorcem co do bajtu` — autopilot nie przestrzeliwuje, więc żadna z dwóch nowych gałęzi nie jest na śladzie osiągana. Czego nie zrobiłem: nie zmieniłem okna zakładania postoju ani `StopWindowM`, nie ruszyłem HUD-u (odmowa ma już polski tekst w `DoorRequestResult`). Treść pierwotna: **Skład ręczny 50 m za peronem dostaje w trybie linii postój i może otworzyć drzwi** | zmierzone 22.09.2026 przy 6.M2 (`StopWindowParityTests`): `LineDrive` zakłada postój przy dowolnym przestrzeleniu, a `RequestDoorOpen` odmawia wyłącznie wtedy, gdy postoju NIE MA — więc drzwi otwierają się w tunelu. Komentarz MB-08 w `LineDrive.Step` mówi wprost „wolno mu jeszcze otworzyć drzwi”, a trening M1 przez `StationService` uznaje ten sam stan za stację MINIĘTĄ. Zmiana jest odwróceniem zapisanej decyzji MB-08, więc czeka na właściciela | S |
 
 #### Pasmo A — rdzeń symulacji (`src/Sim`, bez Godota, bez nowych danych o sieci)
 
@@ -1164,7 +1196,7 @@ właściciel.
 | 6.D165 | **ZROBIONE w #PR (13.09.2026): ślepe są DWIE bramki, a przez `tree_walk` ANI JEDNA — i kontrola tej poprawki wyszła ZIELONA DWA RAZY.** Gita o listę plików pytają **dwa** moduły (`test_conflict_markers.py`, `test_runner_options.py`); trzeci (`test_report_hygiene.py`) to polecenie tylko **cytuje w komunikacie**, a nie woła. **PRZESŁANKA POLA OBALONA:** pole pytało, ile modułów chodzi po `git ls-files` POŚREDNIO przez `tree_walk` — odpowiedź brzmi **ZERO**, bo `tree_walk` importuje wyłącznie `fnmatch`, `os` i `shutil`, czyta `.gitignore` jako TEKST i gita nie woła wcale. Ślepota nie rozlewa się na dwadzieścia kilka modułów, które go importują. **Stan drzewa:** 756 śledzonych, **0** nieśledzonych i nieignorowanych, 352 ignorowane, 1218 widzianych przez `tree_walk`. Zero nieśledzonych nie znaczy, że problemu nie ma — znaczy, że przebieg zrobiono po `git add`, i właśnie dlatego wypis jest potrzebny. **CO WESZŁO: WYPIS, NIE BRAMKA** — `test_all.py` wypisuje linię `[DRZEWO] N plikow …`, tak samo jak `[BAJTKOD]` od 6.D122, i **nie zmienia kodu wyjścia**: liczba > 0 znaczy „tyle pominięto”, a nie „błąd”, bo usterką z PR #548 była CISZA, a nie istnienie plików roboczych. Gdy gita zapytać się nie da, linia mówi to wprost zamiast wypisać zero. **KONTROLA WYSZŁA ZIELONA DWA RAZY i to jest główna nauka:** pierwsza wersja bramki szukała NAPISU w źródle `test_all.py`, więc KN-3 (warunek wartowni na `if False:`) przeszła — a po dolożeniu asercji na nazwę **znowu przeszła**, bo nazwa zostawała w drugiej połowie konstrukcji. Napis w źródle nie jest wypisem na wyjściu: funkcja była sprawdzona, a jej UŻYCIE nie. Poprawka: bramka **uruchamia przebieg** w podprocesie i szuka `[DRZEWO]` w jego WYJŚCIU. **Czego świadomie NIE sprawdzam:** asercji na liczbę wystąpień wypisu nie ma, bo przy jednym nazwanym module `_discover` nie ładuje `test_all.py` drugi raz — KN-5 (zdjęcie wartowni) wyszła zielona, więc taka asercja nie mogłaby zapalić się nigdy. Wartownia zostaje jako **ubezpieczenie bez wejścia**, powiedziane wprost zamiast udawane asercją (rodzina liczona w 6.D161). **Sześć kontroli, baza 7/7:** KN-1 6/7, KN-2 6/7, KN-3 ZIELONA, KN-3c 6/7, KN-4 6/7, KN-5 ZIELONA. `git ls-files` na chodzenie po katalogach nie zamieniam i kodu wyjścia nie ruszałem („Poza zakresem”). Raport: `reports/6d165-dwie-bramki-slepe-i-cisza.md` | S |
 | 6.D166 | **ZROBIONE w #552 (12.09.2026): liczby wpisane w prozę obok bramki są porównywane z tym, co bramka mierzy.** Audyt repozytorium z 12.09.2026 znalazł dwa zdania nieprawdziwe, oba stojące PRZY przyrządzie mierzącym dokładnie tę samą rzecz: `test_tree_walks.py` opisywał rejestr jako „Trzydzieści osiem: 13 przybitych, 3 częściowe, 21 WOLNYCH i 1 poza zasięgiem skanu”, gdy `len(ZAPADKI)` dawało **42** przy rozkładzie **15 / 3 / 23 / 1**; `test_all.py` mówił „robi to samo dla 120 modulow”, gdy modułów było **123** (dziś **124**, bo doszedł ten). **Nie znalazł ich żaden test i nie mógł**: akapit sam zapewnia, że „rozjechać się ta lista nie może, bo jest porównywana z drzewem W OBIE STRONY” — i to prawda o LIŚCIE, a nieprawda o ZDANIU nad nią. **Samo przeliczenie było odrzucone**: naprawia dzisiaj i pozwala rozjechać się jutro, więc razem z liczbami wchodzi `tools/tests/test_prose_counts.py`, który czyta deklarację ze źródła i porównuje ją z `len(ZAPADKI)`, z rozkładem klas oraz z zawartością `tools/tests/`. **Zapis słowny nie jest PRZEPUSZCZANY, tylko NIEWIDZIANY**, a dolne ostrze na czytnik zamienia niewidzenie w czerwone „trafień: 0”. **Pierwsza wersja trzeciego testu była skanem po słowach w całym pliku i ZAPALIŁA SIĘ NA WŁASNYM AKAPICIE**, który cytuje dawne brzmienie — karałaby za opisanie przeszłości, czyli za to, czego projekt wymaga w każdym przepisanym akapicie; zastąpiona kontrolą przyrządu z wejściem syntetycznym (ta sama obserwacja co 6.D108: kształtu nie ma). Cztery kontrole, `md5sum -c: OK` na trzech plikach po każdej, baza 3/3: KN-1 (suma 42→41) 2/3; **KN-2 (jeden człon kłamie, 23 WOLNE→22, SUMA ZOSTAJE PRAWDZIWA) 2/3 — to jest ta kontrola, dla której lista stoi z nazwami, a nie z samymi liczbami**; KN-3 (moduły 124→123) 2/3; KN-4 (deklaracja przepisana słownie) 2/3 dolnym ostrzem. Raport: `reports/6d166-liczby-w-prozie.md` | S |
 | 6.D167 | **ZROBIONE w #553 (12.09.2026): dwie zapadki `bin/…/netX.Y` dostały strażnika i przeszły z klasy WOLNA do PRZYBITA.** `MIN_PATHS_IN_TREE` (29) i `MIN_FILES_WITH_PATHS` (8) miały po asercji **nośnej** (`len(hits) >= MIN_…`), padającej gdy kurczy się drzewo, i ani jednej **strzegącej**, padającej gdy ktoś obniży samą stałą — a stały przy tym DOKŁADNIE na stanie drzewa. To połączenie jest gorsze niż każda z tych rzeczy osobno: pierwsze skasowanie ścieżki zapala bramkę, a najbliższą pod ręką „naprawą” jest obniżenie stałej, po którym nie zapala się nic. **Rozstrzygnięcie przybiciem równością, bo koszt wyszedł ZEROWY**: populacja nie zmieniła się ani razu w **59 przejściach** historii `reports/` i `docs/` (jedna wartość w całym oknie) — ta sama metoda i **przeciwne zalecenie** niż przy 6.D153, gdzie para (literały, różne) zmieniała się w 29 przejściach na 39 i przybity został zbiór, nie liczba. **Kształt wyrażenia po prawej jest TREŚCIĄ**: `klasa_zapadki` porównuje `ast.dump` obu stron, więc `len(hits)` i `len(files)` muszą w strażniku stać znak w znak tak, jak w asercji nośnej. **Bramka z 6.D166 zadziałała tu PIERWSZY RAZ NAPRAWDĘ**, a nie w kontroli: przejście obu zapadek zmienia rozkład 15/3/23/1 na **17/3/21/1**, a proza `test_tree_walks.py` została zapalona komunikatem `proza: 15 przybitych, rejestr: 17`. Trzy kontrole, `md5sum -c: OK` na dwóch plikach po każdej, baza 29/29: KN-1 (`MIN_PATHS_IN_TREE` 29→28) 28/29; KN-2 (`MIN_FILES_WITH_PATHS` 8→7) 28/29; **KN-3 (strażnik zostaje, ale mierzy INNĄ populację: `len(hits)`→`0`) 28/29 komunikatem `zapadka zmieniła klasę: przybita → czesciowa` — i to jest kontrola, dla której ta pozycja ma sens**, bo dopiero ona mierzy, że działa POWÓD, a nie sama obecność asercji. Poza zakresem: pozostałe 21 zapadek klasy WOLNA — żadna nie stoi dziś równo na drzewie, a pułapką jest połączenie, nie sama klasa. Raport: `reports/6d167-straznicy-dwoch-zapadek.md` | S |
-| 6.D168 | **`data_freshness.py` chodzi w CI bez `--strict`, a przeterminowanych okien jest 13 z 13** | zmierzone 12.09.2026: `.github/workflows/python-tests.yml` woła narzędzie bez `--strict`, więc 13 ostrzeżeń wypisuje się i nie zatrzymuje niczego. Wszystkie pochodzą z jednego pola `dataset_validity.date_fin = 28/08/2026` w `data/network/shapes-manifest.json`, a archiwum pobrano **01.09.2026, cztery dni po zamknięciu okna**; na dziś przeterminowanie wynosi **15 dni**. Właściciel zdecydował 12.09.2026 dopiąć `--strict`. **Pozycja musi rozstrzygnąć, co z tym, że dopięcie zatrzyma CI natychmiast** — 13 z 13 okien jest dziś przeterminowanych, więc albo idzie razem z odświeżeniem snapshotu STIB (dotyka `data/`, reguła 4.6), albo z jawnie zapisanym oknem przejściowym. Zgadywanie zakazane: hierarchia źródeł z `docs/07-open-data-research.md` | M |
+| 6.D168 | **ETAP PRZEJŚCIOWY (25.09.2026): `--strict` z jawną listą 13 historycznych wyjątków** | Pomiar ponowiony 25.09.2026: 13/13 okien jest przeterminowanych o 28 dni; każde ma `valid_to=2026-08-28` i `retrieved_at=2026-09-01` oraz pochodzi z jednego archiwum STIB. Samo `--strict` natychmiast zaczerwieniłoby CI bez poprawy danych. `.github/workflows/python-tests.yml` uruchamia teraz `--strict --baseline tools/track/freshness-baseline.json`: każde NOWE wygasłe okno, zmiana daty znanego okna albo zbędny wyjątek zatrzymuje CI; znane 13 pozostaje widoczne w logu. Wciąż **nie wolno nazywać osi aktualnymi**. Pełne domknięcie wymaga zweryfikowanego świeższego snapshotu STIB i usunięcia baseline wraz z aktualizacją `data/`; nie zgadywać ani nie przesuwać dat źródłowych. | M |
 | 6.D169 | **ZROBIONE w #PR (18.09.2026): zdanie dostało datę, a przyrząd z pola „Weryfikacja” liczy WIERSZE, nie zdania — populacja jest OŚMIOELEMENTOWA, nie siedmioelementowa.** Zdanie z §1.1.1 (w. 160) niesie odtąd datę **08.09.2026**, odczytaną z historii (`git log -S` wskazuje commit `4143e64`, 6.D48), a nie przepisaną z raportu. **ROZBIEŻNOŚĆ PIERWSZA, ZMIERZONA:** `grep -nic` z pola „Weryfikacja” daje **7** i to się zgadza, ale siódemka nie jest liczbą zdań — akapit od w. 85 ma sformułowanie `w tym / kontenerze` **rozcięte przez zawijanie wiersza**, więc `grep` go nie widzi, a czytnik składający akapit w płaski napis widzi i mówi **8**. Zawijania **nie zszyto** i to jest wybór: zszycie podniosłoby `grep` do ośmiu, czyli zapaliłoby kryterium, którego pole pilnuje. **ROZBIEŻNOŚĆ DRUGA:** pole „Skończone, gdy” wpisało w. 474 między te, które „datę niosą już”, choć jego własny nawias podaje powód z INNEJ kolumny („zdanie o maszynie DOWOLNEJ”), a akapit daty nie niesie ani w zdaniu, ani w akapicie. Poprawny rozkład to **pięć z datą, jedno poza populacją, jedno bez daty**, a nie „sześć z datą, jedno bez” — więc „tych bez daty jest zero” w dosłownym brzmieniu spełnić się nie da i spełniona jest wersja poprawiona: **zero zdań o KONKRETNEJ maszynie bez daty**. **Zdanie o maszynie dowolnej zostaje bez daty świadomie:** opisuje własność drzewa (trzy pakiety w `tests/Sim.Tests`, sprawdzone — trzy wiersze `PackageReference`, czwarte trafienie grepa to komentarz), a data zawęziłaby zdanie prawdziwe o każdej czystej maszynie do zdania o jednej. **TRZECI PUNKT POMIAROWY, którego pozycja nie miała:** w kontenerze tej sesji (18.09.2026) `/root/.dotnet` **nie istnieje w ogóle**, a `command -v dotnet` milczy — zdanie bez daty starzeje się więc nie tylko co do WERSJI, ale co do ISTNIENIA narzędzia; do dokumentu tego nie dopisano, bo pole „Wyjście” żąda daty, nie drugiego pomiaru. **KONTROLE, przewidywania spisane PRZED przebiegami, wszystkie na PEŁNEJ kopii drzewa z `.git`, korzeń podawany wprost:** KN-1 (data cofnięta na kopii) → kopia **2** bez daty, drzewo robocze **1**; KN-2 (zdanie SKASOWANE zamiast udatowane) → `grep -nic` = **6**, czyli spadek, przed którym ostrzega pole; KN-3 (dopisane NOWE zdanie o maszynie bez daty) → czytnik **2** zamiast 1, więc nie jest przypięty do znanych zdań; KN-4 (`MIN_REPORTS` 402→403 bez pliku raportu) → **9/18**, kod 1. **KN-2 POKAZAŁO WIĘCEJ, NIŻ PRZEWIDYWAŁO:** licznik „bez daty” po skasowaniu zdania wyszedł **dokładnie taki sam jak po poprawnym udatowaniu** — kasowanie i datowanie są dla niego nieodróżnialne, odróżnia je dopiero liczba populacji, i dlatego pole pilnuje `grep -nic`, a nie liczby zdań bez daty. **Bramki NIE MA i nie powstaje** — pole „Poza zakresem” mówi, że bramka na kształcie zapalałaby się na akapitach poprawnych, czyli byłaby bramką z 6.D27. Zapadki: `MIN_REPORTS` o jeden. Weryfikacja: `grep -nic` **7** przed i **7** po; zestaw zielony. Raport: `reports/6d169-zdanie-o-maszynie-bez-daty.md`. **Czego NIE zrobiono:** nie skasowano ani jednego zdania; nie przeliczano wersji SDK (pole „Poza zakresem”); nie zszyto zawijania w w. 85–86; nie ruszono `tools/tests/test_dotnet_version.py` ani jego noty z 10.09.2026. **ZAUWAŻONE:** wzorzec z pola „Weryfikacja” nie ma granic słowa i łapie `czystym kontenerze` wnętrzem wyrazu — zmierzone: `printf 'na czystym kontenerze\n' | grep -c "tym kontenerze"` daje `1`, a z `\b` daje `0`; na werdykt nie wpływa, ale zgodność pola z czytnikiem jest w tym wierszu przypadkiem. Treść pierwotna: **`docs/23-environment.md` opisuje maszynę w czasie teraźniejszym, bez daty przy zdaniu** | zauważone 12.09.2026 przy audycie: §1.1.1 mówi „Na tej maszynie `/root/.dotnet/dotnet` zgłasza **10.0.400**”, a `test_dotnet_version.py` notuje z 10.09.2026 „kontener tej sesji ma **10.0.401**”. **Sprzeczności NIE MA** — to dwa różne kontenery z dwóch różnych dni i po 6.D108 oba zdania są poprawne w swoim dniu; pozycja NIE jest więc o przeliczeniu liczby. Jest o tym, że zdanie o maszynie stoi w czasie teraźniejszym **bez daty przy sobie**, więc czytelnik nie ma jak odróżnić opisu dnia od opisu stanu bieżącego, a mechanizm z 6.D108 działa na raportach, nie na `docs/`. Zakres: rozstrzygnąć, czy zdania o konkretnej maszynie w `docs/23` mają nosić datę, czy przenieść się do `reports/` | S |
 | 6.D170 | **ZROBIONE w #PR (18.09.2026): KRYTERIUM NIE ISTNIEJE i to jest zmierzona odpowiedź, nie porażka — a jedyna własność rozdzielająca podział jest PRZEDZIAŁEM NUMERÓW, który nie jest ani chronologiczny, ani tematyczny.** Liczby z pola „Weryfikacja” odtworzone co do cyfry: **16 26 12**. **CZTERY KANDYDATURY NA KRYTERIUM MECHANICZNE, każda policzona na całym `docs/`:** cytowany w `CLAUDE.md` poza §3 — **9/14** w tabeli i **0/12** poza nią; cytowany w `.claude/skills/` — 4/14 i 0/12; cytowany w `tools/tests/*.py` — 12/14 i 6/12; cytowany w innym `docs/*.md` — 14/14 i 10/12. **Ani jedna nie dzieli czternastu od dwunastu.** Pierwsza jest warunkiem WYSTARCZAJĄCYM bez ani jednego kontrprzykładu, ale nie koniecznym: pięć dokumentów w tabeli (`02`, `05`, `22`, `23`, `24`) nie jest cytowanych nigdzie poza §3. **DLACZEGO PRZEDZIAŁ NUMERÓW NIE JEST KRYTERIUM, trzy powody zmierzone:** `22-heartbeat.md` powstał 01.09.2026, tego samego dnia co `08`, `09`, `17` i `21`, a `18`, `19` i `20` powstały PO `23` i `24`, więc numer nie idzie za datą; tematycznie są po dwa kontrprzykłady w każdą stronę (`24` to fakty o dziedzinie i stoi W tabeli, `08` to ten sam gatunek i stoi POZA; `22` to proces i stoi W tabeli, `17` i `21` też są o procesie i stoją POZA); a numeracja ma DZIURĘ — `docs/13-*` i `docs/14-*` nie istniały NIGDY (`git log --all --diff-filter=A`: zero trafień), żaden plik `docs/*.md` nie został nigdy usunięty, więc reguła o przedziale przypisałaby przyszły `docs/13-…` do strony, której nikt nie wybrał. **CO ZAPISANO ZAMIAST KRYTERIUM:** akapit nad tabelą §3 mówiący, że skład Mapy jest decyzją właściciela, plus DWIE reguły twarde — dokument cytowany przez którykolwiek inny punkt `CLAUDE.md` MUSI stać w tabeli (jedyny wynik dodatni pomiaru), a każdy plik `docs/*.md` MUSI stać albo w tabeli, albo w przypiętym zbiorze `POZA_MAPA` nowej bramki `tools/tests/test_docs_map.py`. **Bramki na KSZTAŁCIE nie ma i nie powstaje** — rozpoznawanie gatunku z treści zapalałoby się dziś na dokumentach poprawnych, czyli byłaby to bramka z 6.D27. **SKŁADU MAPY NIE ZMIENIONO ANI O JEDEN WIERSZ**, a pytanie, czy pięć dokumentów gatunku „ground truth” (`08`–`12`) ma do niej wejść, jest postawione właścicielowi w raporcie, a nie rozstrzygnięte po cichu (§8). **KONTROLE, przewidywania spisane PRZED przebiegami, wszystkie na PEŁNEJ kopii drzewa z `.git`:** KN-3 (kopia bez zmian) → **7/7**; KN-1 (nowy nieprzypisany plik w `docs/`) → **6/7**, nazwał plik; KN-2 (plik zdjęty z `POZA_MAPA`) → **6/7**; KN-4 (wiersz usunięty z tabeli §3) → **5/7**, czyli DWA czerwone zamiast przewidzianego jednego — przewidywanie mówiło o kierunku i ten się zgadza, liczba testów nie, i tak to zapisano; KN-5 (§9 cytuje dokument spoza Mapy) → **6/7**; KN-6 (kotwica kryterium usunięta z §3) → **6/7**; KN-7 (ścieżka-widmo w `POZA_MAPA`) → **6/7**. **PRZEWIDYWANIE W2 CZĘŚCIOWO OBALONE:** przewidziałem, że w tabeli nie są cytowane poza §3 `PLAYABILITY.md`, `22`, `24`, `TASK-TEMPLATE.md` i jeden z `05`/`07`; zmierzone wyszło `02`, `05`, `22`, `23`, `24` — trafione trzy z pięciu, a bramka niesie listę ZMIERZONĄ. Zapadki: `MODULOW_W_CALYM_DRZEWIE` 216→217, `BAJTKOD_PO_COMPILEALL_PLIKI` 216→217, `ROZKLAD_MODULOW` dla `tools/tests` 144→145, `ASERCJI_NAPISOWYCH_RAZEM` 930→932, `ZAPADEK_RAZEM` 85→86, rozkład klas 18/3/62/2→18/3/63/2, para wolnych (62, 61)→(63, 62), zdanie o modułach zestawu 136→137, `MIN_REPORTS` o jeden. Weryfikacja: **2636/2636**, kod 0. Raport: `reports/6d170-kryterium-wejscia-do-mapy.md`. **Czego NIE zrobiono:** nie przeniesiono żadnego dokumentu do Mapy ani z niej; nie wpisano do `CLAUDE.md` reguły o przedziale numerów; nie napisano bramki na kształcie; nie ruszono `.claude/skills/`. **ZAUWAŻONE:** tabela §3 wymienia dwa pliki z `data/`, więc „szesnaście wierszy” i „czternaście dokumentów” to dwie różne liczby o tej samej tabeli — bramka trzyma je osobno, bo pomylenie ich jest tu naturalnym błędem czytającego. Treść pierwotna: **Połowa `docs/` stoi poza Mapą dokumentów w `CLAUDE.md` §3** | zmierzone 12.09.2026: `docs/` ma **24** pliki `.md`, a §3 wymienia **13** (plus 2 z `data/`). Niewymienione jest **12**: `08-m7-ground-truth`, `09-data-provenance`, `10-signalling-ground-truth`, `11-station-ground-truth`, `12-infrastructure-ground-truth`, `15-classic-signalling`, `16-protection-modes`, `17-visual-regression`, `18-rights-matrix`, `19-audio-rights-and-recording`, `20-art-direction`, `21-measured-vs-assumed`. Mapa może być selektywna z założenia — ale **pięć z tych dwunastu to dokumenty „ground truth”, czyli ten sam gatunek co `docs/00`**, który §3 nazywa źródłem prawdy. Pozycja ma rozstrzygnąć kryterium wejścia do Mapy i przybić je bramką, żeby nie zależało od pamięci piszącego | S |
 | 6.D171 | **ZROBIONE w #PR (19.09.2026): pięć odsyłaczy i jedno archiwum — a bramka DWA RAZY uznała własną listę za odsyłacz i obie usterki złapały kontrole, nie oko.** Liczby z pola „Weryfikacja” odtworzone co do cyfry: **1 1 1 1 1 3**. Pozostałe przeliczone: raportów w `reports/` jest **404**, nie 368; bez wzmianki w tym pliku stoi **18 z 404**, a nie 21 z 275 — licznik bezwzględny SPADŁ przy katalogu większym o 129 plików, bo od 6.D45 każda domknięta pozycja dopisuje odsyłacz. **CO ŁĄCZY TĘ SZÓSTKĘ, I TO JEST WYNIK, A NIE PRZYPADEK:** wszystkie sześć powstało PRZED konwencją nazw `6dNNN-*`, czyli zanim istniał mechanizm tworzący odsyłacze — nie zgubił ich nikt, nigdy nie miały skąd być zacytowane. **ROZSTRZYGNIĘCIE, RAPORT PO RAPORCIE:** `decyzje-wlasciciela-07-09` → `docs/22-heartbeat.md` pod nagłówkiem decyzji z 07.09.2026, bo tamten akapit jest skutkiem czwartej z czterech decyzji, które raport zapisuje; `runda-pieciu-agentow` → `CLAUDE.md` §5 obok cytatu 6.D75, bo liczbę „cztery bajty na 737 tysięcy” zmierzono właśnie w tej rundzie; `sonda-doctor-bez-dotnet` → docstring `tools/tests/test_dotnet_version.py` jako „powód trzeci”, bo raport mówi, czemu TEN moduł przestał zakładać środowisko; `audyt-sekcja-6-weryfikacja` → wiersz 6.D92, bo z niego powstały 6.D92 i 6.D93, i tam stoją POWODY ODRZUCENIA AUDYT-17 i części AUDYT-03; `audyt-weryfikacja` → wiersz 6.D71, bo niesie powód obniżenia wagi, którego tamten wiersz nie podawał; `uzupelnienie-kolejki-10-09` → **ARCHIWUM**, bo opisuje ZDARZENIE jednego dnia, a nie regułę — reguła, którą ten dzień stosował, mieszka w `CLAUDE.md` §8 i `tools/tests/test_backlog.py`. **Powodem archiwum NIE jest „nikt go nie cytuje”** — tak brzmi objaw, który ta pozycja mierzyła, i bramka tej frazy w powodzie zabrania wprost. **USTERKA PRZYRZĄDU PIERWSZA: dopasowanie po PRZEDROSTKU.** Czytnik pytał `nazwa in tresc`, więc `uzupelnienie-kolejki-10-09` „miało odsyłacz” w dwóch miejscach mówiących o pliku `uzupelnienie-kolejki-10-09-druga.md` — **pułapkę nazywa wprost pole „Weryfikacja” tej pozycji, a bramka wpadła w nią mimo to.** **USTERKA DRUGA, ta sama klasa, dwa miejsca:** bez wycięcia WŁASNEGO modułu z korpusu każdy raport przypięty na liście robił się „zacytowany” i zbiór sierot wychodził PUSTY przy dwóch sierotach w drzewie; a bez wycięcia BLOKU `##### 6.D171`, którego pole „Weryfikacja” wymienia wszystkie sześć nazw w pętli `for R in …`, KN-1b dawała **23/23**. Obie wycięte, obie z asercją, że wycięcie ROBI RÓŻNICĘ. **KONTROLE, przewidywania spisane PRZED przebiegami, wszystkie na PEŁNEJ kopii drzewa z `.git`:** KN-3 (bez zmian) **23/23**; **KN-1 (wpis zdjęty z ARCHIWUM) — PRZEWIDYWANIE OBALONE**: przewidziałem czerwień testu głównego, padł strażnik pustej listy (**22/23**, inny test), bo usunięcie jedynego wpisu opróżnia listę — kontrola nie izolowała tego, o co pytała; KN-1b (wpis PODMIENIONY na inny z szóstki) **22/23**, nazwał plik; KN-2 (nowy raport bez odsyłacza) **19/23**; KN-4 (wpis o pliku, którego nie ma) **20/23**, trzy testy; KN-5 (powód skrócony do podpisu) **22/23**; KN-6 (wycięcie własnego modułu cofnięte) **21/23**, sieroty puste; **KN-7b (granica dopasowania zdjęta RAZEM z podmianą z KN-1b) — 23/23 ZIELONE.** Para KN-1b/KN-7b jest dowodem, że granica niesie treść, a nie ostrożność: ta sama mutacja daje 22/23 z granicą i 23/23 bez niej. **Bramka pilnuje ZBIORÓW, nie sum**, więc nowych zapadek liczbowych nie ma; podniesione `ASERCJI_NAPISOWYCH_RAZEM` 932→933 i `MIN_REPORTS` o jeden. Weryfikacja: **2641/2641**, kod 0. Raport: `reports/6d171-szesc-raportow-bez-odsylacza.md`. **Czego NIE zrobiono:** nie skasowano żadnego z sześciu i nie obniżono `MIN_REPORTS`; nie dopisano odsyłacza „byle gdzie”; nie rozstrzygnięto dwóch sierot spoza szóstki (`6d227-…` należy do pozycji OTWARTEJ, więc jej odsyłacz powstanie sam przy domknięciu) — ich liczba jest przybita, żeby trzeci taki raport zapalił bramkę. **ZAUWAŻONE:** `audyt-weryfikacja` §5 mówi, że jego znalezisko poszlo do sekcji „Czego agent nie ruszy bez decyzji” — a dziś go tam NIE MA: suma unikalnych przystanków z czterech linii daje **60**, gdy `network.metro_stations` i `docs/00-network-data.md` mówią **59**, i żadna bramka tych dwóch liczb nie zestawia. To twierdzenie o danych sieci, więc nietknięte i zapisane jako 6.D288. Treść pierwotna: **Sześć raportów nie jest cytowanych nigdzie w repozytorium** | zmierzone 12.09.2026: raportów bez wpisu w `docs/TASKS.md` jest **21 z 275**, a z tego **6 nie ma ani jednego odsyłacza** w `docs/`, w innym raporcie ani w `tools/`: `audyt-sekcja-6-weryfikacja.md`, `audyt-weryfikacja.md`, `decyzje-wlasciciela-07-09.md`, `runda-pieciu-agentow.md`, `sonda-doctor-bez-dotnet.md`, `uzupelnienie-kolejki-10-09.md`. Liczą się do `MIN_REPORTS`, więc skasować ich nie wolno bez obniżenia zapadki, a obniżenie zapadki jest dokładnie tym, przed czym broni 6.D45. Pozycja ma rozstrzygnąć, czy raport bez odsyłacza to dług (dopisać odsyłacz), czy świadome archiwum (nazwać je i wyłączyć z licznika) | S |
@@ -1317,19 +1349,31 @@ właściciel.
 | 6.D341 | **ZROBIONE w #PR (21.09.2026): per-modułowego CZASU CPU w artefakcie NIE MA — a na ścianie osiemdziesiąt procent przyrostu robi dziesięć modułów, z czego sześć to czytniki prozy.** **KONTROLA PRZYRZADU NIE PRZECHODZI, BO ZADA LICZBY, KTOREJ W DANYCH NIE MA:** pole chciało, żeby suma przyrostów po modułach zgodziła się ze 147,983 s z 6.D332 w granicy 1 s — wychodzi 117,072 s, różnica −30,911 s. **Przyczynę zmierzyłem, zamiast ją założyć:** suma pola `moduly[].sekundy` równa się `wall_s` co do trzeciego miejsca na obu dniach, ilorazem 1,000, a do `cpu_s` nie sumuje się nigdy i iloraz wobec niego sam się zmienia (0,636 → 0,709). **Artefakt niesie rozbicie ŚCIANY, nie CPU**, więc warunek jest niespełnialny nie przez usterkę czytnika, tylko przez to, czego dane nie zapisują. **ODPOWIADAM NA SCIANIE I MOWIE TO WPROST**, zamiast przemnożyć ścianę przez iloraz: przelicznik nie jest stały, więc iloczyn opisywałby przelicznik, a nie moduł. Odniesienie na ścianie: mediana 133,272 → 253,407 s (+120,135) wobec sumy przyrostów +117,072; różnica 3,06 s bierze się stąd, że **mediana sumy nie jest sumą median**, i to jest cała reszta. **DWIE LICZBY, KTORYCH ZADALO POLE:** moduły istniejące w dniu progu wnoszą **74,418 s (64 %)**, dopisane później — **42,655 s (36 %)**; modułów przybyło 13, **nie zniknął ani jeden**, i tę klasę spisałem przed pomiarem, więc podaję jej zero, zamiast ją przemilczeć. **DZIESIATKA WNOSI 93,896 s ZE 117,072, CZYLI 80 %**, i **sześć z dziesięciu to czytniki prozy albo historii gita** — to jest właściwa odpowiedź na pytanie 6.D332 §2.1 „co podrożało": **korpus, po którym te czytniki chodzą, rośnie szybciej niż zestaw**, bo rosną go same raporty i bloki kolejki. Pięć z dziesiątki to moduły, których w dniu progu NIE BYŁO, i wnoszą 40,054 s; cztery z tych pięciu czytają prozę — zestaw nie tyle zwolnił, ile **dostał nowe bramki prozy**. **GLOWNE ZNALEZISKO: najdroższy moduł JEST tym, który podrożał najbardziej.** Pole ostrzegało, żeby tego nie zakładać; zmierzone wyszło odwrotnie do ostrzeżenia — `test_dotnet_version.py` jest jedno i drugie, a jego przyrost 17,471 s to 15 % całości. Jego udział w zestawie **spadł** (27 % → 21 %) przy **największym** przyroście bezwzględnym; podaję obie rzeczy, bo obie są prawdziwe naraz. Przewidywanie S3 **obalone**, warunek obalenia spisany przed pomiarem. **ZADEN MODUL NIE STANIAL:** dziewięć modułów ma przyrost ujemny, ale największy spadek wynosi cztery tysięczne sekundy — przewidywanie S5 trafione co do litery i **puste co do treści**, i mówię to zamiast zaliczyć je i przejść dalej. **PRZEWIDYWANIA: cztery trafione, jedno obalone, jedno puste.** CZEGO NIE ZROBIONO: nie przyspieszano żadnego modułu, NIE RUSZONO `SUITE_CPU_BUDGET_S` ani żadnej podłogi, nie zmieniono workflowa, nie tknięto `src/` ani `data/`; **nie przemnożono ściany przez iloraz**, żeby dać liczbę wyglądającą jak odpowiedź w CPU; **nie zaproponowano, żeby artefakt zapisywał CPU per moduł** — byłaby to zmiana narzędzia pomiarowego i decyzja właściciela. ZAUWAZONE, NIE TKNIETE: dwa moduły uruchamiające `doctor.sh` w podprocesie wnoszą razem 17,774 s i są w pierwszej dziesiątce jedynymi, które nie czytają ani prozy, ani drzewa — kosztują tyle, ile kosztuje uruchomienie cudzego skryptu, i wychodzą jako osobna rodzina obok czytników prozy. **POMIAR POWTORZONY PRZED COMMITEM, i powtorzenie ZNALAZLO WLASNOSC PRZYRZADU, ktorej raport wczesniej nie mial: przyrzad NIE JEST ODTWARZALNY NA OSTATNIEJ CYFRZE.** Trzy przebiegi na tych samych 570 artefaktach daly dla klasy „istnial” 74,418 / 74,418 / 74,417 s; z ustalonym ziarnem haszowania dwa razy 74,418. Przyczyna jest zlokalizowana w kodzie, a nie zgadnieta: petla idzie po ZBIORZE napisow, a akumulacja dodaje liczby zmiennoprzecinkowe w kolejnosci, ktora ten zbior narzuca — kolejnosc zbioru zalezy od ziarna haszowania, a dodawanie float nie jest laczne. Roznica to jedna tysieczna sekundy na 74 i nie zmienia zadnego wniosku, ale jest zmierzona wlasnoscia przyrzadu, wiec stoi w raporcie, a nie w milczeniu. Wszystkie pozostale liczby odtworzyly sie identycznie. Ile bramek w drzewie sumuje tak samo, stoi jako 6.D350. Raport: `reports/6d341-osiemdziesiat-procent-przyrostu-robi-dziesiec-modulow.md` | M |
 | 6.D342 | **ZROBIONE w #PR (21.09.2026): pary nieodnotowane są DWIE, a nie jedna — i obie z tego samego przebiegu; a z pięciu stałych trzy pary nie mają Z CZEGO mieć.** **CZTERY USTERKI PRZYRZADU, wszystkie zgłoszone, nie zaszyte:** (1) komentarz brany tylko bezpośrednio nad stałą, a w drzewie dwie stałe dzielą jeden blok komentarza, więc druga nie weszła do populacji w ogóle; (2) szukanie wartości w trzech polach artefaktu zamiast czterech — jedna z szukanych liczb stoi w czwartym; (3) brak odsiewania PROGÓW, choć pole żądało tego wprost — odsiewam je **miarą, nie nazwą**: próg to stała, wobec której cokolwiek się w tym module porównuje, i pięć z dziesięciu wskazujących przebieg jest progami; (4) czwarta znaleziona dopiero przy CZYTANIU wyniku — jedna wartość nie jest czasem, tylko rozstępem w procentach, a przyrząd dopasowywał samą liczbę, czyli popełnił pomyłkę kategorii. Wersja pierwsza dawała osiem stałych i ZERO par. **TRZY LICZBY, KTORYCH ZADALO POLE:** stałych zmiennoprzecinkowych w obu modułach **12**, wskazujących konkretny przebieg **10**, progów odsianych **5**, populacja **5**. **PAR NIEODNOTOWANYCH SA DWIE, ODNOTOWANYCH ZERO.** Przewidywanie W4 trafione, więc warunek obalenia się nie uruchamia: **wypadek z 6.D332 §6 nie jest odosobniony — ale nie jest też wzorcem**, bo obie pary pochodzą z JEDNEGO I TEGO SAMEGO przebiegu, tego z incydentu na kontenerze. **Druga para jest mocniejsza od pierwszej: ściana tego samego commita różni się 3,4-krotnie** (521,900 s wobec 154,160 s), czyli ostrzej niż iloraz 2,166, który 6.D332 policzyło na CPU. **GLOWNE ZNALEZISKO: trzy z pięciu nie mają pary Z CZEGO mieć.** Klasa „nie ma w artefaktach" wygląda na brak danych, a nie jest nim — przeczytałem wszystkie trzy i każda jest nieobecna z własnego, dobrego powodu: dwie **nigdy nie były przebiegiem CI** (komentarz nad nimi mówi wprost, że to pomiar lokalny, zrobiony ręką wokół podprocesu, nie job — artefaktu nie ma, bo go nigdy nie było, a nie dlatego, że wygasł), a trzecia **nie jest czasem**. **NIE ZALICZYLEM TRAFIEN „PRAWIE":** podaję trzy najbliższe wartości z artefaktów i ich odległości (0,174 / 0,229 / 0,240 s, wszystkie na INNYCH commitach), żeby dało się sprawdzić, że odrzucenie nie jest arbitralne — zbieżność rzędu dziesiątych sekundy przy medianie rzędu 150 s to przypadek, a nie para. **Prawdziwa odpowiedź brzmi więc: par nieodnotowanych są dwie Z DWOCH MOZLIWYCH.** **PRZEWIDYWANIA: cztery trafione, jedno obalone, jedno rozdzielone.** W3 obalone co do treści, W2 rozdzielone (wskazujących przebieg jest dziesięć, ale po odsianiu progów populacja ma równo pięć), W5 trafione, ale **z innego powodu, niż zakładałem** — nie wygaśnięcie artefaktu, tylko pomiar lokalny i procenty. CZEGO NIE ZROBIONO: nie dopisano brakującej pary do żadnej stałej, nie zmieniono żadnej stałej, NIE POSTAWIONO BRAMKI na parach, nie tknięto `src/` ani `data/`; **nie rozszerzono populacji na inne moduły** — pole wymienia dwa i tylko je przejeżdżam. ZAUWAZONE, NIE TKNIETE: odsiewanie progów porównaniem ma granicę, którą widać na tej populacji — stała używana I jako próg, I jako zapis pomiaru wypadłaby jako próg i zniknęła z pytania; w tych dwóch modułach taka nie występuje, sprawdziłem wszystkie dwanaście, ale gwarantuje to drzewo, a nie reguła. Raport: `reports/6d342-pary-nieodnotowane-sa-dwie-z-dwoch-mozliwych.md` | M |
 | 6.D343 | **ZROBIONE w #PR (21.09.2026): wzorców składanych z listy nazw są TRZY na 197 — a najciekawszy nie składa się z listy, tylko z INNEGO wzorca.** **USTERKA PRZYRZADU ZLAPANA PRZEZ KONTROLE, a nie poprawiona po cichu:** wersja pierwsza postawiła `NAZWA_ZAPADKI` w klasie „inne wyrażenie", bo moja definicja mówiła „na WIERZCHU stoi `join`", a prawdziwy kształt to konkatenacja, w której `join` siedzi w środku. Ścieżka liczby przez obie wersje: **0 → 3**. Lekcja jest o pisaniu definicji, nie o tym module: **definicja mówiąca o POZYCJI WEZLA opisuje jeden kształt zapisu, a nie konstrukcję** — a pytanie pola dotyczyło konstrukcji. **TRZY LICZBY, KTORYCH ZADALO POLE:** wywołań `re.compile` w `tools/tests/` jest **197** w 147 plikach, literałów **186 (94,4 %)**, wyrażeń **11 (5,6 %)**, składanych z listy nazw **3** (`NAZWA_ZAPADKI`, `GOLY_PARSE`, `TRY_PARSE`); skan po źródle pominąłby **11**, a zobaczyłby ze złą treścią **0**. **PRZECZYTALEM WSZYSTKIE JEDENASCIE** — przy tylu przypadkach czytanie bije klasyfikowanie (6.D317) — i klasa „inne wyrażenie" rozpadła się na cztery rodziny, z których **żadna nie jest niedbałością**: jedna nazwa wstawiana przez `re.escape` (3), wartość liczbowa z czasu wykonania (3), stała modułu (1), wyciągnięty z innego wzorca (1). **GLOWNE ZNALEZISKO:** `BARE_TOKEN` bierze listę rozszerzeń nie ze zbioru nazw, tylko **z tekstu innego skompilowanego wzorca**, wyłuskanego z niego trzecim wzorcem — odczytanie jego wartości ze źródła wymagałoby uruchomienia dwóch wzorców po drodze. Intencja jest ta sama co przy `NAZWA_ZAPADKI` i ostrzeżenie pola, żeby nie liczyć konieczności jako niedbałości, **sprawdza się na wszystkich czterech przypadkach dzielenia jednego źródła prawdy**. **JEDENASTKA NIE JEST JEDNORODNA i mówię to zamiast podać samą liczbę:** jeden odzyskuje się jednym skokiem po stałej modułu, trzy jednym skokiem po kolekcji, **sześć nie odzyskuje się wcale** (wstawiają nazwę z pętli wołającego albo liczbę policzoną tuż przed), jeden nie odzyskuje się bez uruchomienia dwóch wzorców. **PRZEWIDYWANIA: cztery trafione, dwa obalone, oba na moją niekorzyść.** P5 obalone — dwa z trzech wzorców składanych stoją w module czytającym `src/Sim.Runner/Program.cs` JAKO TEKST C#, nie prozę i nie historię gita. P6 obalone i **to jest zdanie mocniejsze niż trafienie**, tak jak stało w warunku obalenia spisanym przed pomiarem: usterka z 6.D334 §1 ma dokładnie JEDNA postać — niewidoczność — a nie dwie. **WLASNE ZNALEZISKO POBOCZNE OBALILEM SAM, PRZED ODDANIEM RAPORTU:** napisałem najpierw, że wyłuskanie z `.pattern` jest w drzewie jedyne i że nic go nie pilnuje; sprawdzenie pokazało **siedem odczytów w trzech modułach**, **dwa** miejsca wyłuskujące alternatywę i **obie** mają obronę — bramkę oraz `assert` z komunikatem. Akapit jest przepisany, a nie dopisany obok, i zostaje z niego jedno zdanie, które się broni: żadna z tych obron nie pilnuje, że alternatywa w `PATH_TOKEN` jest **jedna**. CZEGO NIE ZROBIONO: nie przepisano żadnego wzorca na literał, nie zmieniono sposobu składania, NIE POSTAWIONO BRAMKI na literalności wzorca, nie tknięto `src/` ani `data/`; **nie rozszerzono populacji na `re.search`, `re.match` i `re.findall`** — wybór zapisany w definicjach PRZED pomiarem, żeby nie dało się go potem naciągnąć; **nie skakano po nazwach rekurencyjnie**, a przypadków nierozstrzygniętych jednym skokiem jest **zero** i podaję tę liczbę zamiast ją przemilczeć. Raport: `reports/6d343-trzy-wzorce-z-listy-nazw-na-sto-dziewiecdziesiat-siedem.md` | M |
-| 6.D344 | **Odsiewanie adresu napisane po raz drugi na miejscu — ile takich kopii** | zmierzone 21.09.2026 przy 6.D334: dwa pomiary nazw w prozie odsiewaja adresy plikow i KAZDY WLASNYM wzorcem — jeden pozycza `ADRES_NIE_TWIERDZENIE`, drugi ma `ODSYLACZ_PLIKU` napisany wiersz pod tym, ktory liczy. Ile jeszcze razy to samo odsiewanie jest napisane od nowa, nie policzyl nikt | M |
-| 6.D345 | **Sto zwrotow to stala — ile czytnikow zdjelaby jedna klauzula** | zmierzone 21.09.2026 przy 6.D336: z 322 zwrotow w klasie nierozstrzygnietej STO to wezel `Constant` (`return None`, `return True`, `return False`), czyli ksztalt znany BEZ ZADNEGO SKOKU. Ile czytnikow zdjelaby jedna klauzula i ile z nich miesza stala z innym ksztaltem, nie policzyl nikt | M |
-| 6.D346 | **Przypisanie, ktorego regula skoku nie widzi — rozpakowanie krotki i `+=`** | zmierzone 21.09.2026 przy 6.D336: z czterdziestu czterech nazw zwracanych golo OSIEMNASCIE dostaje wartosc przez rozpakowanie krotki albo `+=`, a regula jednego skoku oglada `ast.Assign` z celem `ast.Name` — to sa przypisania W ZASIEGU, ktorych regula nie widzi, a nie zmienne spoza zasiegu. Ile ich jest w calym `tools/tests/`, nie policzyl nikt | M |
+| 6.D344 | **ZROBIONE (25.09.2026): 4 sita adresów, 1 pożyczone i 3 lokalne** | Na wspólnym wejściu 0/6 par ma ten sam wynik, 6/6 ma różny zasięg; tylko jedna para ma 0 wspólnych trafień. Goła nazwa z rozszerzeniem trafia w `ODSYLACZ_PLIKU`, a nie w `test_field_paths.PATH_TOKEN`. Pomiary, wyłączenia z populacji i tabela sześciu par: `reports/6d344-cztery-sita-adresow.md`. Żadnego wzorca nie scalono ani nie zmieniono. | M |
+| 6.D345 | **ZROBIONE (25.09.2026): świeży census stałych zwrotów.** W odtwarzalnej populacji 86 funkcji z co najmniej jednym zwrotem stałej: 12 zwraca wyłącznie stałe `str` lub `bool`, 1 wyłącznie `None`, 73 miesza stałą z innym wyrażeniem lub `yield`; suma 12+1+73=86. Jedna klauzula mogłaby zdjąć 13 z tego podzbioru. Historycznego spadku klasy 204 z 6.D336 nie da się twierdzić bez tamtego nieutrwalonego klasyfikatora. Przyrząd i pełna lista: `tools/tests/constant_returns.sh`, `reports/6d345-stale-pomiar-stalych-zwrotow.md`; dalsze odtworzenie w 6.D373. | M |
+| 6.D346 | **ZROBIONE jako bieżący pomiar (25.09.2026), historyczna kontrola 18 niezdana.** W bieżącym `tools/tests/` jest 788 instrukcji rozpakowania (792 cele) i 315 `+=`; 26 par czytnik/zwracana nazwa używa tych wiązań (12/14), 25 ma lokalnie czytelny kształt, 1 wymaga skoku do `IR.load_alignment`. Ten sam szeroki przyrząd na bazowym commicie 6.D336 także daje 26, więc 18 dotyczy dawnej nieutrwalonej klasy 204; bez jej odtworzenia nie ma porównywalności. Raport i przyrząd: `reports/6d346-rozpakowanie-i-augassign.md`, `tools/tests/hidden_assignments.sh`; dalsza kontrola historycznej populacji w 6.D373. | M |
 | 6.D347 | **Jak szybko rosnie udzial adresow obejrzanych regula kandydatow** | zmierzone 21.09.2026 przy 6.D337: przestawienie JEDNEJ pozycji na WYKONANE przesunelo udzial z 246/1977 na 248/1982 i przebilo gorna strone pasma w `tools/tests/test_field_paths.py` o dwa adresy; pomiar z 6.D158 dawal 101/1276. Dwa punkty to nie tempo — ile wynosi naprawde i czy rosnie liniowo, nie policzyl nikt | M |
-| 6.D348 | **Ile razy ta sama wielkosc trafia do jednego pliku z dwiema dokladnosciami** | zmierzone 21.09.2026 przy 6.D338: dwa miejsca w `tools/track/tunnel_width.py` licza mediane TEJ SAMEJ wielkosci - szerokosci tunelu - a zaokraglaja ja do dwoch i do trzech miejsc po przecinku; obie liczby trafiaja do tego samego pliku wyjsciowego. Ile takich par stoi w calym `tools/`, nie policzyl nikt i nie pilnuje tego zadna bramka | M |
+| 6.D348 | **ZROBIONE (25.09.2026): audyt dokładności `round` w narzędziach toru i Blendera.** 368 wywołań z jawną precyzją; 147 kandydatów ze wspólnym rdzeniem po sicie nazw i wyrażeń; po prześledzeniu wartości **7 par** tej samej wielkości z różną dokładnością i **7 par** mogących trafić do jednego JSON. Para kontrolna median szerokości `tunnel_width.py` (2/3 miejsca) jest w wyniku. Odrzucone zbieżności nazw i warunkowy `--survey` opisuje `reports/6d348-dwie-dokladnosci.md`. Bez zmian geometrii, dokładności i zapadek. | M |
+| 6.D370 | **Czy dwie dokładności zmieniają widoczną liczbę, czy tylko liczbę cyfr** | 6.D348 znalazło siedem par z różną dokładnością w jednym JSON, ale pomiar statyczny nie powiedział, w ilu przypadkach zaokrąglenie zmienia wartość przy prawdziwym wyniku. Zmierzyć na kontrolowanym wejściu każdej pary i podać liczbę par z różną wartością oraz listę — bez zmiany dokładności | M |
 | 6.D349 | **Ile nazw niesie mianownik ulamka bez licznika** | zmierzone 21.09.2026 przy 6.D339: wszystkie piec mianownikow ulamka w nazwach stoi po `Per` albo po podkresleniu, ale JEDEN nie ma licznika - nazwa mowi na kilogram, nie mowiac, czego. Ile nazw w `src/` i `tools/` niesie mianownik, ktorego licznik nie pada w tej samej nazwie, nie policzyl nikt | M |
 | 6.D350 | **ZROBIONE w #PR (23.09.2026): sumowań `float` po zbiorze jest pod `tools/` ZERO — a przeliczenie rosnąco i malejąco NIE łapie jedynego rozjazdu, który ktoś zaobserwował.** **TRZY LICZBY: 0 · 0 · 0.** Skan AST 452 miejsc sumowania w 109 plikach znajduje po zbiorze trzy — `tools/tests/test_assertion_gate.py:372` i `:1140` oraz `tools/tests/test_prose_counts.py:1121` — i **wszystkie trzy sumują liczby całkowite**; pierwsze stoi przy zapadce, więc to jest dokładnie przypadek, przed którym pole ostrzegało: **konstrukcja jest, zjawiska nie ma**. Sonda podmieniająca `sum` na pełny przebieg zestawu (174 miejsca, 261705 wywołań) widzi po zbiorze te same trzy i ani jednego z `float`. **Lista bramek porównujących z zapadką wynik chwiejny jest pusta** — zjawisko z 6.D341 żyje wyłącznie w przyrządach pisanych poza drzewem. **KONTROLA PRZYRZĄDU W BRZMIENIU POLA NIE PRZECHODZI:** pętla 6.D341, odtworzona z opisu raportu na tych samych artefaktach, daje z losowym ziarnem 74,417 albo 74,418 (47 ze 200 ziaren daje 74,417), ale **rosnąco i malejąco daje w obu kolejnościach 74,418** — para skrajnych kolejności jest podłogą, nie rozstrzygnięciem; zdaje ją dopiero 10000 permutacji (2642 razy 74,417). **GŁÓWNE ZNALEZISKO: przyczyną nie są rzędy wielkości ani liczba składników** — klasa „doszedł” ma ich trzynaście i też jest chwiejna (81 ze 200 ziaren daje 42,655). `math.fsum` daje dokładnie 74,4175 i 42,6545, czyli sumy **leżą na granicy zaokrąglenia**, bo mediana z parzystej liczby artefaktów (42 i 48) z trzema miejscami kończy się piątką na czwartym miejscu w co czwartym module. CZEGO NIE ZROBIONO: żadnego sumowania nie przepisano na `math.fsum` ani `sorted`, nie ustawiono ziarna, nie ruszono zapadek, `src/` ani `data/`; sonda nie obejmuje `+=` w pętlach ani kodu, którego zestaw nie wykonuje. ZAUWAŻONE, NIE TKNIĘTE: 6.D341 podaje klasę „doszedł” (42,655) jako odtworzoną identycznie, a w odtworzeniu 119 ze 200 ziaren daje 42,654 — bez tamtego przyrządu nie umiem rozstrzygnąć, czy się różni, czy trzy przebiegi trafiły w tę samą wartość. Raport: `reports/6d350-sumowan-float-po-zbiorze-jest-zero-a-rosnaco-malejaco-nie-lapie-rozjazdu.md` | M |
 | 6.D351 | **Ile kosztuje w bramkach uruchomienie cudzego skryptu** | zmierzone 21.09.2026 przy 6.D341: dwa moduly z pierwszej dziesiatki przyrostu wnosza razem 17,774 s i obydwa uruchamiaja `doctor.sh` w podprocesie; sa w tej dziesiatce jedynymi, ktore nie czytaja ani prozy, ani drzewa. Ile modulow pod `tools/tests/` startuje podproces i ile to razem kosztuje, nie policzyl nikt | M |
-| 6.D352 | **Czy wyluskanie z `PATH_TOKEN` przetrwa DRUGA alternatywe w tym wzorcu** | zmierzone 21.09.2026 przy 6.D343: dwa miejsca wyluskuja liste rozszerzen z tekstu wzorca sciezek PIERWSZYM trafieniem, i obie maja obrone — jedna bramke, druga `assert`. Zadna nie sprawdza, czy grupa nieprzechwytujaca w tamtym wzorcu jest JEDNA; druga, dopisana kiedykolwiek, zostalaby wzieta albo pominieta zaleznie od kolejnosci | M |
+| 6.D352 | **ZROBIONE w #PR (23.09.2026): druga grupa `(?:…)` mieści się w obu wzorcach i zagrożenie jest REALNE — a `assert` nie zapala się ani razu na dziewięciu wariantach.** **Poprawka założenia:** wzorców `PATH_TOKEN` są DWA, nie jeden — każde wyłuskanie czyta własny, a listy rozszerzeń różnią się pięcioma (`glb`, `jsonl`, `log`, `png`, `zip` zna tylko wzorzec pól kolejki). Kontrola przyrządu przechodzi: na każdym z dzisiejszych wzorców oba wyłuskania dają tę samą listę. Grup nieprzechwytujących: **1** we wzorcu pól kolejki, **2** we wzorcu raportów — drugą (opcjonalna wiodąca kropka) wyłuskanie przeżywa dzięki klasie `[a-z|]+`, nie dzięki obronie. Na wejściu syntetycznym (podział alternatywy, zagnieżdżenie, człon przed i po rozszerzeniu, nowe `sln|godot|cfg` przed albo po) kolejność grup decyduje o tym, co zostaje wzięte; bramka `test_wzorzec_golej_nazwy_dzieli_rozszerzenia_z_PATH_TOKEN` zapala się tylko, gdy druga grupa zabiera `csproj`, `geojson` albo `py` (3 z 17 rozszerzeń wyniesionych pojedynczo), a 5 z 17 nie zapala w module niczego — przy `yml` ginie 54 gołych nazw. `assert` w `_rozszerzenia_we_wzorcu` milczy na wszystkich dziewięciu wariantach; łapie za niego równość z `ROZSZERZENIA_PILNOWANE`, ślepa, gdy druga grupa stoi PO pierwszej. Żadnej obrony nie ruszono (poza zakresem). Raport: `reports/6d352-druga-grupa-miesci-sie-a-assert-nie-zapala-sie-ani-razu.md`; znalezisko poboczne — 6.D360. | M |
 | 6.D353 | **Ile bramek twierdzi o TRESCI wzorca, a nie o jego zachowaniu** | zmierzone 21.09.2026 przy 6.D343: szesc z jedenastu wzorcow skladanych w czasie wykonania NIE odzyskuje sie ze zrodla wcale, wiec bramka sprawdzajaca taki wzorzec przez czytanie jego tekstu sprawdza szablon, a nie to, co wzorzec robi. Ile bramek robi jedno, a ile drugie, nie policzyl nikt | M |
 | 6.D359 | **ZROBIONE w #PR (23.09.2026): `queue_row` dzielił cały `docs/TASKS.md` na wiersze przy KAŻDYM wywołaniu — koszt kolejki rósł z kwadratem długości pliku.** Decyzja właściciela z 23.09.2026: zestaw ma zejść pod próg 440 s bez ruszania progu. Pomiar zamiast szacunku: jedno wywołanie `python3` zamiast czterech w `doctor.sh` oszczędzałoby ~2 s z ~9 s, a profil `open_items` pokazał 430 wywołań `queue_row` i `splitlines` 1,4 s z 2,2 s. Słownik budowany raz na tekst (`functools.lru_cache`, kluczem jest treść) daje odpowiedź identyczną dla 443 numerów; cztery odczyty kolejki 6,96 → 0,15 s, `doctor.sh --no-tests` 10,5 → ~2,0 s, zestaw lokalnie 485 → 298 s ściany, 288,8 s CPU. Próg, `doctor.sh` i reguły bramek bez zmian | S |
-| 6.D356 | **`Sim.Runner` na dokumencie JSON innego KSZTAŁTU wypisuje angielski komunikat `System.Text.Json`** | zmierzone 22.09.2026 przy 6.D235: `line --axis` na pliku `[]`, `5` i `{"points": 5}` kończy się kodem 1 — handler łapie `InvalidOperationException` — ale wierszem `BŁĄD: <plik>: The requested operation requires an element of type 'Object', but the target element has type 'Array'.` Scena dostała na to własne słowa (`BadFile`), CLI nie. Poprawka dotyczy wyłącznie tekstu odmowy, nie kodu wyjścia | S |
-| 6.D357 | **Wiersz odmowy przy zepsutej składni JSON niesie angielski ogon parsera** | zmierzone 22.09.2026 przy 6.D235: `JsonText.Parse` owija `JsonException` w `FormatException` z polskim początkiem, ale dokleja `error.Message` .NET-a, więc gracz widzi `oś trasy nie jest poprawnym JSON-em: '{' is an invalid start of a property name. Expected a '"'. LineNumber: 0 \| BytePositionInLine: 1.` Pozycja błędu jest w `JsonException` jako liczby (`LineNumber`, `BytePositionInLine`) i da się ją podać po polsku bez tekstu parsera | S |
+| 6.D356 | **ZROBIONE w #PR (23.09.2026): `Sim.Runner` na dokumencie innego KSZTAŁTU mówi po polsku — a o tym, czy wyjątek jest „kształtem”, rozstrzyga ZESTAW, który go rzucił, nie jego typ.** Filtr po typie, jak `BadFile` sceny, był tu niemożliwy: `src/Sim/` rzuca własne `KeyNotFoundException` i `InvalidOperationException` z polskimi komunikatami (`plan … nie ma bloku …`), więc `Program.IsWrongJsonShape` patrzy na `TargetSite` wyjątku i rozpoznaje tylko te rzucone przez `System.Text.Json`. Polski opis (`Program.WrongJsonShapeText`) wchodzi w DWÓCH miejscach: w `FromFile` (z nazwą pliku, powód parsera zostaje jako `InnerException`) i we wspólnym handlerze `Main` — bo kształt potrafi wyjść także POZA czytnikiem (`--timetable` z `"segments": 5` rzuca w `CompareWithTimetable`). **Test złapał moje własne słowo:** pierwsza wersja opisu mówiła „pole albo element”, a `element` stoi też w komunikacie `System.Text.Json` — test biorący słowa zakazane z PRAWDZIWEGO wyjątku zapalił się na tym i opis mówi dziś „wpis”. Trzy kształty z pomiaru (`[]`, `5`, `{"points": 5}`): kod 1 jak przed zmianą, wiersz bez ani jednego słowa parsera; `{}` nadal daje polską odmowę loadera. Ślad sześciu osi bez zmiany co do bajtu. Ze znaleziska dopisane 6.D361 | S |
+| 6.D357 | **ZROBIONE w #PR (23.09.2026): odmowa zepsutej składni mówi po polsku, GDZIE — „w wierszu 1, bajt 2” — i nie niesie już ani jednego słowa parsera.** `JsonText.Parse` składa wiersz z liczb `JsonException.LineNumber` i `BytePositionInLine`, **liczonych od 1**, bo .NET liczy od zera, a edytor gracza od jedynki — przybite kształtem wielowierszowym, w którym `x` stoi w trzecim wierszu na trzecim bajcie. Zdanie parsera zostaje wyłącznie jako `InnerException`. Test na 10 parach loader × kształt (`{{{`, napis pusty) żąda zbioru słów wspólnych z `error.Message` PUSTEGO i pozycji równej liczbom parsera plus jeden; typ wyjątku (`FormatException`) i kody wyjścia bez zmiany. **Słowo liczy się z łącznikiem w środku** i to jest zmierzone, nie przyjęte: sito po samych literach zapala się na polskim „JSON-em”, bo zdanie parsera przy napisie pustym ma „any JSON tokens” (KN-4). | S |
+| 6.D365 | **ZROBIONE w #PR (23.09.2026): zagnieżdżony literał interpolowany formatuje się w kulturze BIEŻĄCEJ, zanim zewnętrzny `string.Create(InvariantCulture, …)` go zobaczy — i test „CultureInvariant” kultury nie przełączał.** Zmierzone przez audyt 23.09.2026 na runnerze `woogitsu-ubuntu26-i56500t-02` z `LANG=pl_PL.UTF-8`: 1 niepowodzenie z 675 (`TheResultLineIsCompleteAndCultureInvariant`, „-1,000 m” zamiast „-1.000 m”), z `LC_ALL=C` zielono. Przeszukanie `src/` po wierszach z dwoma `$"`: osiem zagnieżdżeń, z czego LICZBĘ formatują dwa — `TrainingResult.cs` (błąd zatrzymania) i `StationStop.cs` (czas od zatrzymania; zmierzone „0,24 s” na pl-PL); sześć pozostałych wstawia napis, `bool` albo `enum`. Oba zagnieżdżenia niosą teraz `InvariantCulture` same; oba testy przełączają `CurrentCulture` na pl-PL i przywracają ją w `finally`, więc łapią błąd na maszynie z `C` — kontrola negatywna czerwona bez zmiennych locale | S |
+| 6.D366 | **ZROBIONE w #PR (23.09.2026): czytnik `times` przyjmował tylko kropkę, a `times` pisze separator ułamka z lokalizacji — job `tools` padał na runnerze `pl_PL.UTF-8` przed werdyktem budżetu.** Zmierzone 23.09.2026: job 107205600232 (run 35836807502) na `woogitsu-ubuntu26-i56500t-02` z `LANG=pl_PL.UTF-8` skończył się `ValueError: …times-po.txt: drugi wiersz nie wygląda jak wyjście times: '10m33,358s 0m11,208s'`; odtworzone w kontenerze sesji na lokalizacji zbudowanej `localedef`: `LC_ALL=pl_PL.UTF-8 bash -c times` daje `0m0,003s 0m0,000s`, `LC_ALL=C` — kropkę. **Wybrana droga (b), czytnik, nie (a), `LC_ALL=C` w workflowie:** wada siedzi w czytniku, który zakłada format, jakiego `times` nie obiecuje, a poprawka w jednym miejscu prawdy działa na każdym runnerze i dla każdego, kto czyta plik `times` poza tym krokiem; `LC_ALL=C` naprawiłby dwa wywołania z dziesięciu workflowów i zostawił czytnik tak samo kruchym. `TIMES_WIERSZ` przyjmuje `[.,]` jako jedyny separator, kształt pola poza tym bez zmian; nowy test: wiersz `10m33,358s 0m11,208s` daje 644,566 s, identycznie jak zapis kropką, a dwa separatory w polu nadal są odrzucane. Workflow, `SUITE_CPU_BUDGET_S` i reguły budżetu bez zmian | S |
+| 6.D367 | **ZROBIONE w #768 (23.09.2026): paczka treningu na Windows x64.** Dodano preset Windows i wybór systemu w skrypcie pakowania. `reports/6d367-paczka-windows.md` potwierdza eksport PE32+ x86-64 bez ostrzeżeń, uruchomienie headless na Windows x64 i identyczny SHA-256 telemetrii z paczką Linux. **Ręczny playtest w widocznym oknie pozostaje do wykonania**; przebieg headless nie zamyka odbioru Windows z MB-04. | S |
+| 6.D368 | **ZROBIONE w #769 (23.09.2026): izolacja plików tymczasowych testu CLI i doctora.** `RunnerCommandTests.Rownosc_w_wartosci_znanej_opcji_przechodzi` tworzy własny katalog z identyfikatorem GUID, zachowuje `a=b.csv` jako wartość `--trace` i usuwa katalog w `finally`. `doctor.sh` nadaje obu logom unikatowe nazwy przez `mktemp`. Połączony PR #769 przeszedł 11/11 kontroli CI; szczegółowy zakres i weryfikacja pozostają w bloku zadania poniżej. | S |
+| 6.D369 | **Testy doctora udają brak SDK, lecz widzą systemowe `/opt/dotnet/dotnet`** | 23.09.2026: na runnerze z SDK 10.0.401 pod `/opt` pięć testów `test_dotnet_version.py` daje wynik zależny od hosta, choć podstawiają `HOME` i `PATH`. `doctor.sh` skanuje również trzy bezwzględne ścieżki systemowe. Kontrolowany prefiks tych ścieżek w testach ma zachować zwykłe zachowanie doctora i obie strony próby: brak oraz obecność SDK | S |
+| 6.D361 | **Komunikat bramki rozkładu postaci literału nazywa drzewo „zapisanym”, a zapis „zmierzonym”** | zmierzone 23.09.2026 przy 6.D356: `test_rozklad_SZESCIU_postaci_literalu_zgadza_sie_z_drzewem` wypisuje `rozklad postaci pod tests/ to <widziane>, a zmierzono <oczekiwany>` — liczby z DRZEWA stoją po „to”, a liczby wpisane w zapadkę po „zmierzono”. Przy rozjeździe czyta się to odwrotnie i łatwo przepisać do zapadki nie tę stronę. Poprawka dotyczy wyłącznie tekstu komunikatu | S |
+| 6.D360 | **ZROBIONE (25.09.2026): policzono pięć rozszerzeń pomijanych przez bramkę raportów.** Wynik dla glb/jsonl/log/png/zip: odpowiednio 0/0, 0/0, 6/0, 0/0 i 2/2 (trafienia/braki). Oba brakujące odsyłacze wskazują to samo archiwum GTFS, usunięte po pomiarze zgodnie z wcześniejszym raportem. Kontrola rozszerzenia md: 929 trafień w obu czytnikach. Nie znaleziono zapisanego powodu różnicy wzorców; nie zmieniono żadnego z nich. Pomiar: `reports/6d360-piec-rozszerzen-poza-bramka-raportow.md`. | M |
+| 6.D371 | **Czy dwa odsyłacze ZIP w raportach opisują historyczne wejście, czy obiecują obecny plik?** | 6.D360 znalazło dwa odsyłacze do tego samego usuniętego po pomiarze archiwum GTFS. Trzeba sprawdzić je w kontekście i ustalić, jak odróżniać historyczne wejścia od aktualnych ścieżek przed ewentualnym objęciem ZIP bramką raportów. | M |
+| 6.D372 | **Ile odsyłaczy do plików w raportach stoi poza grawisami i omija kontrolę ścieżek?** | Pomiar 6.D344 wykazał, że raportowy `PATH_TOKEN` wymaga grawisów, a czytnik pól zadań rozpoznaje adres z ukośnikiem także bez nich. Wspólna próbka dała różne wyniki; nie policzono jeszcze rzeczywistych raportów ani tego, które zdania są żywymi odsyłaczami. | M |
+| 6.D373 | **Czy historyczna klasa 204 z 6.D336 daje się odtworzyć?** | Świeży census 6.D345 wskazuje 13 kandydatów, a szeroki census 6.D346 znajduje 26 zamiast historycznych 18 także na bazowym commicie 6.D336. Klasyfikator tworzący dawną klasę 204 nie został zachowany jako kod. Odtworzyć reguły albo imiennie wskazać brakujące kryteria. | M |
+| 6.D374 | **Czy `+=` przez pole albo indeks zmienia obiekt zwracany przez czytnik?** | 6.D346 znalazło 41 instrukcji `+=` z celem innym niż prosta nazwa; bieżący census nazw zwracanych celowo ich nie liczy. Zmierzyć, ile modyfikuje atrybut lub element obiektu, który czytnik potem zwraca, bez zmiany reguły skoku. | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -16358,6 +16402,9 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 
 ##### 6.D344 · Odsiewanie adresu napisane po raz drugi na miejscu — ile takich kopii
 
+**Wynik 25.09.2026:** [pomiar czterech sit i sześciu par](../reports/6d344-cztery-sita-adresow.md):
+4 wzorce, 1 pożyczony, 3 lokalne; 0 identycznych par na wspólnej próbce.
+
 - **Skąd:** zmierzone 21.09.2026 przy 6.D334,
   `reports/6d334-dwa-pomiary-i-oba-odsiewaja-adresy.md` §3. Dwa pomiary nazw
   w prozie odsiewają adresy plików i **każdy własnym wzorcem**: jeden pożycza
@@ -16554,6 +16601,33 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   bramka na dokładności; `src/`; `data/`.
 - **Zależy od:** 6.D338 (stamtąd para wyjściowa), 6.D330 (stamtąd rozpoznawanie
   jednostki po nazwie).
+
+##### 6.D370 · Czy różna dokładność naprawdę zmienia liczbę w raporcie
+
+- **Skąd:** `reports/6d348-dwie-dokladnosci.md` znajduje siedem par tej samej
+  wielkości zapisanej z dwiema dokładnościami w jednym JSON. Samo występowanie
+  `round(x, 2)` i `round(x, 3)` nie mówi, czy w danym wyniku liczby są różne;
+  przykładowo 3,200 i 3,20 oznaczają tę samą wartość.
+- **Dlaczego bez decyzji:** pozycja tylko mierzy wartości na kontrolowanych
+  wejściach i wypisuje rozbieżności. Nie wybiera lepszej dokładności.
+- **Wejście:** `reports/6d348-dwie-dokladnosci.md`,
+  `tools/track/make_test_track.py`, `tools/track/tunnel_width.py`,
+  `tools/blender/clearance_profile.py`, `tools/blender/profile_scan.py`.
+- **Wyjście:** dla każdej z siedmiu par: wspólny lub równoważny wynik wejściowy,
+  dwie liczby po zaokrągleniu i informacja, czy różnią się **wartością**, a nie
+  tylko zapisem; suma par z różną wartością i lista imienna. Osobno oznaczyć
+  pary wymagające `--survey` oraz te zależne od wybrania minimum.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_tree_walks.py test_scan_gates.py
+  ```
+  Oczekiwane: zielone. Kontrola przyrządu: wartość 3,23456 m musi dać 3,23
+  wobec 3,235 m, a 3,20000 m tę samą wartość liczbową przy obu dokładnościach.
+- **Skończone, gdy:** siedem par ma jawne wejście, dwa wyniki i sumę różnic;
+  raport rozdziela różną wartość od różnej liczby cyfr.
+- **Poza zakresem:** zmiana `round`, ujednolicanie formatów, bramka na wartości,
+  zapis do `data/`, kod gry.
+- **Zależy od:** 6.D348 (imienna lista siedmiu par).
 
 ##### 6.D349 · Ile nazw niesie mianownik ułamka bez licznika
 
@@ -16782,6 +16856,93 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   zmiana typu wyjątku, `data/`.
 - **Zależy od:** 6.D235.
 
+##### 6.D365 · Zagnieżdżony literał interpolowany gubi kulturę niezmienną
+
+- **Skąd:** audyt 23.09.2026 na nowym runnerze właściciela
+  (`woogitsu-ubuntu26-i56500t-02`, maszyna `minihp`, `LANG=pl_PL.UTF-8`):
+  `dotnet test tests/Sim.Tests` daje 1 niepowodzenie z 675 —
+  `TheResultLineIsCompleteAndCultureInvariant`, linia wyniku niesie „-1,000 m”
+  zamiast „-1.000 m”. Z `LC_ALL=C` zielono. Zagnieżdżony `$"{błąd:+0.000;…} m"`
+  formatuje się w kulturze bieżącej, zanim zewnętrzny
+  `string.Create(CultureInfo.InvariantCulture, …)` dostanie gotowy napis. Test nazywa
+  się „CultureInvariant”, ale kultury nie przełącza, więc zależy od maszyny.
+  Pozycję wziął od ręki prowadzący sesję, bo psuje CI na runnerze właściciela.
+  Kontener sesji nie ma locale pl_PL (lista locale: C, C.utf8, POSIX), a mimo to
+  odtwarza audyt co do znaku: .NET bierze kulturę ze zmiennej LANG i dane z ICU, nie
+  z locale systemu — stary kod z LANG=pl_PL.UTF-8 daje tu to samo 1 z 675.
+- **Wejście:** `src/Sim/Train/TrainingResult.cs`, `src/Sim/Train/StationStop.cs`,
+  `tests/Sim.Tests/TrainingSessionTests.cs`, `tests/Sim.Tests/DoorCycleTests.cs`;
+  wzór przełączania kultury: `MovementAuthorityTests.cs`, `SpeedProfileTests.cs`,
+  `EnergyAccountTests.cs`.
+- **Wyjście:** zagnieżdżenia formatujące liczbę niosą `InvariantCulture` same; testy
+  obu linii ustawiają `CurrentCulture` na pl-PL i przywracają ją w `finally`.
+- **Weryfikacja:**
+  ```bash
+  dotnet test tests/Sim.Tests && dotnet test tests/Game.Tests
+  python3 tools/tests/test_all.py
+  python3 tools/ci/assert_line_trace.py --traces build/trace
+  ```
+  Oczekiwane: zielone; ślad sześciu osi bez zmiany co do bajtu. Kontrola negatywna:
+  przywrócone stare formatowanie w każdym z dwóch miejsc → odpowiedni test czerwony
+  w kontenerze z `C`, bez żadnej zmiennej locale.
+- **Skończone, gdy:** z 8 zagnieżdżeń literału interpolowanego w `src/` oba
+  formatujące liczbę (2 z 8) niosą `InvariantCulture`, a 2 testy są czerwone na
+  starym kodzie przy `LANG`/`LC_ALL` nieustawionych.
+- **Poza zakresem:** sześć zagnieżdżeń wstawiających napis, `bool` albo `enum`
+  (kultura ich nie dotyczy); `src/Game/`; analizator albo reguła zakazująca
+  zagnieżdżeń; `data/`.
+- **Zależy od:** nic.
+##### 6.D366 · Czytnik `times` zna tylko kropkę, a `times` pisze separator z lokalizacji
+
+- **Skąd:** zmierzone 23.09.2026. Job `tools` (job 107205600232, run 35836807502) na
+  runnerze `woogitsu-ubuntu26-i56500t-02` z `LANG=pl_PL.UTF-8` padł PRZED werdyktem
+  budżetu CPU wierszem `ValueError: …times-po.txt: drugi wiersz nie wygląda jak
+  wyjście times: '10m33,358s 0m11,208s'`. Wbudowane `times` pisze część ułamkową
+  separatorem z `LC_NUMERIC`, a `TIMES_WIERSZ` w `tools/tests/test_suite_runtime_budget.py`
+  przyjmuje wyłącznie `[\d.]+`; `.github/workflows/python-tests.yml` woła `times > …`
+  bez `LC_ALL=C`. Pozycja wzięta od ręki decyzją prowadzącego sesję, bo psuje CI
+  na nowym runnerze właściciela.
+- **Wejście:** `tools/tests/test_suite_runtime_budget.py` (`TIMES_WIERSZ`,
+  `cpu_dzieci`), `.github/workflows/python-tests.yml` (krok `Run tool tests`),
+  `tools/tests/test_ci_workflows.py` (bramki czytające treść kroków).
+- **Wyjście:** jedna z dwóch dróg, wybrana i uzasadniona w commicie — (a) `LC_ALL=C times`
+  w workflowie albo (b) czytnik przyjmujący oba separatory — oraz test czytnika na
+  wierszu `10m33,358s 0m11,208s` dającym ten sam czas co `10m33.358s 0m11.208s`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_suite_runtime_budget.py test_ci_workflows.py
+  python3 tools/tests/test_all.py
+  ```
+  Oczekiwane: zielone. Kontrola negatywna: czytnik z samą kropką zapala nowy test.
+- **Skończone, gdy:** wiersz z przecinkiem i wiersz z kropką dają tę samą liczbę
+  644,566 s, plik `times` zapisany pod `pl_PL.UTF-8` czyta się bez `ValueError`,
+  a 1 kontrola negatywna (sama kropka) daje czerwone.
+- **Poza zakresem:** `SUITE_CPU_BUDGET_S` i każda inna reguła budżetu; konfiguracja
+  lokalizacji runnera; pozostałe workflowy; `src/`; `data/`.
+- **Zależy od:** 6.D42 (stamtąd `cpu_dzieci` i dwa odczyty `times`).
+##### 6.D361 · Komunikat bramki rozkładu postaci literału ma zamienione etykiety
+
+- **Skąd:** 6.D356, pomiar własny przy przeliczaniu zapadki. W
+  `tools/tests/test_csharp_test_methods.py` asercja
+  `test_rozklad_SZESCIU_postaci_literalu_zgadza_sie_z_drzewem` składa komunikat
+  `` "rozklad postaci pod `%s/` to %s, a zmierzono %s" % (korzen, widziane, oczekiwany) ``:
+  `widziane` jest policzone z drzewa, `oczekiwany` jest wpisem `ROZKLAD_POSTACI`.
+  Słowo „zmierzono” stoi więc przy liczbie, której nikt w tym przebiegu nie mierzył.
+- **Wejście:** `tools/tests/test_csharp_test_methods.py`.
+- **Wyjście:** komunikat, w którym liczba z drzewa i liczba z zapadki są nazwane
+  zgodnie z tym, skąd pochodzą; kontrola negatywna na rozjechanym wpisie.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_csharp_test_methods.py
+  ```
+  Oczekiwane: zielone; przy celowo zmienionym wpisie `ROZKLAD_POSTACI` komunikat
+  podaje wartość z drzewa po słowie odnoszącym się do drzewa.
+- **Skończone, gdy:** w tej jednej asercji obie liczby stoją przy właściwych
+  etykietach, a warunek asercji jest ten sam co przed zmianą.
+- **Poza zakresem:** inne komunikaty tego modułu, liczby w `ROZKLAD_POSTACI`,
+  czytnik `klasy_literalow`.
+- **Zależy od:** 6.D356.
+
 ##### 6.D353 · Ile bramek twierdzi o TREŚCI wzorca, a nie o jego zachowaniu
 
 - **Skąd:** zmierzone 21.09.2026 przy 6.D343. Sześć z jedenastu wzorców składanych
@@ -16819,3 +16980,231 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   wyborze techniki; `src/`; `data/`.
 - **Zależy od:** 6.D343 (stamtąd jedenaście wzorców), 6.D334 (stamtąd sito po
   kształcie źródła).
+
+##### 6.D368 · Izolacja plików tymczasowych testu CLI i doctora
+
+- **Skąd:** `tests/Sim.Tests/RunnerCommandTests.cs` używało stałego `a=b.csv`, a
+  `doctor.sh` stałych `mbxl_tests.log` i `mbxl_sim_tests.log`; współdzielony katalog
+  tymczasowy dopuszcza kolizję przy równoległych przebiegach.
+- **Wejście:** `tests/Sim.Tests/RunnerCommandTests.cs`, `doctor.sh`.
+- **Wyjście:** unikatowy katalog testu z plikiem zawierającym znak `=` w nazwie oraz unikatowe nazwy obu
+  logów doctora.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py
+  dotnet test tests/Sim.Tests
+  bash doctor.sh
+  ```
+  Oczekiwane: zielone zestawy, a dwa jednoczesne przebiegi nie używają tej
+  samej ścieżki logu.
+- **Skończone, gdy:** nazwa `a=b.csv` pozostaje wartością `--trace`, test usuwa
+  własny katalog, a dwa logi doctora dostają unikatowe ścieżki.
+- **Poza zakresem:** zmiana działania `Sim.Runner`, formatów śladu i progów CI.
+- **Zależy od:** nic.
+
+##### 6.D369 · Izolacja systemowych ścieżek SDK w testach doctora
+
+- **Skąd:** joby #767 i #768 z 23.09.2026 uruchomione na runnerze z
+  `/opt/dotnet/dotnet` (10.0.401) dały pięć tych samych niepowodzeń w
+  `test_dotnet_version.py`. Test „bez SDK na dysku” podstawił własne `HOME` i `PATH`,
+  ale prawdziwy `doctor.sh` znalazł SDK w bezwzględnej ścieżce `/opt`.
+- **Wejście:** `doctor.sh`, `tools/tests/test_dotnet_version.py`, logi jobów
+  `107285400016` i `107285762826`.
+- **Wyjście:** systemowe ścieżki poszukiwania SDK przyjmują kontrolowany prefiks
+  ustawiany przez testy. Przy pustym prefiksie doctor nadal sprawdza te same
+  ścieżki `/usr` i `/opt`. Testy sprawdzają zarówno brak SDK pod prefiksem, jak
+  i znalezienie go w kontrolowanej ścieżce systemowej.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_dotnet_version.py
+  python3 tools/tests/test_all.py
+  bash doctor.sh --no-tests
+  ```
+  Oczekiwane: testy niezależne od tego, czy runner ma `/opt/dotnet/dotnet`.
+  Kontrola negatywna: bez prefiksu na hoście z `/opt/dotnet/dotnet` pięć
+  scenariuszy daje czerwone wyniki, zapisane w wymienionych logach.
+- **Skończone, gdy:** scenariusze „brak”, „za stare” i „jest” rozstrzygają się
+  tylko na podstawie atrap testu, a zwykły doctor zachowuje dotychczasowe
+  ścieżki i podpowiedzi.
+- **Poza zakresem:** zmiana wymaganego SDK, instalacja lub usuwanie SDK na
+  runnerze, zmiana budżetu CI i kodu gry.
+- **Zależy od:** 6.D366 i 6.D368, bo wspólny zielony przebieg weryfikuje te
+  poprawki runnerowe razem.
+
+##### 6.D367 · Paczka treningu na Windows x64
+
+- **Skąd:** `src/Game/export_presets.cfg` ma tylko preset Linux, a
+  `tools/release/package-playable.sh` zawsze tworzy binarkę Linux. Odbiór Windows
+  pozostaje otwarty w `docs/PLAYABILITY.md`.
+- **Wejście:** `src/Game/export_presets.cfg`, `tools/release/package-playable.sh`,
+  `tools/tests/test_player_package.py`.
+- **Wyjście:** drugi preset Godota oraz paczka z plikiem wykonywalnym Windows i
+  poprawną instrukcją startu po wybraniu `PACZKA_SYSTEM=windows`.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_player_package.py
+  python3 tools/tests/test_all.py
+  PACZKA_SYSTEM=windows bash tools/release/package-playable.sh build/paczka-win
+  file build/paczka-win/MetroBXL/MetroBXL.exe
+  ```
+  Oczekiwane: zielone testy i `PE32+ x86-64` przy przypiętym Godocie.
+- **Skończone, gdy:** Linux nadal jest domyślnym wariantem, Windows tworzy plik
+  wykonywalny i README z jego nazwą, a paczka zawiera runtime .NET.
+- **Poza zakresem:** ręczny odbiór na Windows, zmiana sceny i zasobów gry.
+- **Zależy od:** MB-04.
+##### 6.D360 · Dwa wzorce o nazwie `PATH_TOKEN` różnią się pięcioma rozszerzeniami
+
+- **Skąd:** zmierzone 23.09.2026 przy 6.D352,
+  `reports/6d352-druga-grupa-miesci-sie-a-assert-nie-zapala-sie-ani-razu.md` §1 i §8.
+  `PATH_TOKEN` z `tools/tests/test_field_paths.py` zna siedemnaście rozszerzeń,
+  `PATH_TOKEN` z `tools/tests/test_report_hygiene.py` — dwanaście, i wszystkie dwanaście
+  są wśród tamtych siedemnastu. Pięć (`glb`, `jsonl`, `log`, `png`, `zip`) zna tylko
+  wzorzec pól kolejki, więc ścieżka o takim rozszerzeniu w grawisach raportu nie jest
+  sprawdzana, czy istnieje. Zdania uzasadniającego tę różnicę w drzewie nie znalazłem.
+- **Dlaczego bez decyzji:** pozycja **LICZY**. Żadnego wzorca nie poszerza i żadnej
+  listy nie zrównuje — dołożenie rozszerzenia do wzorca raportów zmienia bramkę,
+  a to jest decyzja właściciela.
+- **Czego NIE wolno przyjąć bez pomiaru:** że różnica jest przeoczeniem. Wzorzec
+  raportów ma kopię `ROZSZERZENIA_PILNOWANE` i bramkę pokrycia, która żąda żywego
+  trafienia albo jawnego wyjątku dla każdego rozszerzenia — rozszerzenie bez ani
+  jednej ścieżki w raportach mogło zostać pominięte celowo. Rozstrzyga liczba
+  trafień, nie domysł.
+- **Wejście:** `tools/tests/test_field_paths.py` (`PATH_TOKEN`),
+  `tools/tests/test_report_hygiene.py` (`PATH_TOKEN`, `_paths_in`,
+  `ROZSZERZENIA_PILNOWANE`, `ROZSZERZENIA_BEZ_TRAFIEN`), `reports/*.md`.
+- **Wyjście:** dla każdego z pięciu rozszerzeń: ile ścieżek w grawisach stoi dziś
+  w `reports/*.md` (tym samym filtrem co `_paths_in`, z ukośnikiem i bez
+  `IGNORED_PREFIXES`) i ile z nich nie rozwiązuje się w drzewie; oraz czy którykolwiek
+  commit albo raport zapisał powód różnicy. Pięć par liczb i jedno zdanie o powodzie.
+- **Weryfikacja:**
+  ```bash
+  python3 tools/tests/test_all.py test_report_hygiene.py test_field_paths.py
+  ```
+  Oczekiwane: zielone. Kontrola przyrządu: ten sam licznik puszczony na rozszerzeniu
+  `md` ma dać liczbę ścieżek `.md`, którą daje `_pomiar_trafien` z
+  `tools/tests/test_report_hygiene.py` — inny wynik znaczy, że filtr przyrządu nie jest
+  filtrem bramki.
+- **Skończone, gdy:** pięć par liczb stoi z wypisem, kontrola na `md` się zgadza,
+  i powiedziano wprost, czy któraś z niesprawdzanych ścieżek się nie rozwiązuje —
+  **także gdy żadna**, bo wtedy różnica wzorców nic dziś nie kosztuje.
+- **Poza zakresem:** zmiana któregokolwiek `PATH_TOKEN`; zmiana `ROZSZERZENIA_PILNOWANE`
+  i `ROZSZERZENIA_BEZ_TRAFIEN`; poprawianie raportów ze złą ścieżką; `src/`; `data/`.
+- **Zależy od:** 6.D352 (stamtąd różnica pięciu rozszerzeń).
+
+##### 6.D371 · Historyczne archiwum ZIP w odsyłaczach raportów
+
+- **Skąd:** pomiar 6.D360 wykazał dwa odsyłacze do tego samego nieobecnego
+  `data/gtfs/stib_gtfs.zip` w `reports/zapisy-do-data.md`. Raport wyjaśnia, że
+  archiwum było gitignorowanym wejściem pomiaru i zostało potem usunięte.
+  Sama nieobecność pliku nie rozstrzyga, czy oba zdania obiecują plik dostępny
+  dziś, czy zapisują wyłącznie historię wykonanej pracy.
+- **Dlaczego bez decyzji:** pozycja czyta i klasyfikuje istniejące odsyłacze.
+  Nie wprowadza nowej polityki przechowywania archiwów ani nowej bramki.
+- **Czego NIE wolno przyjąć bez pomiaru:** że każde wystąpienie `.zip` w raporcie
+  jest żywym odsyłaczem, albo że każde jest tylko historycznym przykładem.
+  Rozstrzyga pełne zdanie i rola wskazanego pliku w czasie pomiaru.
+- **Wejście:** `reports/6d360-piec-rozszerzen-poza-bramka-raportow.md`,
+  `reports/zapisy-do-data.md`, `tools/tests/test_report_hygiene.py` i historia
+  usunięcia archiwum.
+- **Wyjście:** lista obu wystąpień z numerem wiersza i klasyfikacją
+  „historyczne wejście” albo „aktualnie wymagany plik”, wraz z cytowanym
+  kontekstem i powodem. Dodatkowo propozycja, jak przyszła kontrola ZIP mogłaby
+  rozróżniać te klasy bez fałszywego alarmu.
+- **Weryfikacja:** ponowny skan wszystkich `reports/*.md` filtrem 6.D360,
+  sprawdzenie obu kontekstów w raporcie źródłowym i porównanie z historią gita.
+  ```bash
+  python3 tools/tests/test_all.py test_report_hygiene.py test_field_paths.py
+  ```
+  Oczekiwane: zielone testy oraz lista obu kontekstów z klasyfikacją.
+- **Skończone, gdy:** żaden odsyłacz ZIP z raportów nie pozostaje bez
+  klasyfikacji, a proponowany warunek odróżnia nieobecne historyczne wejście
+  od zepsutej ścieżki do pliku wymaganej dzisiaj.
+- **Poza zakresem:** przywracanie ZIP do `data/`, zmiana obu `PATH_TOKEN`,
+  dodawanie wyjątku do `ROZSZERZENIA_BEZ_TRAFIEN` i przepisywanie historii
+  raportów.
+- **Zależy od:** 6.D360, bo dostarczył oba odsyłacze i filtr pomiaru.
+
+##### 6.D372 · Odsyłacze raportów bez grawisów
+
+- **Skąd:** porównanie w `reports/6d344-cztery-sita-adresow.md` wykazało na
+  wspólnej próbce, że `test_field_paths.PATH_TOKEN` bierze odsyłacz z ukośnikiem
+  bez grawisów, a `test_report_hygiene.PATH_TOKEN` go pomija. To różnica
+  wykonanych wzorców, lecz nie wiadomo, ile takich adresów stoi w raportach.
+- **Dlaczego bez decyzji:** pozycja liczy i klasyfikuje istniejący tekst;
+  nie zmienia reguły cytowania, danych ani bramki bez pomiaru skutków.
+- **Czego NIE wolno przyjąć bez pomiaru:** że każde trafienie szerszego wzorca
+  jest obietnicą istniejącego dziś pliku. Raport może opisywać historyczne
+  wejście, przykład syntetyczny albo rzeczywisty odsyłacz.
+- **Wejście:** `reports/6d344-cztery-sita-adresow.md`,
+  `tools/tests/test_field_paths.py`, `tools/tests/test_report_hygiene.py`
+  oraz skomitowane raporty z `reports/`.
+- **Wyjście:** liczba odsyłaczy plikowych widzianych tylko przez szerszy
+  czytnik, lista ich raportów i klasyfikacja według roli w zdaniu; osobno
+  liczba żywych odsyłaczy faktycznie pominiętych przez dzisiejszą bramkę.
+- **Weryfikacja:** oba wzorce wykonać na tych samych raportach, sprawdzić
+  ręcznie każde trafienie różnicy albo jawną reprezentatywną próbkę wraz
+  z licznikiem całości, a następnie uruchomić:
+  ```bash
+  python3 tools/tests/test_all.py test_report_hygiene.py test_field_paths.py
+  ```
+- **Skończone, gdy:** liczby mają jednostkę, rozróżniono historyczny przykład
+  od obecnie wymaganego pliku i wskazano, czy rozszerzenie bramki dałoby
+  fałszywe alarmy.
+- **Poza zakresem:** automatyczne dodanie grawisów do wszystkich raportów,
+  zmiana któregokolwiek `PATH_TOKEN`, usuwanie historycznych odsyłaczy.
+- **Zależy od:** 6.D344 (wspólne wejście pokazujące granicę wzorców).
+
+##### 6.D373 · Czy historyczna klasa 204 z 6.D336 daje się odtworzyć
+
+- **Skąd:** 6.D345 zmierzyło na świeżym drzewie 86 funkcji z co najmniej jednym
+  zwrotem stałej i 13 kandydatów do zdjęcia, ale przyrząd 6.D315/326 nie został
+  zachowany jako kod. Bez niego nie ma ścisłego przyporządkowania do
+  historycznych 204 czytników ani dowodu, że spadek tamtej klasy wyniósłby 13.
+- **Dlaczego bez decyzji:** pozycja odtwarza definicję pomiaru z zapisanych
+  raportów i historii, nie zmienia klasyfikatora produkcyjnego ani czytników.
+- **Czego NIE wolno przyjąć bez pomiaru:** że zgodność liczby 13 z 6.D336 §6
+  oznacza zgodność składu populacji; liczby 439/961 i 140/428 już się rozeszły.
+- **Wejście:** raporty 6.D315, 6.D326, 6.D336 i 6.D345; historia wskazanych
+  commitów; `tools/tests/constant_returns.sh` jako kontrola bieżącego drzewa.
+- **Wyjście:** odtworzona definicja populacji i klauzul albo imienna lista
+  brakujących kryteriów; porównanie członkostwa 13 kandydatów i uczciwa granica
+  wniosku o spadku historycznej klasy 204.
+- **Weryfikacja:** powtórzyć census na drzewie historycznym i bieżącym, sprawdzić
+  imienne różnice oraz uruchomić:
+  ```bash
+  bash tools/tests/constant_returns.sh
+  python3 tools/tests/test_all.py
+  ```
+- **Skończone, gdy:** albo klasyfikator odtwarza sumy i członkostwo z raportu,
+  albo wskazano dokładnie, które brakujące reguły uniemożliwiają to bez zgadywania.
+- **Poza zakresem:** dodawanie klauzuli do `ksztalt_wezla`, zmiana reguły skoku,
+  modyfikowanie `src/` i `data/`.
+- **Zależy od:** 6.D315, 6.D326, 6.D336, 6.D345 i 6.D346 (drugi
+  niezależny test zgodności z historyczną klasą 18).
+
+##### 6.D374 · `+=` przez pole albo indeks i zwracany obiekt
+
+- **Skąd:** 6.D346 policzyło 315 instrukcji `+=` w `tools/tests/`, z czego
+  274 ma prosty cel `Name`, a **41** cel `Attribute` lub `Subscript`. Te 41
+  zostało policzone w całym drzewie, ale nie weszło do par czytnik/nazwa.
+- **Dlaczego bez decyzji:** pozycja liczy aliasy i miejsca modyfikacji; nie
+  zmienia reguły skoku ani sposobu działania narzędzi.
+- **Czego NIE wolno przyjąć bez pomiaru:** że każde `obj.field += x` zmienia
+  obiekt zwracany przez funkcję. `obj` może być tylko lokalnym buforem,
+  a `return` może dotyczyć czegoś innego.
+- **Wejście:** `reports/6d346-rozpakowanie-i-augassign.md`,
+  `tools/tests/hidden_assignments.sh` i moduły `tools/tests/*.py`.
+- **Wyjście:** liczba 41 rozbita na `Attribute` i `Subscript`, lista miejsc,
+  w których modyfikowany odbiorca jest zwracany lub aliasowany do zwrotu,
+  oraz liczba pozostałych z powodem wyłączenia.
+- **Weryfikacja:** kontrola sumy obu klas daje 41, a imienne trafienia są
+  sprawdzone na źródle; następnie:
+  ```bash
+  bash tools/tests/hidden_assignments.sh
+  python3 tools/tests/test_all.py test_tree_walks.py
+  ```
+- **Skończone, gdy:** wszystkie 41 ma klasę i listę imienną, a wynik nie
+  utożsamia samej mutacji pola z mutacją wartości zwracanej.
+- **Poza zakresem:** rozszerzanie reguły skoku, przepisywanie czytników,
+  `src/` i `data/`.
+- **Zależy od:** 6.D346 (stamtąd 41 i definicja populacji).

@@ -31,8 +31,8 @@ jako pozycja 6.D264, a nie obchodzone w milczeniu.
 **Dziewiec lancuchow jest PRZERWANYCH** — wartosc zmienila sie bez dopisania ogniwa.
 Luki sa duze, wiec nie sa artefaktem czytnika: `MINIMUM_DETAIL_BLOCKS` skacze
 307 -> 319, `MIN_REPORTS` 351 -> 367, `MIN_GAME_NEEDLES` 84 -> 65 (czyli W DOL,
-przy zapadce DOLNEJ). Jeden lancuch konczy sie na wartosci, ktorej stala juz nie ma:
-`KluczyKatalogunaEkranie` konczy sie na 47, a stala stoi na 56.
+przy zapadce DOLNEJ). Lancuch `KluczyKatalogunaEkranie` zostal uzupelniony
+o brakujacy etap 47 -> 58 podczas integracji wskazowki hamowania.
 
 **Bramka nie zada ciaglosci od wszystkich i to jest wybor z 6.D27**, a nie pobliza-
 nie: zazadanie jej dzis dawaloby dziewiec czerwieni na PRAWIDLOWYM drzewie i bramka
@@ -96,15 +96,12 @@ LANCUCHY_PRZERWANE = {
 #: Lancuchy, ktorych ostatnie ogniwo NIE jest dzisiejsza wartoscia stalej.
 #: Trzy pierwsze to slowniki — ogniwo opisuje JEDNO pole, a `literal_eval` daje
 #: caly slownik, wiec porownanie wprost jest bez sensu i bramka je pomija.
-#: Czwarty jest inny i to jest znalezisko: `KluczyKatalogunaEkranie` to zwykla
-#: liczba, lancuch konczy sie na 47, a stala stoi na 56 — lancuch jest po prostu
-#: NIEAKTUALNY i nikt tego nie zauwazyl.
+#: Dawny czwarty wyjatek (`KluczyKatalogunaEkranie`) zostal naprawiony przez
+#: dopisanie brakujacego ogniwa w UiTextTests.cs.
 KONIEC_INNY_NIZ_WARTOSC = {
     ("test_field_paths.py", "ADRESOW_W_WYKONANYCH"): "slownik — ogniwo opisuje jedno pole",
     ("test_field_paths.py", "KANDYDATOW_W_WYKONANYCH"): "slownik — jw.",
     ("test_field_paths.py", "WYWOLAN_W_WYKONANYCH"): "slownik — jw.",
-    ("UiTextTests.cs", "KluczyKatalogunaEkranie"):
-        "NIE slownik: lancuch konczy sie na 47, a stala stoi na 56 — nieaktualny",
 }
 
 
@@ -212,9 +209,7 @@ def test_ktory_lancuch_jest_PELNY_a_ktory_przerwany():
 def test_lancuch_konczy_sie_na_DZISIEJSZEJ_wartosci_stalej():
     """Ostatnie ogniwo ma byc tym, co stala niesie — inaczej historia klamie.
 
-    Wyjatki sa CZTERY i trzy z nich to slowniki, w ktorych ogniwo opisuje jedno
-    pole. Czwarty jest znaleziskiem tej pozycji: `KluczyKatalogunaEkranie` to
-    zwykla liczba, a lancuch po prostu sie nie nadazyl.
+    Trzy wyjatki to slowniki, w ktorych ogniwo opisuje jedno pole.
     """
     lanc = lancuchy_zmian()
     rozjazd = set()
@@ -246,7 +241,8 @@ def test_lancuch_ZgloszenWaskichWierszami_wyjasnia_108_z_6D256():
     ogniwa, wartosc = lanc[klucz]
 
     assert ciagly(ogniwa), "lancuch tej stalej sie urwal"
-    assert wartosc.strip() == ogniwa[-1][1] == "116", (
+    # 23.09.2026, 6.M1: lancuch wydluzyl sie o ogniwo 116 -> 117 (odtworzenie linii).
+    assert wartosc.strip() == ogniwa[-1][1] == "139", (
         "lancuch nie konczy sie na dzisiejszej wartosci: %s wobec %s"
         % (ogniwa[-1][1], wartosc))
 

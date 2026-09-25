@@ -37,8 +37,8 @@ public sealed class RunPlan
         // wczytywanej przez scenę. Bez tego wpisu `FirstRun` CZYTAŁO `--cab`, a plan
         // odrzucał je jako „nieznany argument" — czyli nadpisanie było nieosiągalne,
         // a jedyną drogą do innej kabiny było przeniesienie pliku.
-        "platforms", "cab",
-        "line", "calls", "limit-kmh", "signalling",
+        "platforms", "cab", "visual-continuation",
+        "line", "calls", "limit-kmh", "signalling", "scheduled-entries",
         "input-log", "replay", "from-telemetry",
         // MB-07. Oba wpisy są KONIECZNE, a nie wygodne: lista jest JAWNA i argument
         // spoza niej zatrzymuje przebieg, więc bez nich `--trains=2` byłoby odrzucone
@@ -47,7 +47,7 @@ public sealed class RunPlan
     };
 
     /// <summary>Widoki, jakie scena potrafi ustawić. Inna wartość jest BŁĘDEM, nie domyślną.</summary>
-    public static readonly string[] KnownViews = { "cab", "chase", "outside", "inspect" };
+    public static readonly string[] KnownViews = { "cab", "chase", "outside", "inspect", "side", "platform" };
 
     /// <summary>
     /// Argumenty, których wartością jest ŚCIEŻKA. Pusta wartość jest dla nich błędem.
@@ -86,7 +86,7 @@ public sealed class RunPlan
     public static readonly string[] PathArguments =
     {
         "telemetry", "shot", "replay", "from-telemetry", "axis",
-        "manifest", "calls", "signalling", "input-log", "assets",
+        "manifest", "calls", "signalling", "input-log", "assets", "scheduled-entries",
     };
 
     /// <summary>
@@ -204,6 +204,9 @@ public sealed class RunPlan
     /// </summary>
     public bool ReadsKeyboard => !ScriptedMode && !ReplayMode && !FromTelemetryMode;
 
+    /// <summary>A manual GUI run needs a visible startup error; automation keeps its exit code.</summary>
+    public bool ShouldShowStartupErrorDialog(bool headless) => ReadsKeyboard && !headless;
+
     /// <summary>
     /// Plik, do którego zapisuje się wejścia maszynisty (numer kroku + klawisze),
     /// albo <c>null</c>. Format czyta i pisze <c>MetroBxl.Sim.Train.InputLog</c>.
@@ -253,7 +256,11 @@ public sealed class RunPlan
     /// widoków." Tryb ręczny jest drugim widokiem tej samej linii, z człowiekiem
     /// w miejscu autopilota.
     /// </summary>
-    public bool LineMode => HasFlag("line") && TelemetryPath is null;
+    ///
+    /// <para><b>Z <c>--replay</c> telemetria nie wyłącza trybu linii</b> (6.M1): jest
+    /// wtedy WYJŚCIEM odtworzenia, jak w odtworzeniu ręcznym, a nie drugim źródłem
+    /// polecenia.</para>
+    public bool LineMode => HasFlag("line") && (TelemetryPath is null || ReplayPath is not null);
 
     /// <summary>
     /// Plik, do którego przejazd linią wypisuje ZATRZYMANIA (CSV). Podanie go znaczy
@@ -313,6 +320,9 @@ public sealed class RunPlan
     /// w trybie ręcznym tę samą parę sprawdza scena, zanim zbuduje ochronę.</para>
     /// </summary>
     public string? SignallingPath { get; private init; }
+
+    /// <summary>Explicit two-entry dated L1_A plan; absent in the normal line scenario.</summary>
+    public string? ScheduledEntriesPath { get; private init; }
 
     /// <summary>
     /// Czy KABINA jedzie pod sygnalizacją: przejazd prowadzony poleceniem maszynisty
@@ -444,6 +454,18 @@ public sealed class RunPlan
             }
         }
 
+        if (arguments.TryGetValue("visual-continuation", out var continuation) &&
+            continuation is not ("tail" or "connector-preview"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --visual-continuation przyjmuje tail albo connector-preview.");
+        }
+        if (continuation == "connector-preview" && arguments.ContainsKey("no-geometry"))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --visual-continuation=connector-preview wymaga geometrii.");
+        }
+
         if (!TryLong(arguments, "sample-every", DefaultSampleEvery, out var sampleEvery, out var error))
         {
             return Refusal(arguments, exitBadArgumentValue, error!);
@@ -517,7 +539,8 @@ public sealed class RunPlan
         // `--shot` nie jest sterownikiem, tylko migawką, więc z `--line` się łączy —
         // i właśnie po to, żeby dało się OBEJRZEĆ skład stojący przy peronie
         // z otwartymi drzwiami, a nie tylko przeczytać, że się zatrzymał.
-        if (arguments.ContainsKey("line") && arguments.ContainsKey("telemetry"))
+        if (arguments.ContainsKey("line") && arguments.ContainsKey("telemetry")
+            && !arguments.ContainsKey("replay"))
         {
             return Refusal(arguments, exitBadArgumentValue,
                 "[ARGUMENT] --line nie łączy się z --telemetry: to dwa różne źródła "
@@ -525,19 +548,29 @@ public sealed class RunPlan
                 + "z rdzeniem CO DO BITU, więc pomyłka tutaj wyglądałaby jak rozjazd fizyki");
         }
 
-        // `--replay` jest TRZECIM źródłem polecenia dla tego samego składu, obok
-        // klawiatury i autopilota. Ta sama zasada, co przy `--line` z `--telemetry`:
-        // dwa źródła naraz nie dają się rozróżnić po wyniku, więc pomyłka wyglądałaby
-        // jak rozjazd fizyki. `--shot` nie jest sterownikiem, ale odtworzenie kończy się
-        // na ostatnim kroku ZAPISU, a zrzut na zadanym kilometrażu — dwa różne warunki
-        // końca tego samego przebiegu, więc też odmowa.
-        if (arguments.ContainsKey("replay") && arguments.ContainsKey("line"))
+        // `--replay` RAZEM z `--line` jest od 6.M1 POPRAWNE, i ten akapit jest
+        // przepisany, a nie dopisany obok. Do 6.M1 stała tu odmowa „zapis wejść
+        // i autopilot to dwa różne źródła polecenia dla tego samego składu". Od MB-06
+        // linia ma jednak MASZYNISTĘ przy jednym ze składów, a zapis wejść niesie jego
+        // polecenia — przejęcie, oddanie, drzwi, obserwację — obok klawiszy. Autopilot
+        // prowadzi resztę linii i skład nieprzejęty, więc źródła się nie dublują: każdy
+        // skład ma w każdym kroku DOKŁADNIE jednego właściciela, a rozstrzyga go zapis.
+        //
+        // Jedna odmowa zostaje, i jest nowa: bez `--signalling` linię prowadzi sam
+        // `LineDrive`, bez `LineCore`, więc nie ma w niej maszynisty ani przejęcia —
+        // zapis wejść nie miałby do kogo trafić, a odtworzenie wyglądałoby jak przejazd
+        // autopilota podpisany cudzym zapisem.
+        if (arguments.ContainsKey("replay") && arguments.ContainsKey("line")
+            && !arguments.ContainsKey("signalling"))
         {
             return Refusal(arguments, exitBadArgumentValue,
-                "[ARGUMENT] --replay nie łączy się z --line: zapis wejść i autopilot to dwa "
-                + "różne źródła polecenia dla tego samego składu");
+                "[ARGUMENT] --replay z --line wymaga --signalling: bez planu sygnalizacji "
+                + "linia nie ma maszynisty, więc zapis wejść nie ma do kogo trafić");
         }
 
+        // `--shot` nie jest sterownikiem, ale odtworzenie kończy się
+        // na ostatnim kroku ZAPISU, a zrzut na zadanym kilometrażu — dwa różne warunki
+        // końca tego samego przebiegu, więc odmowa.
         if (arguments.ContainsKey("replay") && arguments.ContainsKey("shot"))
         {
             return Refusal(arguments, exitBadArgumentValue,
@@ -610,13 +643,15 @@ public sealed class RunPlan
         // skryptowym i w `--line` polecenie liczy rdzeń, więc plik nazwany „zapisem
         // wejść" opisywałby przejazd, którego nikt nie prowadził — i odtworzony
         // wyglądałby jak dowód determinizmu wejścia gracza, którym by nie był.
+        //
+        // `--line` jest od 6.M1 poza tą listą: przejazd linii ma maszynistę przy
+        // jednym ze składów (MB-06), a jego polecenia i klawisze trafiają do zapisu.
         if (arguments.ContainsKey("input-log") && !arguments.ContainsKey("replay")
-            && (arguments.ContainsKey("line") || arguments.ContainsKey("shot")
-                || arguments.ContainsKey("telemetry")))
+            && (arguments.ContainsKey("shot") || arguments.ContainsKey("telemetry")))
         {
             return Refusal(arguments, exitBadArgumentValue,
                 "[ARGUMENT] --input-log ma sens tylko w przejeździe prowadzonym z klawiatury "
-                + "albo odtwarzanym z --replay: w --line, --shot i --telemetry polecenie "
+                + "albo odtwarzanym z --replay: w --shot i --telemetry polecenie "
                 + "pochodzi z rdzenia, a nie od maszynisty");
         }
 
@@ -683,6 +718,18 @@ public sealed class RunPlan
                 + "zatrzymań do wypisania");
         }
 
+        if (arguments.ContainsKey("scheduled-entries") &&
+            (!arguments.ContainsKey("line") || !arguments.ContainsKey("signalling")))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --scheduled-entries wymaga --line i --signalling.");
+        }
+        if (arguments.ContainsKey("scheduled-entries") &&
+            (arguments.ContainsKey("trains") || arguments.ContainsKey("headway-steps")))
+        {
+            return Refusal(arguments, exitBadArgumentValue,
+                "[ARGUMENT] --scheduled-entries wyznacza wjazdy; nie łączy się z --trains ani --headway-steps.");
+        }
         return new RunPlan(arguments)
         {
             TelemetryPath = Argument(arguments, "telemetry"),
@@ -693,6 +740,7 @@ public sealed class RunPlan
             FromTelemetryPath = Argument(arguments, "from-telemetry"),
             LimitKmh = limitKmh,
             SignallingPath = Argument(arguments, "signalling"),
+            ScheduledEntriesPath = Argument(arguments, "scheduled-entries"),
             SampleEvery = sampleEvery,
             StepsPerFrame = stepsPerFrame,
             Trains = trains,
@@ -704,6 +752,8 @@ public sealed class RunPlan
                 "chase" => ViewKind.Chase,
                 "outside" => ViewKind.Outside,
                 "inspect" => ViewKind.Inspect,
+                "side" => ViewKind.Side,
+                "platform" => ViewKind.Platform,
                 _ => ViewKind.Cab,
             },
         };

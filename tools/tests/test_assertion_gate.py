@@ -1740,7 +1740,23 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # ze census zostaje przy rdzeniu. Gdyby pytaly o zachowanie czytnika, nie pilnowalyby
 # przeslanki, tylko przyrzadu. Do `NA_ZRODLE_PY` nie naleza: prawa strona to
 # `project.godot` i `.tscn`, a nie zrodlo `.py`.
-ASERCJI_NAPISOWYCH_RAZEM = 936
+# 936 -> 938 (23.09.2026, 6.D369): dwie asercje na WYNIKU doctora
+# sprawdzaja tekst podpowiedzi dla SDK w kontrolowanej sciezce systemowej.
+# Literały stoją na NAPISIE, ale tym napisem jest wynik przebiegu, nie zrodlo.
+# 938 -> 940 (23.09.2026, 6.D367): dwa literały w teście presetu Windows
+# czytają opcje `codesign/enable=false` i `application/modify_resources=false`
+# z export_presets.cfg. Stoją na NAPISIE i słusznie: badają zapisane ustawienia
+# eksportu, od których zależy działanie paczkowania na Linuksie.
+# 940 -> 941 (24.09.2026, odmowa bez osi scenerii): test szuka nazwy
+# brakującego JSON-a w stderr uruchomionego `play.sh`. To NAPIS będący WYNIKIEM
+# zachowania skryptu, a nie cytat ze źródła `.py`; nie należy do NA_ZRODLE_PY.
+# 941 -> 943 (24.09.2026, probe łącznika): dwa testy sprawdzają tekst
+# odmowy zwróconej przez generator dla zbyt małego promienia i obcego SHA.
+# To NAPIS będący WYNIKIEM wykonania, nie cytat ze źródła Pythona.
+# 943 -> 945 (25.09.2026, 6.D168): dwie asercje czytają komunikat WYJŚCIOWY
+# `data_freshness.py` po nowym oknie i zbędnym wyjątku. Sprawdzają zachowanie
+# uruchomionej kontroli, a nie cytat ze źródła Pythona.
+ASERCJI_NAPISOWYCH_RAZEM = 945
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.

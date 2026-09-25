@@ -1,0 +1,172 @@
+{
+  "manifest_version": "2026-09-01.7",
+  "scene_set": "godot",
+  "prefix": "GODOT",
+  "thresholds": {
+    "mean_abs_diff": 0.004,
+    "p95_abs_diff": 0.06,
+    "ssim_min": 0.98,
+    "min_ink_fraction": 0.3,
+    "min_luma_std": 0.05,
+    "min_distinct_levels": 32
+  },
+  "expected_resolution": [
+    1280,
+    720
+  ],
+  "images": [
+    {
+      "current": "build/t400/visual/GODOT_cab_2000m.png",
+      "baseline": null,
+      "checks": {
+        "exists": true,
+        "readable": true,
+        "dimension": true,
+        "not_empty": true
+      },
+      "metrics": {
+        "width": 1280,
+        "height": 720,
+        "luma_mean": 0.257834,
+        "luma_std": 0.096085,
+        "background_level": 0.2275,
+        "ink_fraction": 0.739147,
+        "distinct_levels": 225
+      },
+      "status": "new-baseline",
+      "reason": "brak canonical baseline — wymaga jawnego zatwierdzenia",
+      "camera": "cab_2000m"
+    },
+    {
+      "current": "build/t400/visual/GODOT_chase_2000m.png",
+      "baseline": null,
+      "checks": {
+        "exists": true,
+        "readable": true,
+        "dimension": true,
+        "not_empty": true
+      },
+      "metrics": {
+        "width": 1280,
+        "height": 720,
+        "luma_mean": 0.202476,
+        "luma_std": 0.073199,
+        "background_level": 0.1843,
+        "ink_fraction": 0.656025,
+        "distinct_levels": 215
+      },
+      "status": "new-baseline",
+      "reason": "brak canonical baseline — wymaga jawnego zatwierdzenia",
+      "camera": "chase_2000m"
+    },
+    {
+      "current": "build/t400/visual/GODOT_outside_2000m.png",
+      "baseline": null,
+      "checks": {
+        "exists": true,
+        "readable": true,
+        "dimension": true,
+        "not_empty": true
+      },
+      "metrics": {
+        "width": 1280,
+        "height": 720,
+        "luma_mean": 0.226057,
+        "luma_std": 0.073995,
+        "background_level": 0.2118,
+        "ink_fraction": 0.535704,
+        "distinct_levels": 218
+      },
+      "status": "new-baseline",
+      "reason": "brak canonical baseline — wymaga jawnego zatwierdzenia",
+      "camera": "outside_2000m"
+    },
+    {
+      "current": "build/t400/visual/GODOT_curve_R91_chase.png",
+      "baseline": null,
+      "checks": {
+        "exists": true,
+        "readable": true,
+        "dimension": true,
+        "not_empty": true
+      },
+      "metrics": {
+        "width": 1280,
+        "height": 720,
+        "luma_mean": 0.214688,
+        "luma_std": 0.079949,
+        "background_level": 0.2039,
+        "ink_fraction": 0.746211,
+        "distinct_levels": 217
+      },
+      "status": "new-baseline",
+      "reason": "brak canonical baseline — wymaga jawnego zatwierdzenia",
+      "camera": "curve_R91_chase"
+    },
+    {
+      "current": "build/t400/visual/GODOT_seam_c01_c02.png",
+      "baseline": null,
+      "checks": {
+        "exists": true,
+        "readable": true,
+        "dimension": true,
+        "not_empty": true
+      },
+      "metrics": {
+        "width": 1280,
+        "height": 720,
+        "luma_mean": 0.274114,
+        "luma_std": 0.105275,
+        "background_level": 0.2275,
+        "ink_fraction": 0.739421,
+        "distinct_levels": 213
+      },
+      "status": "new-baseline",
+      "reason": "brak canonical baseline — wymaga jawnego zatwierdzenia",
+      "camera": "seam_c01_c02"
+    }
+  ],
+  "geometry": {
+    "tolerance_m": 0.001,
+    "count_tolerance_ratio": 0.1,
+    "checks": {},
+    "current": "build/t400/visual/GODOT_metadata.json",
+    "baseline": null,
+    "scene": {
+      "bbox_min": [
+        57.49,
+        -1.2,
+        -910.3813
+      ],
+      "bbox_max": [
+        1141.9778,
+        4.7,
+        -245.6428
+      ],
+      "size_m": [
+        1084.4878,
+        5.9,
+        664.7385
+      ],
+      "mesh_objects": 16,
+      "vertices": 10872,
+      "faces": 3624,
+      "chunks_loaded": 2,
+      "chunks_declared": 12,
+      "window_low_m": 676.18,
+      "window_high_m": 1576.18,
+      "axis_length_m": 6686.739
+    },
+    "blender_version": null,
+    "manifest_version": "L1_A/flat-preview",
+    "status": "new-baseline",
+    "reason": "brak metadanych baseline"
+  },
+  "summary": {
+    "total": 6,
+    "pass": 0,
+    "fail": 0,
+    "new_baseline": 6
+  },
+  "status": "pass"
+}

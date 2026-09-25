@@ -30,7 +30,8 @@ namespace MetroBxl.Sim.Train;
 /// Postój zakłada się przy <c>chainage &gt;= cel − okno</c>, bez ograniczenia z góry;
 /// <c>StationService</c> wymaga <c>|chainage − cel| &lt;= okno</c>. Skład ręczny
 /// zatrzymany 50 m za peronem dostaje tu więc postój z błędem zatrzymania +50 m,
-/// a tam — stację miniętą. Powód, dla którego zostaje tak: dwustronne okno wymagałoby
+/// a tam — stację miniętą; drzwi na takim postoju są jednak odmówione (6.M3), więc
+/// różnica dotyczy WYŁĄCZNIE zapisu wywołania, nie obsługi. Powód, dla którego zostaje tak: dwustronne okno wymagałoby
 /// reguły dla składu stojącego ZA oknem, której żaden dokument nie podaje, bo ta klasa
 /// nie ma rejestru stacji miniętych, a odjazd bez obsługi (MB-08) jest gałęzią TRWAJĄCEGO
 /// postoju. Dla autopilota różnica nie ma skutku — staje z błędem rzędu 0,3 m — więc
@@ -47,6 +48,7 @@ public sealed class LineDrive
     private readonly LineRunSettings _settings;
     private readonly DoorCycle _cycle;
     private readonly double _start;
+    private readonly double _axisEndM;
     private readonly double _trigger;
     private readonly double _effectiveMassKg;
     private readonly List<StationCall> _calls;
@@ -57,6 +59,7 @@ public sealed class LineDrive
     private double _departedAtSeconds;
     private double _departedFromM;
     private bool _braking;
+    private bool _terminalBrakeEngaged;
     private double _brakingToM = double.NaN;
     private StationStop? _stop;
 
@@ -77,6 +80,58 @@ public sealed class LineDrive
     // rozjechałyby się przy pierwszej zmianie w AccumulateEnergy.
     private double _tractionWorkAtDepartureJ;
 
+    /// <summary>All mutable drive state used by future steps or the trip result.</summary>
+    internal void AppendState(StateHashWriter hash)
+    {
+        hash.Add(_state.Steps);
+        hash.Add(_state.SpeedMps);
+        hash.Add(_state.DistanceM);
+        hash.Add(_state.BrakeRateMps2);
+        hash.Add(_next);
+        hash.Add(_topSpeed);
+        hash.Add(_departedAtSeconds);
+        hash.Add(_departedFromM);
+        hash.Add(_braking);
+        hash.Add(_terminalBrakeEngaged);
+        hash.Add(_brakingToM);
+        hash.Add(_stop is not null);
+        _stop?.AppendState(hash);
+        hash.Add((long)DoorControl);
+        hash.Add(AuthorityEndM.HasValue);
+        if (AuthorityEndM is double authority) hash.Add(authority);
+        hash.Add(DriverInput.HasValue);
+        if (DriverInput is DriverCommand input)
+        {
+            hash.Add(input.Throttle);
+            hash.Add(input.Brake);
+        }
+        hash.Add(LastCommand.Throttle);
+        hash.Add(LastCommand.Brake);
+        hash.Add(_tractionWorkJ);
+        hash.Add(_resistanceWorkJ);
+        hash.Add(_gradeWorkJ);
+        hash.Add(_brakeWorkJ);
+        hash.Add(_discretizationWorkJ);
+        hash.Add(_clampedWorkJ);
+        hash.Add(_tractionWorkAtDepartureJ);
+        hash.Add(_calls.Count);
+        foreach (var call in _calls)
+        {
+            hash.Add(call.Name);
+            hash.Add(call.StopId);
+            hash.Add(call.ChainageM);
+            hash.Add(call.StoppedAtChainageM);
+            hash.Add(call.StopErrorM);
+            hash.Add(call.ArrivalSeconds);
+            hash.Add(call.DepartureSeconds);
+            hash.Add(call.RunSecondsFromPrevious);
+            hash.Add(call.DistanceFromPreviousM);
+            hash.Add(call.TopSpeedMps);
+            hash.Add(call.TractionWorkFromPreviousJ.HasValue);
+            if (call.TractionWorkFromPreviousJ is double work) hash.Add(work);
+        }
+    }
+
     /// <summary>Skład postawiony na początku osi, gotowy do pierwszego kroku.</summary>
     /// <param name="axis">Oś z kilometrażem stacji.</param>
     /// <param name="conditions">Masa, pochylenie, przyczepność, otoczenie toru.</param>
@@ -84,13 +139,15 @@ public sealed class LineDrive
     /// <param name="controller">Kontroler z T-310.</param>
     /// <param name="solver">Solver punktu hamowania z T-311.</param>
     /// <param name="step">Krok stały.</param>
+    /// <param name="startStationIndex">Peron wejścia; domyślnie pierwszy na osi.</param>
     public LineDrive(
         TrackAxis axis,
         RunConditions conditions,
         LineRunSettings settings,
         TrainController controller,
         BrakingPointSolver solver,
-        FixedStep step)
+        FixedStep step,
+        int startStationIndex = 0)
     {
         ArgumentNullException.ThrowIfNull(axis);
         ArgumentNullException.ThrowIfNull(conditions);
@@ -105,6 +162,11 @@ public sealed class LineDrive
                 nameof(axis), axis.Stations.Count,
                 "Przejazd z zatrzymaniami wymaga co najmniej dwóch stacji na osi.");
         }
+        if (startStationIndex < 0 || startStationIndex >= axis.Stations.Count - 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startStationIndex), startStationIndex,
+                "Stacja wejścia musi mieć następną stację na osi.");
+        }
 
         AxisId = axis.Id;
         _stations = axis.Stations;
@@ -114,7 +176,9 @@ public sealed class LineDrive
         _solver = solver;
         _step = step;
 
-        _start = _stations[0].ChainageM;
+        _start = _stations[startStationIndex].ChainageM;
+        _axisEndM = axis.LengthM;
+        _next = startStationIndex + 1;
         _cycle = new DoorCycle(settings.PassengerExchangeSeconds);
         _trigger = settings.BrakeUsageFraction * controller.ServiceBrakeMps2;
         _effectiveMassKg = controller.Dynamics.EffectiveMassKg(conditions.MassKg);
@@ -197,11 +261,26 @@ public sealed class LineDrive
     /// istnieje, dopóki skład nie stanie w oknie peronu, więc obiekt, który miałby
     /// odmówić, jeszcze nie powstał. To jest ta sama granica, co między „czy wolno
     /// ciągnąć" a „gdzie stoi skład".</para>
+    ///
+    /// <para><b>Odmawia także NA postoju, gdy czoło stoi za oknem peronu</b> — DECYZJA
+    /// WŁAŚCICIELA 23.09.2026 (6.M3). Okno zakładania postoju jest tu jednostronne (6.M2),
+    /// więc skład ręczny zatrzymany 50 m za peronem ma postój, a do tej zmiany mógł na nim
+    /// otworzyć drzwi w tunelu. Okno DRZWI jest od dziś dwustronne, jak w
+    /// <see cref="StationService"/>: <c>|chainage − cel| &lt;= okno</c>. Skład za oknem może
+    /// już tylko odjechać, a stacja zostaje w <see cref="Calls"/> jako odjazd bez obsługi.</para>
     /// </summary>
     /// <returns>Przyjęcie albo odmowa z powodem.</returns>
-    public DoorRequestResult RequestDoorOpen() => _stop is null
+    public DoorRequestResult RequestDoorOpen() => _stop is null || OutsideDoorWindow()
         ? DoorRequestResult.Refused(DoorRefusal.OutsidePlatformWindow)
         : _stop.RequestOpen(_state);
+
+    /// <summary>
+    /// Czy czoło stoi poza oknem drzwi bieżącej stacji — <c>|chainage − cel| &gt; okno</c>.
+    /// Jedno zdanie dla polecenia maszynisty i dla autopilota dopilnowującego postoju
+    /// ręcznego (6.M3), żeby obaj dostawali tę samą odmowę.
+    /// </summary>
+    private bool OutsideDoorWindow() =>
+        Math.Abs(ChainageM - _stations[_next].ChainageM) > _settings.StopWindowM;
 
     /// <summary>Polecenie zamknięcia drzwi od maszynisty.</summary>
     /// <returns>Przyjęcie albo odmowa z powodem.</returns>
@@ -317,6 +396,10 @@ public sealed class LineDrive
             && chainage - _departedFromM >= _settings.StopWindowM)
         {
             _stop = new StationStop(_cycle, _step, DoorControl);
+            // A manually braked terminal stop also closes the route. Without
+            // this latch, S followed by W could depart from Merode again.
+            if (DriverInput is not null && _next == _stations.Count - 1)
+                _terminalBrakeEngaged = true;
             _calls.Add(new StationCall(
                 _stations[_next].Name,
                 _stations[_next].StopId,
@@ -351,9 +434,20 @@ public sealed class LineDrive
             //
             // Warunek `DriverInput is null` znaczy „nikogo nie ma przy nastawniku".
             // Przy człowieku u steru te wiersze milczą i drzwi należą wyłącznie do niego.
+            //
+            // POSTÓJ RĘCZNY ZA OKNEM DRZWI (6.M3): autopilot nie otwiera tu drzwi, bo nie
+            // wolno tego także maszyniście, tylko kończy postój odjazdem bez obsługi —
+            // tym samym, który maszynista dostaje, ruszając za peronem. Bez tego skład
+            // oddany autopilotowi stałby za peronem do końca przejazdu: drzwi nie da się
+            // otworzyć, więc cykl nigdy się nie skończy.
+            var abandoned = false;
             if (_stop.Control == DoorControl.Manual && DriverInput is null)
             {
-                if (_stop.Phase == DoorPhase.Closed && !_stop.Finished)
+                if (_stop.Phase == DoorPhase.Closed && !_stop.Finished && OutsideDoorWindow())
+                {
+                    abandoned = true;
+                }
+                else if (_stop.Phase == DoorPhase.Closed && !_stop.Finished)
                 {
                     _stop.RequestOpen(_state);
                 }
@@ -372,6 +466,13 @@ public sealed class LineDrive
             var wanted = DriverInput ?? DriverCommand.FullServiceBrake;
             LastCommand = wanted;
             var held = _stop.Filter(_state, wanted);
+            if (DriverInput is not null && _terminalBrakeEngaged)
+            {
+                held = TrackEndStop.ApproachCommand(
+                    _state, chainage, Math.Min(target, _axisEndM), _conditions, _controller, _solver,
+                    _trigger,
+                    held, terminalSection: true, ref _terminalBrakeEngaged);
+            }
 
             // OCHRONA STOI ZA DRZWIAMI I ZA OBOMA WŁAŚCICIELAMI — także tutaj.
             //
@@ -428,12 +529,15 @@ public sealed class LineDrive
 
             var phase = _stop.Phase;
             var beforeStop = _state;
-            _state = _controller.Advance(
+            var advancedStop = _controller.Advance(
                 _state, _conditions, held, _settings.SpeedLimitMps, _step, out var stopForces);
-            AccumulateEnergy(beforeStop, _state, stopForces);
+            _state = TrackEndStop.Apply(advancedStop, _start, _axisEndM);
+            AccumulateEnergy(beforeStop, _state, stopForces, advancedStop != _state);
             trace?.Invoke(new LineRun.TracePoint(
                 _state.TimeSeconds(_step), _start + _state.DistanceM, _state.SpeedMps,
-                _state.BrakeRateMps2, held, phase));
+                _state.BrakeRateMps2,
+                TrackEndStop.Reached(ChainageM, _axisEndM) ? DriverCommand.Coast : held,
+                phase));
 
             // ODJAZD BEZ OBSŁUGI DRZWI — możliwy WYŁĄCZNIE w trybie ręcznym i wyłącznie
             // do przodu. W trybie automatycznym nie ma jak: cykl rusza sam w pierwszym
@@ -462,7 +566,10 @@ public sealed class LineDrive
             // (zatrzymania na 2005,72 m przy stacji 2000,00 m i oknie 5,00 m).
             //
             // „Odjazd bez obsługi" ma znaczyć ODJAZD. Skład stojący za peronem stoi,
-            // a nie odjeżdża, i wolno mu jeszcze otworzyć drzwi.
+            // a nie odjeżdża. **Zdanie przepisane 23.09.2026, a nie dopisane obok
+            // (DECYZJA WŁAŚCICIELA, 6.M3):** stało tu „i wolno mu jeszcze otworzyć
+            // drzwi" — i to już nieprawda. Za oknem drzwi odmawia `RequestDoorOpen`,
+            // więc stojący tam skład może już tylko odjechać.
             var behindPlatform = _start + _state.DistanceM > target + _settings.StopWindowM;
             var leftWithoutService = _stop.Control == DoorControl.Manual
                 && !_stop.Finished
@@ -470,7 +577,7 @@ public sealed class LineDrive
                 && behindPlatform
                 && _state.SpeedMps > 0.0;
 
-            if (_stop.Finished || leftWithoutService)
+            if (_stop.Finished || leftWithoutService || abandoned)
             {
                 _calls[^1] = _calls[^1] with { DepartureSeconds = _state.TimeSeconds(_step) };
                 _departedAtSeconds = _state.TimeSeconds(_step);
@@ -544,18 +651,31 @@ public sealed class LineDrive
         command = DriverInput ?? command;
         LastCommand = command;
 
+        // Only a manually driven last segment needs this intervention; automatic
+        // driving already uses Command(target - chainage) for the same station.
+        if (DriverInput is not null && _next == _stations.Count - 1)
+        {
+            command = TrackEndStop.ApproachCommand(
+                _state, chainage, Math.Min(target, _axisEndM), _conditions, _controller, _solver,
+                _trigger,
+                command, terminalSection: true, ref _terminalBrakeEngaged);
+        }
+
         // OCHRONA STOI ZA OBOMA. To jest zdanie pola „Pułapka wypisana w audycie"
         // pozycji MB-06 wzięte dosłownie: nie ma gałęzi, w której komenda człowieka
         // omija `Supervisor`, i nie ma jej dlatego, że podmiana źródła stoi WYŻEJ
         // od ochrony, a nie obok niej.
         command = Supervisor is null ? command : Supervisor(command);
         var beforeRun = _state;
-        _state = _controller.Advance(
+        var advancedRun = _controller.Advance(
             _state, _conditions, command, _settings.SpeedLimitMps, _step, out var runForces);
-        AccumulateEnergy(beforeRun, _state, runForces);
+        _state = TrackEndStop.Apply(advancedRun, _start, _axisEndM);
+        AccumulateEnergy(beforeRun, _state, runForces, advancedRun != _state);
         trace?.Invoke(new LineRun.TracePoint(
             _state.TimeSeconds(_step), _start + _state.DistanceM, _state.SpeedMps,
-            _state.BrakeRateMps2, command, DoorPhase.Closed));
+            _state.BrakeRateMps2,
+            TrackEndStop.Reached(ChainageM, _axisEndM) ? DriverCommand.Coast : command,
+            DoorPhase.Closed));
         if (_state.SpeedMps > _topSpeed)
         {
             _topSpeed = _state.SpeedMps;
@@ -601,7 +721,8 @@ public sealed class LineDrive
     /// zera i do limitu. Tożsamość jest algebraiczna, więc działa bez względu na to, czy
     /// w danym kroku obcięcie faktycznie zaszło.</para>
     /// </summary>
-    private void AccumulateEnergy(DriveState before, DriveState after, StepForces forces)
+    private void AccumulateEnergy(DriveState before, DriveState after, StepForces forces,
+        bool axisEndClamped = false)
     {
         var travelled = after.DistanceM - before.DistanceM;
         var deltaSpeed = after.SpeedMps - before.SpeedMps;
@@ -612,7 +733,16 @@ public sealed class LineDrive
         _gradeWorkJ += forces.GradeN * travelled;
         _brakeWorkJ += _effectiveMassKg * after.BrakeRateMps2 * travelled;
         _discretizationWorkJ += 0.5 * _effectiveMassKg * deltaSpeed * deltaSpeed;
-        _clampedWorkJ += (netAll - (_effectiveMassKg * deltaSpeed / _step.Seconds)) * travelled;
+        // Zwykły krok ma travelled = v_po·dt i zachowuje historyczny rachunek bitowo.
+        // Na końcu osi odrzucamy też część DROGI kroku, więc tej równości już nie ma.
+        // Bilans liczony wtedy z rzeczywistego ΔE i rzeczywistej drogi opisuje dokładnie
+        // stan po ograniczeniu, który trafia do śladu i HUD.
+        _clampedWorkJ += axisEndClamped
+            ? netAll * travelled
+              - 0.5 * _effectiveMassKg *
+                (after.SpeedMps * after.SpeedMps - before.SpeedMps * before.SpeedMps)
+              - 0.5 * _effectiveMassKg * deltaSpeed * deltaSpeed
+            : (netAll - (_effectiveMassKg * deltaSpeed / _step.Seconds)) * travelled;
     }
 
     /// <summary>
@@ -673,18 +803,8 @@ public sealed class LineDrive
         //
         // Dlatego próg wyzwala hamowanie wzorem z narastaniem, a samo hamowanie prowadzi
         // czysta kinematyka v²/2d — hamulec już narósł, więc nie ma czego doliczać.
-        var required = _state.SpeedMps * _state.SpeedMps / (2.0 * remainingM);
-
-        // Polecenie to opóźnienie **hamulca**, a nie całkowite: skład zwalnia też oporami
-        // ruchu i składową pochylenia, a te działają niezależnie od nastawy. Żeby sumaryczne
-        // opóźnienie wyszło takie, o jakie prosi kinematyka, hamulec dostaje różnicę.
-        var resistance = _controller.Dynamics.Resistance.ForceN(
-            _conditions.MassKg, _state.SpeedMps, _conditions.Environment);
-        var grade = TrainDynamics.GradeForceN(_conditions.MassKg, _conditions.GradePercent);
-        var passive = (resistance + grade) / _controller.Dynamics.EffectiveMassKg(_conditions.MassKg);
-
-        return new DriverCommand(
-            0.0, Math.Clamp((required - passive) / _controller.ServiceBrakeMps2, 0.0, 1.0));
+        // The station autopilot and terminal intervention share this exact command.
+        return TrackEndStop.RequiredBrake(_state, remainingM, _conditions, _controller);
     }
 
     /// <summary>

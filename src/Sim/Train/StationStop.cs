@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Line;
 
 namespace MetroBxl.Sim.Train;
 
@@ -42,6 +43,16 @@ namespace MetroBxl.Sim.Train;
 /// </summary>
 public sealed class StationStop
 {
+    /// <summary>State that determines the next door-cycle transition.</summary>
+    internal void AppendState(StateHashWriter hash)
+    {
+        hash.Add((long)_control);
+        hash.Add(_stepsSinceStopped);
+        hash.Add((long)_manualPhase);
+        hash.Add(_manualStepsInPhase);
+        hash.Add(_closeRequested);
+        hash.Add(_manualServed);
+    }
     private readonly DoorCycle _cycle;
     private readonly FixedStep _step;
     private readonly DoorControl _control;
@@ -305,9 +316,12 @@ public sealed class StationStop
     }
 
     /// <inheritdoc/>
+    /// <remarks>Zagnieżdżony literał niesie kulturę sam: formatuje się, zanim zewnętrzny
+    /// <c>string.Create</c> go zobaczy (23.09.2026, 6.D365 — na kulturze pl-PL stało tu
+    /// „0,24 s").</remarks>
     public override string ToString() => string.Create(
         CultureInfo.InvariantCulture,
         $"postój ({(_control == DoorControl.Manual ? "ręczny" : "automatyczny")}): " +
-        $"{(Started ? $"{SecondsSinceStopped:F2} s, faza {Phase}" : "jeszcze w ruchu")}, " +
+        $"{(Started ? string.Create(CultureInfo.InvariantCulture, $"{SecondsSinceStopped:F2} s, faza {Phase}") : "jeszcze w ruchu")}, " +
         $"pełny cykl {_cycle.DwellSeconds:F1} s");
 }

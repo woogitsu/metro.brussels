@@ -77,6 +77,39 @@ STIB opisuje go jako dane zawierające podstawową strukturę przestrzenną siec
 a OSM, UrbIS i INSPIRE Rails służą do kontroli i doprecyzowania topologii. Shapefiles
 nie są jednak automatycznie geometrią tor-po-torze ani profilem pionowym.
 
+#### Merode–Montgomery: projektowy test poziomego przebiegu
+
+`data/design/geometry/merode-montgomery-horizontal-probe.json` to **próba
+projektowa**, wygenerowana z przypiętego archiwum STIB o SHA-256
+`bc41483ba5e42d3d8b8b94e0adfc16791a609d3938d0ca1bd1791521279acd6d`.
+Źródło i adres pobrania są w `data/network/shapes-manifest.json`; w artefakcie
+zapisano role wejściowych osi i kanoniczne hashe ich JSON-ów. Generator
+sprawdza identyfikatory `L1_A` i `L1_B` przy wczytaniu danych.
+Punkty źródłowej trasy handlowej wyznaczają 708,941 m między końcami pakietów,
+a wygładzona próba ma 708,972 m. Przy Montgomery ostatnie 100 m wygładza
+projektowy łuk Hermite’a; prowadnik stycznej przy Merode ma 1 m. Są to decyzje
+generatora, nie zmierzona geometria torów.
+
+Kontrola próby daje kąt połączenia najwyżej 0,061881°, minimalny promień
+planimetrii 168,995 m i maksymalne odsunięcie od linii źródłowej 1,225429 m.
+Progi 0,2°, 100 m i 2 m służą jedynie do odrzucenia wadliwego szkicu.
+`vertical.status=not_modelled` oznacza, że wszystkie współrzędne Z są
+**wypełniaczami**, bez potwierdzonej niwelety, położenia infrastruktury, skrajni
+i sygnalizacji. Ten plik nie jest osią przejezdną; dlatego leży pod `data/design/`,
+a nie pod `data/track/` i nie jest wczytywany przez symulator.
+
+Odtworzenie z archiwum o hash'u z manifestu, po umieszczeniu go w `/tmp`:
+
+```bash
+python3 tools/track/build_connector_probe.py \
+  --shapes /tmp/metro-stib-shapes-20260924.zip \
+  --out /tmp/merode-montgomery-horizontal-probe.json
+cmp /tmp/merode-montgomery-horizontal-probe.json \
+  data/design/geometry/merode-montgomery-horizontal-probe.json
+```
+
+Wynik ma SHA-256 `54e435fd5cb61fd008b99202843d3f58f522797050096570a259137220eef5ce`.
+
 ### GTFS
 
 Dataset `gtfs-files-production`:

@@ -16,10 +16,8 @@ namespace MetroBxl.Game.UI;
 ///
 /// <para><b>Ten wiersz NICZEGO NIE ROZSTRZYGA O TRAKCJI</b> — pyta o nią
 /// <see cref="DoorCycle.TractionAllowed"/>, czyli dokładnie ten sam predykat, którym
-/// rdzeń zeruje nastawnik (<c>StationStop.Filter</c>). Sygnał gotowości do odjazdu
-/// z pola „Wyjście" MB-08 jest więc zdaniem o tym predykacie, a nie drugim stanem
-/// obok niego: napis „można odjechać" nie ma prawa pojawić się w kroku, w którym rdzeń
-/// odjechać nie pozwoli.</para>
+/// rdzeń zeruje nastawnik (<c>StationStop.Filter</c>). Zamknięte drzwi przed obsługą
+/// peronu zwalniają trakcję, ale podpowiedź kieruje najpierw do ich otwarcia.</para>
 /// </summary>
 public static class DoorPrompt
 {
@@ -58,7 +56,7 @@ public static class DoorPrompt
         }
 
         return DoorCycle.TractionAllowed(phase)
-            ? UiText.Get("hud.doors.ready")
+            ? UiText.Get("hud.doors.open-to-serve")
             : UiText.Get("hud.doors.working");
     }
 

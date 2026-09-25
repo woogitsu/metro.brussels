@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Security.Cryptography;
 using MetroBxl.Sim.Json;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
@@ -76,9 +77,10 @@ public static class Program
             ["drive"] = (new[] { "--out", "--sample-every" }, Array.Empty<string>(), 0),
             ["replay"] = (new[]
             {
-                "--axis", "--exchange-s", "--keys", "--limit-kmh", "--notch-rate",
-                "--out", "--sample-every", "--signalling", "--stop-window-m",
-            }, new[] { "--atp" }, 0),
+                "--axis", "--brake-usage", "--exchange-s", "--headway-steps", "--keys",
+                "--limit-kmh", "--notch-rate", "--out", "--sample-every", "--scheduled-entries", "--signalling",
+                "--stop-window-m", "--trains",
+            }, new[] { "--atp", "--line" }, 0),
             ["compare"] = (new[] { "--tolerance" }, Array.Empty<string>(), 2),
             ["axis"] = (new[] { "--axis", "--dump-points", "--manifest" }, Array.Empty<string>(), 0),
             ["parity"] = (Array.Empty<string>(), Array.Empty<string>(), 0),
@@ -247,10 +249,50 @@ public static class Program
         }
         catch (Exception exception) when (exception is IOException or ArgumentException or FormatException or InvalidOperationException or KeyNotFoundException)
         {
-            Console.Error.WriteLine("BŁĄD: " + exception.Message);
+            Console.Error.WriteLine("BŁĄD: " + RefusalText(exception));
             return 1;
         }
     }
+
+    /// <summary>
+    /// Opis dokumentu poprawnego składniowo, ale innego KSZTAŁTU — własnymi słowami
+    /// runnera, bo komunikat <c>System.Text.Json</c> jest po angielsku (6.D356).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Zmierzone 22.09.2026 przy 6.D235.</b> <c>line --axis</c> na plikach
+    /// <c>[]</c>, <c>5</c> i <c>{"points": 5}</c> kończyło się kodem 1, ale wierszem
+    /// <c>BŁĄD: &lt;plik&gt;: The requested operation requires an element of type
+    /// 'Object', but the target element has type 'Array'.</c> Scena dostała na to
+    /// własne słowa w <c>BadFile</c>; to jest odpowiednik po stronie CLI.</para>
+    /// </remarks>
+    public static string WrongJsonShapeText =>
+        "dokument JSON ma inny kształt, niż czyta ten czytnik: korzeń, pole albo wpis "
+        + "jest innego typu, niż wymaga, albo brakuje wymaganego pola";
+
+    /// <summary>
+    /// Czy wyjątek rzucił SAM <c>System.Text.Json</c> (<c>GetProperty</c>,
+    /// <c>Enumerate*</c>, <c>Get*</c> na elemencie złego typu), a nie loader rdzenia.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Po zestawie, a nie po typie, i to jest cała treść tej metody.</b>
+    /// Typy są te same po obu stronach: <c>src/Sim/</c> rzuca własne
+    /// <see cref="InvalidOperationException"/> i <see cref="KeyNotFoundException"/>
+    /// z komunikatami po polsku (np. <c>plan … nie ma bloku …</c>), i tych
+    /// komunikatów przepisywać nie wolno. Filtr po typie, jak <c>BadFile</c> sceny,
+    /// zgubiłby je; rozstrzyga więc zestaw metody, która wyjątek rzuciła.</para>
+    /// </remarks>
+    /// <param name="exception">Wyjątek z czytnika.</param>
+    public static bool IsWrongJsonShape(Exception exception) =>
+        exception is InvalidOperationException or KeyNotFoundException
+        && exception.TargetSite?.DeclaringType?.Assembly == typeof(System.Text.Json.JsonElement).Assembly;
+
+    /// <summary>
+    /// Tekst wiersza <c>BŁĄD: </c> wspólnego handlera. Dla dokumentu innego kształtu,
+    /// który nie przeszedł przez <see cref="FromFile{T}"/> (np. pole rozkładu złego
+    /// typu), komunikatu parsera nie przepisuje; w każdym innym przypadku bez zmiany.
+    /// </summary>
+    private static string RefusalText(Exception exception) =>
+        IsWrongJsonShape(exception) ? WrongJsonShapeText : exception.Message;
 
     /// <summary>
     /// Treść pliku przepuszczona przez czytnik rdzenia, z NAZWĄ PLIKU doklejoną do
@@ -277,7 +319,10 @@ public static class Program
         catch (Exception exception) when (exception is FormatException or KeyNotFoundException
                                           or ArgumentException or InvalidOperationException)
         {
-            throw new FormatException($"{path}: {exception.Message}", exception);
+            // 6.D356: komunikat `System.Text.Json` jest po angielsku i do wiersza odmowy
+            // nie wchodzi; zostaje jako InnerException, tak jak powód parsera przy 6.D229.
+            var reason = IsWrongJsonShape(exception) ? WrongJsonShapeText : exception.Message;
+            throw new FormatException($"{path}: {reason}", exception);
         }
     }
 
@@ -711,6 +756,11 @@ public static class Program
                 + "bierze z planu sygnalizacji, a scenariusz podaje 80 km/h — prędkość "
                 + "konstrukcyjną M7, nie ograniczenie na torze");
         var axisPath = Option(args, "--axis") ?? "data/track/L1_A.json";
+        var scheduledEntriesPath = Option(args, "--scheduled-entries");
+        if (scheduledEntriesPath is not null && Array.IndexOf(args, "--line") < 0)
+        {
+            throw new ArgumentException("replay --scheduled-entries wymaga --line");
+        }
         var output = Option(args, "--out");
         var sampleEvery = LongValue(Command(args), "--sample-every",
             Option(args, "--sample-every") ?? DriveTelemetry.DefaultSampleEverySteps.ToString(Inv));
@@ -739,6 +789,19 @@ public static class Program
 
         var log = FromFile(keysPath, InputLog.Parse);
         var axis = FromFile(axisPath, static text => TrackAxis.FromJson(text));
+        if (Array.IndexOf(args, "--line") >= 0)
+        {
+            if (!atp)
+            {
+                throw new ArgumentException(
+                    "replay --line wymaga --atp: linia z planem sygnalizacji jedzie w scenie "
+                    + "z ochroną pociągu, a odtworzenie bez niej byłoby innym przejazdem");
+            }
+
+            return ReplayLine(args, log, keysPath, axis, axisPath, signallingPath, output,
+                sampleEvery, notchRate, exchangeSeconds, stopWindowM, limitKmh);
+        }
+
         var manualPlan = SignallingPlan.FromFile(signallingPath);
         if (!string.Equals(manualPlan.AxisId, axis.Id, StringComparison.Ordinal))
         {
@@ -778,6 +841,7 @@ public static class Program
         var state = DriveState.AtRest;
         var command = DriverCommand.Coast;
         var acceleration = 0.0;
+        var terminalBrakeEngaged = false;
 
         // SUFIT MASZYNISTY i PRĘDKOŚĆ DOPUSZCZALNA to dwie różne liczby, i dopiero ich
         // rozdzielenie czyni ochronę obserwowalną. Bez `--limit-kmh` są tą samą liczbą
@@ -842,6 +906,7 @@ public static class Program
                 state = restarted.Drive;
                 command = restarted.Command;
                 acceleration = restarted.AccelerationMps2;
+                terminalBrakeEngaged = false;
                 resets++;
 
                 // Wiersz zerowy nowego przejazdu — tak samo jak przy starcie, bo po
@@ -866,15 +931,33 @@ public static class Program
 
             // `Filter` posuwa licznik cyklu drzwi, więc DOKŁADNIE RAZ na krok.
             var effective = stations?.Filter(state, requested, Chainage()) ?? requested;
+            if (stations is { AtStation: true } && stations.Calls[^1].StopId == axis.Stations[^1].StopId)
+                terminalBrakeEngaged = true;
+            effective = TrackEndStop.ApproachCommand(
+                state, Chainage(),
+                axis.Stations.Count > 0
+                    ? Math.Min(axis.Stations[^1].ChainageM, axis.LengthM) : axis.LengthM,
+                conditions, controller, BrakingPointSolver.M7,
+                controller.ServiceBrakeMps2, effective, terminalSection: true,
+                ref terminalBrakeEngaged);
 
             // ATP na samym końcu łańcucha poleceń — Issue #26: „nie można ominąć ATP
             // przez input gracza". Bez ochrony `Apply` nie istnieje i polecenie idzie
             // do kontrolera dokładnie takie, jak przedtem.
             effective = cab is null ? effective : cab.Apply(effective);
 
+            if (TrackEndStop.Reached(Chainage(), axis.LengthM))
+            {
+                effective = DriverCommand.Coast;
+            }
+            var beforeSpeed = state.SpeedMps;
             state = controller.Advance(state, conditions, effective, speedLimitMps, step, out var forces);
-            acceleration = forces.AccelerationMps2;
-            command = effective;
+            state = TrackEndStop.Apply(state, scenario.StartChainageM, axis.LengthM);
+            var trackEndReached = TrackEndStop.Reached(Chainage(), axis.LengthM);
+            acceleration = trackEndReached ||
+                (terminalBrakeEngaged && beforeSpeed <= 0.0 && state.SpeedMps <= 0.0)
+                ? 0.0 : forces.AccelerationMps2;
+            command = trackEndReached ? DriverCommand.Coast : effective;
             sessionStep++;
             if (state.SpeedMps > topSpeedMps)
             {
@@ -962,6 +1045,167 @@ public static class Program
     }
 
     // --- compare ------------------------------------------------------------------
+
+    /// <summary>
+    /// <c>replay --line</c>: odtworzenie przejazdu LINII z zapisu wejść — 6.M1.
+    ///
+    /// <para>Prowadzi <see cref="LineSession"/>, czyli tę samą klasę, którą scena woła
+    /// w trybie <c>--line</c>. Zdarzenia linii (przejęcie, oddanie, drzwi, obserwacja)
+    /// wykonują się PRZED krokiem swojego numeru, klawisze biorą się po numerze kroku
+    /// — dokładnie tak, jak w scenie odtwarzającej ten sam zapis. Telemetria opisuje
+    /// skład OBSERWOWANY, bo to jego widzi gracz i do niego idzie dźwignia.</para>
+    ///
+    /// <para><b>Linia jedzie z ochroną pociągu</b> (<c>LineCore</c> z ATP), tak jak
+    /// <c>--line --signalling</c> w scenie; dlatego <c>--limit-kmh</c> i <c>--atp</c>
+    /// są tu wymagane — to drugie po to, żeby wywołanie mówiło o ochronie wprost,
+    /// tak jak każde inne odtworzenie porównywane ze sceną pod planem.</para>
+    ///
+    /// <para><b>Reset w zapisie linii jest ODMOWĄ.</b> Scena w trybie linii resetu nie
+    /// wykonuje — gałąź <c>LineCore</c> w <c>StepOnce</c> stoi przed obsługą resetu —
+    /// więc odtworzenie wykonujące go dałoby przejazd, którego nie było.</para>
+    /// </summary>
+    private static int ReplayLine(
+        string[] args, InputLog log, string keysPath, TrackAxis axis, string axisPath,
+        string signallingPath, string? output, long sampleEvery, double notchRate,
+        double exchangeSeconds, double stopWindowM, double? limitKmh)
+    {
+        if (limitKmh is null)
+        {
+            throw new ArgumentException(
+                "replay --line wymaga --limit-kmh: prędkość dopuszczalna linii nie ma w "
+                + "scenie wartości domyślnej, więc nie może jej mieć tutaj");
+        }
+
+        if (log.Resets.Count > 0)
+        {
+            throw new ArgumentException(string.Create(Inv,
+                $"replay --line: zapis {keysPath} ma {log.Resets.Count} resetów, a przejazd linii resetu nie zna"));
+        }
+
+        var brakeUsage = OptionalNumber(args, "--brake-usage") ?? 1.0;
+        var scheduledEntriesPath = Option(args, "--scheduled-entries");
+        if (scheduledEntriesPath is not null &&
+            (Option(args, "--trains") is not null || Option(args, "--headway-steps") is not null))
+        {
+            var conflictingOption = Option(args, "--trains") is not null
+                ? "--trains" : "--headway-steps";
+            throw new ArgumentException(
+                $"replay --scheduled-entries wyznacza wjazdy; nie łączy się z {conflictingOption}");
+        }
+        var trains = (int)LongValue(Command(args), "--trains", Option(args, "--trains") ?? "1");
+        var headwaySteps = LongValue(Command(args), "--headway-steps",
+            Option(args, "--headway-steps") ?? "37200");
+        if (trains < 1)
+        {
+            throw new ArgumentException("replay --line --trains musi być co najmniej 1");
+        }
+
+        var model = VehicleModel.M7;
+        var step = FixedStep.Simulation;
+        var conditions = new RunConditions(
+            model.MassKg(TrainLoad.Aw2), 0.0, model.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel);
+        var settings = new LineRunSettings(
+            Units.KmhToMps(limitKmh.Value), exchangeSeconds, brakeUsage, stopWindowM);
+        var plan = FromFile(signallingPath, SignallingPlan.FromJson);
+        var core = LineCore.M7(plan, axis, conditions, settings, turnbackSeconds: 0.0, atp: true);
+        LineEntryDispatcher? dispatcher = null;
+        if (scheduledEntriesPath is not null)
+        {
+            var schedule = FromFile(scheduledEntriesPath,
+                text => LineEntrySchedule.FromJson(text, axis, step));
+            if (axis.Id != "L1_A" || schedule.Entries.Count != 2)
+            {
+                throw new ArgumentException("Scenariusz wymaga dokładnie dwóch wjazdów L1_A.");
+            }
+            dispatcher = new LineEntryDispatcher(core, schedule, schedule.ServiceDay);
+        }
+        else
+        {
+            for (var i = 0; i < trains; i++)
+            {
+                core.Add(LineSession.TrainIdAt(i), i * headwaySteps);
+            }
+        }
+
+        var session = new LineSession(core, new DriverNotch(notchRate), step, dispatcher);
+        var lines = new List<string> { DriveTelemetry.Header };
+        var sessionStep = 0L;
+        var events = 0;
+        var doorRefusals = 0;
+        while (sessionStep < log.Steps)
+        {
+            foreach (var lineEvent in log.EventsAt(sessionStep))
+            {
+                events++;
+                if (session.Execute(lineEvent) is { Ok: false })
+                {
+                    doorRefusals++;
+                }
+            }
+
+            if (!session.Step(log.KeysAt(sessionStep)))
+            {
+                break;
+            }
+
+            sessionStep++;
+            var finished = sessionStep >= log.Steps || session.Finished;
+            if (session.ActiveObservedIndex is not null && session.Observed.Drive is { } drive
+                && (DriveTelemetry.IsSample(drive.State.Steps, sampleEvery) || finished))
+            {
+                lines.Add(session.TelemetryRow()!);
+            }
+        }
+
+        if (output is null)
+        {
+            foreach (var line in lines)
+            {
+                Console.Out.WriteLine(line);
+            }
+        }
+        else
+        {
+            File.WriteAllLines(output, lines);
+            var provenance = new List<(string Name, string Value)>
+            {
+                ("keys", keysPath),
+                ("axis", axisPath),
+                ("signalling", signallingPath),
+                ("sample_every_steps", sampleEvery.ToString(Inv)),
+                ("notch_rate_per_s", notchRate.ToString(Inv)),
+                ("exchange_s", exchangeSeconds.ToString(Inv)),
+                ("stop_window_m", stopWindowM.ToString(Inv)),
+                ("brake_usage", brakeUsage.ToString(Inv)),
+                ("limit_kmh", limitKmh.Value.ToString(Inv)),
+                ("trains", trains.ToString(Inv)),
+                ("headway_steps", headwaySteps.ToString(Inv)),
+            };
+            if (scheduledEntriesPath is not null)
+            {
+                provenance.RemoveRange(provenance.Count - 2, 2);
+                provenance.Add(("scheduled_entries", scheduledEntriesPath));
+                provenance.Add(("scheduled_entries_sha256",
+                    Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(scheduledEntriesPath))).ToLowerInvariant()));
+            }
+            WriteProvenanceBeside(output, "replay --line", provenance.ToArray());
+        }
+
+        var observed = core.Trains.Count > 0 ? session.Observed : null;
+        Console.Out.WriteLine($"[LINE-STATE] końcowy odcisk sha256={session.StateSha256()}");
+        Console.Out.WriteLine(string.Create(
+            Inv,
+            $"[ODTWORZENIE] {keysPath}: linia, sesja={sessionStep} kroków, "
+            + $"zdarzeń linii={events} odmów drzwi={doorRefusals}, "
+            + $"obserwowany={observed?.Id ?? "brak"} właściciel={observed?.Owner.ToString() ?? "brak"} "
+            + $"chainage={observed?.Drive?.ChainageM ?? 0.0:F3} m "
+            + $"zatrzymań={observed?.Drive?.Calls.Count ?? 0}"));
+        if (dispatcher is not null)
+        {
+            Console.Out.WriteLine($"[ROZKŁAD] zarejestrowane wjazdy: {dispatcher.RegisteredEntries}");
+        }
+        return 0;
+    }
 
     private static int Compare(string[] args)
     {

@@ -2,7 +2,9 @@ using System;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using MetroBxl.Game.Input;
+using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
+using MetroBxl.Sim.Signalling;
 using MetroBxl.Sim.Train;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -24,6 +26,51 @@ public sealed class EmergencyBrakeTests
     private const double Rate = DesignAssumptions.ControlNotchRatePerSecond;
 
     private static DriverNotch Notch() => new(Rate);
+
+    [TestMethod]
+    public void E_during_autopilot_door_service_does_not_claim_the_driver_braked()
+    {
+        var axis = TrackAxis.FromJson(MetroBxl.Tests.Shared.KorzenRepozytorium.Tresc(
+            "data", "track", "L1_A.json"));
+        var plan = SignallingPlan.FromAxis(axis,
+            VehicleRegistry.M7.RequireValue("parameters.length_m", ParameterStatus.Spec),
+            Units.KmhToMps(72.0), 0.0, ProtectionVariant.LegacyFixedBlock,
+            requireRoute: false);
+        var core = LineCore.M7(plan, axis,
+            RunConditions.Level(VehicleModel.M7, TrainLoad.Aw2),
+            new LineRunSettings(Units.KmhToMps(72.0), 8.0, 1.0, 5.0));
+        core.Add(LineSession.CabTrainId, 0L);
+        core.Step();
+        var session = new LineSession(core, Notch(), FixedStep.Simulation);
+        for (var i = 0; i < 40_000 &&
+             session.Observed.Drive?.Phase != DoorPhase.Open; i++)
+            session.Step(DriverKeys.None);
+
+        Assert.AreEqual(DoorPhase.Open, session.Observed.Drive?.Phase,
+            "autopilot must actually be serving a station with open doors");
+        Assert.AreEqual(ControlOwner.Autopilot, session.Observed.Owner,
+            "the train remains under autopilot before the ignored E input");
+        session.Step(DriverKeys.EmergencyBraking);
+        Assert.AreEqual(DoorPhase.Open, session.Observed.Drive?.Phase,
+            "ignored E must not close the autopilot door cycle");
+        Assert.AreEqual(string.Empty, EmergencyBrake.Notice(
+            DriverKeys.EmergencyBraking, session.Command,
+            session.Observed.Owner == ControlOwner.Driver),
+            "E is ignored by the line session while autopilot owns the train");
+
+        core.TakeControl(LineSession.CabTrainId);
+        session.Step(DriverKeys.EmergencyBraking);
+        Assert.AreEqual(ControlOwner.Driver, session.Observed.Owner,
+            "the second E input belongs to the driver after takeover");
+        Assert.AreEqual(DoorPhase.Open, session.Observed.Drive?.Phase,
+            "braking does not interrupt an open door cycle");
+        Assert.AreEqual(1.0, session.Command.Brake, 1e-12,
+            "the driver's E applies full service braking");
+        StringAssert.Contains(EmergencyBrake.Notice(
+            DriverKeys.EmergencyBraking, session.Command,
+            session.Observed.Owner == ControlOwner.Driver), "HAMULEC AWARYJNY",
+            "the driver owned braking event is visible in the HUD");
+    }
 
     /// <summary>Liczba hamulca wyciągnięta z gotowego wiersza HUD-u.</summary>
     private static double BrakeFromNotice(string notice)

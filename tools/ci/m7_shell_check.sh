@@ -330,11 +330,11 @@ elif "design_assumption" not in " ".join(report["not_modelled"]):
 else:
     print(f"[OK] raport niesie {len(report['not_modelled'])} zdan o tym, czego nie ma")
 
-oczekiwane = 2 * 8
+oczekiwane = 2 * 6
 if len(report["solids"]) != oczekiwane:
     problems.append(f"bryl kabiny: {len(report['solids'])} != {oczekiwane}")
 else:
-    print(f"[OK] bryl kabiny: {len(report['solids'])} (dwie kabiny po osiem)")
+    print(f"[OK] bryl kabiny: {len(report['solids'])} (dwie kabiny po szesc)")
 
 # Zawieranie liczone TUTAJ, a nie przepisane z raportu: raport jest wyjsciem tego
 # samego kodu, wiec jego wlasna deklaracja o zawieraniu nie bylaby dowodem.

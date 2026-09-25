@@ -19,8 +19,8 @@ sys.path.insert(0, os.path.join(ROOT, "tools", "blender"))
 import m7_cab  # noqa: E402
 import m7_layout  # noqa: E402
 
-#: Ile brył ma jedna kabina: podłoga, trzy kawałki ściany, dwa pulpitu, dwa fotela.
-BRYL_NA_KABINE = 8
+#: Ile brył ma jedna kabina: podłoga, trzy kawałki ściany i dwa fotela.
+BRYL_NA_KABINE = 6
 #: Ile otworów deklaruje jedna kabina: szyba czołowa i dwa okna boczne.
 OTWOROW_NA_KABINE = 3
 
@@ -95,22 +95,29 @@ def test_kabina_nie_wychodzi_poza_swoja_dlugosc():
                 assert bryla["x_to_m"] <= layout.length + 1e-9, bryla
 
 
-def test_fotel_stoi_za_pulpitem_a_nie_w_nim():
-    """Kolejność wzdłuż kabiny: szyba, pulpit, fotel, ściana — bez przenikania."""
+def test_fotel_stoi_pod_okiem_i_przed_sciana():
+    """Fotel pozostaje pod kamerą i nie wchodzi w tylną ścianę kabiny."""
     cab = m7_cab.Cab(m7_layout.Layout(), end=0)
     bryly = {b["name"]: b for b in cab.solids()}
-    pulpit = bryly["cab_front_desk_top"]
     siedzisko = bryly["cab_front_seat_cushion"]
     oparcie = bryly["cab_front_seat_back"]
     sciana = bryly["cab_front_bulkhead_left"]
 
-    assert pulpit["x_to_m"] <= siedzisko["x_from_m"], (pulpit, siedzisko)
+    assert abs(siedzisko["x_from_m"] - m7_cab.DESIGN_SEAT_FRONT_M) < 1e-9, (
+        "fotel nie zaczyna się w zadanej pozycji projektowej")
+    assert siedzisko["x_from_m"] <= 1.80 <= siedzisko["x_to_m"], (
+        "oko maszynisty nie leży nad siedziskiem")
     assert siedzisko["x_to_m"] <= oparcie["x_from_m"], (siedzisko, oparcie)
     assert oparcie["x_to_m"] <= sciana["x_from_m"], (
         "oparcie fotela wchodzi w ścianę do przedziału pasażerskiego")
 
-    odstep = siedzisko["x_from_m"] - pulpit["x_to_m"]
-    assert abs(odstep - m7_cab.DESIGN_SEAT_GAP_FROM_DESK_M) < 1e-9, odstep
+
+
+def test_w_kabinie_nie_ma_pulpitu():
+    """Żadna z obu kabin nie eksportuje na razie części zasłaniającej tory."""
+    for cab in m7_cab.both_cabs():
+        names = [body["name"] for body in cab.solids()]
+        assert not any("desk" in name for name in names), names
 
 
 def test_druga_kabina_jest_lustrem_pierwszej():
@@ -201,7 +208,7 @@ def test_kazdy_wymiar_kabiny_jest_design_assumption():
     """Żadna stała tego modułu nie udaje wymiaru ze `spec`."""
     stale = [n for n in dir(m7_cab)
              if n.startswith("DESIGN_") and n != "DESIGN_ASSUMPTIONS"]
-    assert len(stale) >= 20, stale
+    assert len(stale) >= 19, stale
     brak = [n for n in stale
             if n.replace("DESIGN_", "").lower() not in m7_cab.DESIGN_ASSUMPTIONS]
     assert not brak, f"stała bez wpisu w DESIGN_ASSUMPTIONS: {brak}"

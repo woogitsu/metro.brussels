@@ -21,6 +21,7 @@ import csharp_pins as CP  # noqa: E402
 #: Zapadka działa w obie strony, jak przy asercjach bez komunikatu z 6.D127: w górę
 #: mówi „doszedł pin, skategoryzuj go", w dół — „pin zniknął, zdejmij go z tabeli".
 PINY_GRY = {
+    "ChaseCameraAimTests.cs": 3,
     # MB-05: jeden pin w `CabPlacementTests.cs` — brzmienie warunku widocznosci kabiny
     # (`view == ViewKind.Cab`). KATEGORIA C: wartosc liczona w JEDNYM miejscu, czyli
     # w `FirstRun.ApplyView`. Trzy liczby tego pliku nie sa pinami napisowymi i stoja
@@ -40,12 +41,18 @@ PINY_GRY = {
     # MB-08: dwa piny w `DoorPromptTests.cs` — wyjscie awaryjne ramienia
     # domyslnego (`"99"`) i nazwa czlonu `None`, ktory NIE jest odmowa.
     # Oba KATEGORII C: wartosc stoi w JEDNYM miejscu zrodla, w `DoorPrompt.Reason`.
-    "DoorPromptTests.cs": 2,
+    # Trzeci pin sprawdza caly wiersz fazy recznej, zamiast niejednoznacznej igly DRZWI.
+    "DoorPromptTests.cs": 3,
+    # AZERTY: dokładny napis W/Z pochodzi z jednej mapy DriverActions (kategoria C).
+    "DriverActionsTests.cs": 1,
     "HudLayoutTests.cs": 1,
+    # Dwa dokładne warianty pozycji, oba wyniki pojedynczego formatera (C).
+    "HudPositionTests.cs": 2,
     "RunHeaderTests.cs": 1,
     "RunPlanTests.cs": 30,
     "RunResetTests.cs": 2,
-    "SignallingHudTests.cs": 1,
+    "SignallingHudTests.cs": 2,
+    "StationWayfindingTests.cs": 2,
     "TelemetryTrackTests.cs": 1,
     # MB-03: cztery piny w `TractionBlockTests.cs` — trzy brzmienia wiersza blokady
     # i jedno przy dwóch blokadach naraz. Wszystkie cztery to KATEGORIA C: kazdy jest
@@ -77,7 +84,19 @@ PINY_GRY = {
 # `Drugi_sklad_zatrzymuje_sie_przed_blokiem_zajetym_przez_pierwszy` — asercja
 # `AreEqual("step-budget", reason)` przypinała ZATOR jako wynik oczekiwany. Test pyta
 # dziś o `"arrived"`, ale przez zmienną, nie przez literał w tym miejscu.
-PINY_RDZENIA = 75
+# 75 -> 77 (23.09.2026, 6.D365): dwa piny `AreEqual(",", …)` w `DoorCycleTests.cs`
+# i `TrainingSessionTests.cs` — straz, ze pl-PL naprawde ma przecinek; ZMIERZONE.
+# 77 -> 78 (23.09.2026, 6.D356): pin napisowy `"BŁĄD: " + Program.WrongJsonShapeText`
+# w `BrokenJsonRefusalTests.cs` — wiersz wspolnego handlera `Sim.Runner` przy
+# dokumencie innego ksztaltu, porownany w calosci; ZMIERZONE.
+# 78 -> 81 (24.09.2026, T-320): data, kurs i identyfikator obiegu.
+# 81 -> 85 (24.09.2026, T-320): cztery kursy w dwóch przejściach obiegu.
+# 85 -> 86 (24.09.2026, T-320): pierwszy trip_id po remisie w planie.
+# 86 -> 87 (24.09.2026, koniec osi linii): nazwa postoju Merode w LineDriveTests.
+# 87 -> 89 (24.09.2026, dwa wjazdy rozkładowe): oba składy muszą dojechać do Merode.
+# 89 -> 97 (24.09.2026, dispatcher, service brake i metadane).
+# 97 -> 99 (25.09.2026, obserwacja czynnych składów): dwa piny id "beek".
+PINY_RDZENIA = 99
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -142,11 +161,26 @@ KATEGORIE = {
         # i 1369/1370 -> 1372/1373. Powod ten sam — komentarz z powodem przy
         # `LiteralowWZasieguBramki`, tym razem o trzy wiersze. TRESC pinow nie drgnela.
         # Przeliczone roznica plikow (difflib), a nie liczeniem wierszy z reki.
-        ("UiTextTests.cs", 1272), ("UiTextTests.cs", 1285), ("UiTextTests.cs", 1303),
-        ("SignallingHudTests.cs", 37),
+        # DZIESIATY ruch tych kotwic (6.M1, 23.09.2026): 1272/1285/1303 -> 1273/1286/1304
+        # i 1372/1373 -> 1373/1374. Powod ten sam — komentarz z powodem przy
+        # `LiteralowWZasieguBramki`, tym razem o jeden wiersz. TRESC pinow nie drgnela.
+        # Przeliczone roznica plikow (difflib).
+        # Dodatkowe ogniwo pomiaru korpusu przesuwa kotwice o kolejny wiersz.
+        # 24.09.2026: komentarz o scenerii Merode przesunął kotwice o wiersz.
+        # Dodatkowy komentarz o wyróżnieniu celu przesuwa kotwice o wiersz.
+        # Komentarz o końcu toru przesuwa kotwice o kolejny wiersz.
+        # Dwa komentarze o lampach scenerii przesunęły te same piny o dwa wiersze.
+        # 25.09.2026: komentarz z pomiarem połączonego korpusu przesuwa kotwice o wiersz.
+        # 25.09.2026: komentarz o logu kamery przesuwa pięć kotwic o wiersz; treść bez zmian.
+        # AZERTY (25.09.2026): dwa komentarze przesuwają kotwice, a W/Z wydłuża pomoc.
+        # T-400 side dodaje kolejny komentarz, przesuwając kotwice o wiersz.
+        # T-400 stop target adds one count-history line above these pins.
+        ("UiTextTests.cs", 1300), ("UiTextTests.cs", 1313), ("UiTextTests.cs", 1331),
+        # HUD domenowy dodaje trainId; pin przesuwa się i obejmuje koniec autorytetu.
+        ("SignallingHudTests.cs", 40),
     },
     "B": {
-        ("UiTextTests.cs", 1372), ("UiTextTests.cs", 1373),
+        ("UiTextTests.cs", 1400), ("UiTextTests.cs", 1401),
     },
 }
 
@@ -162,7 +196,21 @@ KATEGORIE = {
 # 52 -> 53 (14.09.2026, MB-07): pin wiersza pomocy dla składu przejętego.
 # 53 -> 55 (14.09.2026, MB-08): dwa piny `DoorPromptTests.cs`.
 # 55 -> 58 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` opisane wyzej.
-LICZBA_C = 58
+# 58 -> 59 (24.09.2026, braking cue): pin w teście wskazówki hamowania.
+# 59 -> 60 (24.09.2026, integracja): dokladny wiersz fazy DoorPromptTests.
+# 60 -> 59 (24.09.2026, cue): dwa syntetyczne piny UiTextTests zajmuja teraz
+# osobne wiersze 1378/1379, wiec oba sa jawnie w kategorii B.
+# 59 -> 61 (24.09.2026, tablice stacji): dwie pelne nazwy w StationWayfindingTests.
+# 61 -> 62 (24.09.2026, HUD 800x600): jednoliniowy kilometraż przy widocznej stacji.
+# 62 -> 63 (24.09.2026, HUD bez wiersza stacji): pełny wiersz pozycji.
+# 63 -> 66 (24.09.2026, krótki HUD chase): trzy dokładne brzmienia
+# wskazówki przy różnych pozycjach względem granicy. Kategoria C,
+# bo tekst powstaje w jednym formatterze ChaseAvailability.HudHint.
+# 66 -> 67 (24.09.2026, test końca planu): wynik `LineCore.Run` jest jednym źródłem.
+# Dwa nowe piny Merode należą do tests/Sim.Tests, więc nie zmieniają kategorii
+# testów warstwy gry liczonej poniżej.
+# 67 -> 68 (25.09.2026, AZERTY): dokładny napis W/Z w DriverActionsTests.
+LICZBA_C = 68
 
 
 def test_ile_pinow_stoi_w_testach_warstwy_gry():
@@ -176,7 +224,10 @@ def test_ile_pinow_stoi_w_testach_warstwy_gry():
 
     # 61 -> 64 (15.09.2026, 6.D214): trzy piny `UiTextTests.cs` bramki na
     # zgloszeniach URWANYCH.
-    assert sum(zmierzone.values()) == 64, (
+    # 64 -> 65 (24.09.2026, integracja): pin caly wiersz fazy.
+    # 65 -> 67 (24.09.2026, tablice stacji): dwie pelne nazwy.
+    # 67 -> 69 (24.09.2026, HUD 800x600): dwa dokładne warianty pozycji.
+    assert sum(zmierzone.values()) == 74, (
         "pinów warstwy gry jest %d, a pomiar z 14.09.2026 dał 61 "
         "(47 po 6.D155, 45 przed nim; +5 przy MB-03, +1 przy MB-05, "
         "+5 przy audycie bramki MB-05, +2 przy MB-08 — `DoorPromptTests`)"
@@ -208,8 +259,8 @@ def test_kazdy_pin_ma_kategorie_i_suma_sie_zgadza():
     # ktora NIE jest przy okazji: stalo tu „nie sumują się do 47" przy warunku na 52,
     # czyli komunikat bledu podawal liczbe o piec mniejsza od tej, ktorej bramka
     # pilnowala. Kto by na niego trafil, szukalby rozbieznosci, ktorej nie ma.
-    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 64, (
-        "kategorie nie sumują się do 64: A=%d, B=%d, C=%d"
+    assert len(KATEGORIE["A"]) + len(KATEGORIE["B"]) + LICZBA_C == 74, (
+        "kategorie nie sumują się do 74: A=%d, B=%d, C=%d"
         % (len(KATEGORIE["A"]), len(KATEGORIE["B"]), LICZBA_C))
 
 
@@ -230,10 +281,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1303)], (
+    assert przepuszczone == [("UiTextTests.cs", 1331)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1373)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1401)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -247,13 +298,13 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1272)]) == 122, (
+    assert len(tresci[("UiTextTests.cs", 1300)]) == 124, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1272)]))
-    assert len(tresci[("UiTextTests.cs", 1303)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1303)]))
-    assert len(tresci[("SignallingHudTests.cs", 37)]) == 84, (
-        len(tresci[("SignallingHudTests.cs", 37)]))
+        % len(tresci[("UiTextTests.cs", 1300)]))
+    assert len(tresci[("UiTextTests.cs", 1331)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1331)]))
+    assert len(tresci[("SignallingHudTests.cs", 40)]) == 106, (
+        len(tresci[("SignallingHudTests.cs", 40)]))
 
     # Kontrola w drugą stronę: krótki pin ma zostać krótki, inaczej sklejanie
     # zjadałoby sąsiednie argumenty.
@@ -366,9 +417,21 @@ ROZKLAD_LICZBOWYCH = {
         # `var` na typ jawny daje 535 przy pinie 536.
         # 240 -> 246 (22.09.2026, 6.D235): SZESC pinow calkowitych bez tolerancji
         # w `FileReadGuardTests.cs` i `BadFileTests.cs`. Przeliczone z drzewa.
-        "razem": 246, "z_tolerancja": 103, "bez_tolerancji": 143,
-        "zmiennoprzecinkowe": 109, "zmiennoprzecinkowe_bez_tolerancji": 6,
-        "calkowite": 137, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
+        # 246 -> 249: trzy piny pozycji widoku kabiny, kazdy float z tolerancja.
+        # 249 -> 250 (24.09.2026, door-prompt-service): jeden pin liczby
+        # wierszy komunikatu HUD; calkowity bez tolerancji. ZMIERZONE.
+        # 250 -> 251 (24.09.2026, braking cue): dystans z tolerancja.
+        # 251 -> 252 (24.09.2026, kamera): pin kierunku z tolerancja.
+        # 252 -> 255: trzy pomiary polozenia tablic z tolerancja.
+        # 255 -> 256: krok pojawienia sie PREP w replay, calkowity bez tolerancji.
+        # 256 -> 257: pin pelnego hamulca z tolerancja po przejeciu przez gracza.
+        # 257 -> 260 (24.09.2026, dwie tablice): trzy polozenia z tolerancja.
+        # 260 -> 262 (24.09.2026, mocowania tablic): dwie długości z tolerancją.
+        # 262 -> 264 (25.09.2026, T-400 stop target): lateral and vertical position checks.
+        # 264 -> 266 (25.09.2026, osobne liczności etykiet HUD i STOP).
+        "razem": 266, "z_tolerancja": 119, "bez_tolerancji": 147,
+        "zmiennoprzecinkowe": 125, "zmiennoprzecinkowe_bez_tolerancji": 6,
+        "calkowite": 141, "calkowite_z_tolerancja": 0, "tolerancja_zero": 18,
     },
     "tests/Sim.Tests": {
         # 441 -> 454 (13.09.2026, MB-02): trzynaście pinów liczbowych
@@ -420,9 +483,39 @@ ROZKLAD_LICZBOWYCH = {
         # 481 -> 488 (22.09.2026, 6.M2): SIEDEM pinow calkowitych bez tolerancji
         # w `StopWindowParityTests.cs` (liczby wywolan, liczba minietych, liczba
         # krokow postoju). Przeliczone z drzewa.
-        "razem": 488, "z_tolerancja": 188, "bez_tolerancji": 300,
-        "zmiennoprzecinkowe": 196, "zmiennoprzecinkowe_bez_tolerancji": 8,
-        "calkowite": 292, "calkowite_z_tolerancja": 0, "tolerancja_zero": 119,
+# 488 -> 493 (23.09.2026, 6.M1): PIĘĆ pinów `LineReplayTests.cs` — cztery
+# całkowite bez tolerancji (liczby zdarzeń, poleceń drzwi, zdarzeń jednego kroku,
+# zdarzeń kroku obok) i jeden zmiennoprzecinkowy z tolerancją 0.0 (skład stoi).
+# Przeliczone z drzewa.
+        # 493 -> 496 (23.09.2026, 6.M3): TRZY piny calkowite bez tolerancji w testach
+        # okna drzwi (liczby wywolan i krokow z otwartymi drzwiami). Przeliczone z drzewa.
+        # 496 -> 498 (23.09.2026, 6.D357): DWA piny `BrokenJsonRefusalTests.cs` —
+        # zero slow wspolnych z tekstem parsera i podloga 10 par loader x ksztalt
+        # w nowej bramce. Oba CALKOWITE i BEZ TOLERANCJI, bo sa liczbami, nie miara
+        # fizyczna; `calkowite_z_tolerancja` zostaje ZEREM. ZMIERZONE.
+        # 498 -> 501 (23.09.2026, 6.D356): TRZY piny calkowite bez tolerancji
+        # w `BrokenJsonRefusalTests.cs` — dwa razy kod wyjscia 1 i podloga na liczbe
+        # przejrzanych ksztaltow. Przeliczone z drzewa; ZMIERZONE.
+        # 501 -> 505 (24.09.2026): three station/step pins and one
+        # chainage pin with exact 0.0 tolerance for mid-axis admission.
+        # 505 -> 508 (24.09.2026, T-320): plan wejść i dwie granice obiegu.
+        # 508 -> 512 (24.09.2026, T-320): kroki, stacja i liczba składów.
+        # 512 -> 513 (24.09.2026, T-320): liczba przejść obiegu.
+        # 513 -> 515 (24.09.2026, T-320): niezmieniony krok i dwa kursy planu.
+        # 515 -> 517 (24.09.2026, koniec osi): odległość i zerowa prędkość.
+        # 517 -> 523 (24.09.2026, LineDrive): granica Merode, prędkość, ślad i bilans.
+        # 523 -> 531 (24.09.2026, dwa wjazdy rozkładowe): osiem dokładnych
+        # całkowitych pinów liczby kursów, bloków, stacji, kroków i wezwań.
+        # 551 -> 560 (24.09.2026, adapter odtwarzania rozkladu): dziewiec
+        # calkowitych pinow bez tolerancji, zmierzonych na polaczonym drzewie.
+        # 560 -> 562 (25.09.2026, nastawnik): dwa piny przejścia przez neutral.
+        # 562 -> 566 (25.09.2026, obserwacja czynnych składów): dwie dokładne
+        # wartości przyspieszenia 0.0 i dwa całkowite indeksy obserwacji.
+        # 566 -> 568 (25.09.2026, T-400 ATP): zerowy nastaw z tolerancją
+        # i dokładne zero naruszeń zezwolenia.
+        "razem": 568, "z_tolerancja": 196, "bez_tolerancji": 372,
+        "zmiennoprzecinkowe": 217, "zmiennoprzecinkowe_bez_tolerancji": 21,
+        "calkowite": 351, "calkowite_z_tolerancja": 0, "tolerancja_zero": 125,
     },
 }
 
@@ -433,16 +526,23 @@ ROZKLAD_LICZBOWYCH = {
 #: int, double)` nie ma przeciążenia, więc pin całkowity z tolerancją nie skompilowałby
 #: się. Zapadka z obu stron na tej zerowej liczbie pilnuje, żeby zdanie zostało prawdziwe.
 #:
-#: **Porównań DOKŁADNYCH na liczbie zmiennoprzecinkowej jest 146, nie 14.** Czternaście
-#: nie ma trzeciego argumentu wcale, a **131 podaje tolerancję `0.0`** (132 do MB-07) — czyli deklaruje
-#: dokładność jawnie. Sama liczba „14" byłaby dziesięciokrotnie zaniżona i to jest
+#: **Porównań DOKŁADNYCH na liczbie zmiennoprzecinkowej jest 168, nie 27.** Dwadzieścia
+#: siedem nie ma trzeciego argumentu wcale, a **141 podaje tolerancję `0.0`** — czyli deklaruje
+#: dokładność jawnie. Sama liczba „21" byłaby znacznie zaniżona i to jest
 #: dokładnie ten kształt, który projekt tropi od 6.D27: licznik mówiący o czymś węższym,
 #: niż sugeruje jego nazwa.
 # 146 -> 145 (14.09.2026, MB-07): zniknal `AreEqual(0.0, …SpeedMps, 0.0)`
 # z przepisanego testu zatoru — powod przy `ROZKLAD_LICZBOWYCH["tests/Sim.Tests"]`.
 # 145 -> 151 (14.09.2026, MB-08): sześć porównań z tolerancją 0.0 w testach
 # drzwi; `zmiennoprzecinkowe_bez_tolerancji` stoi w miejscu na ośmiu.
-DOKLADNE_ZMIENNOPRZECINKOWE = 151
+# 151 -> 152 (23.09.2026, 6.M1): jedno porównanie z tolerancją 0.0 w `LineReplayTests.cs`.
+# 152 -> 153 (24.09.2026, next station after mid-axis entry).
+# 153 -> 155 (24.09.2026, koniec osi): dwa dokładne porównania prędkości.
+# 155 -> 160 (24.09.2026, LineDrive): pięć dokładnych porównań bez tolerancji.
+# 160 -> 166 (24.09.2026, dok?adne stany hamowania terminalowego).
+# 166 -> 168 (25.09.2026, nastawnik): dwa dokładne zera przeciwnego kierunku.
+# 168 -> 170 (25.09.2026, obserwacja czynnych składów): dwa zerowe przyspieszenia.
+DOKLADNE_ZMIENNOPRZECINKOWE = 170
 
 
 def test_ile_pinow_liczbowych_i_jak_sie_dziela():
@@ -469,11 +569,11 @@ def test_pin_calkowity_NIGDY_nie_ma_tolerancji_i_to_nie_jest_zwyczaj():
         % razem)
 
 
-def test_dokladnych_porownan_zmiennoprzecinkowych_jest_146_a_nie_14():
+def test_dokladnych_porownan_zmiennoprzecinkowych_jest_170_a_nie_27():
     """**Sedno 6.D141: tolerancja `0.0` JEST porównaniem dokładnym.**
 
-    Licznik „bez tolerancji" mówi o czternastu asercjach, a dokładnych porównań na
-    liczbie zmiennoprzecinkowej jest dziesięć razy więcej — bo 131 podają tolerancję
+    Licznik „bez tolerancji" mówi o dwudziestu siedmiu asercjach, a dokładnych porównań na
+    liczbie zmiennoprzecinkowej jest znacznie więcej — bo 143 podają tolerancję
     zapisaną jako `0.0`. Test liczy jedno i drugie, żeby ta różnica stała w kodzie,
     a nie tylko w raporcie.
     """
@@ -481,12 +581,16 @@ def test_dokladnych_porownan_zmiennoprzecinkowych_jest_146_a_nie_14():
               for k in ROZKLAD_LICZBOWYCH)
     zero = sum(CP.rozklad_liczbowych(k)["tolerancja_zero"] for k in ROZKLAD_LICZBOWYCH)
 
-    assert bez == 14, ("zmiennoprzecinkowych bez tolerancji: %d, pomiar mówił 14" % bez)
+    assert bez == 27, ("zmiennoprzecinkowych bez tolerancji: %d, pomiar m?wi? 27" % bez)
     # 132 -> 131 (14.09.2026, MB-07): patrz `ROZKLAD_LICZBOWYCH["tests/Sim.Tests"]`.
     # 131 -> 137 (14.09.2026, MB-08): sześć porównań z tolerancją 0.0 w nowych testach
     # drzwi — wszystkie tam, gdzie pytanie brzmi „ani jeden bit": nietknięty nastawnik,
     # nietknięty hamulec i nieruszony kilometraż przy otwierających się drzwiach.
-    assert zero == 137, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 137" % zero)
+    # 137 -> 138 (23.09.2026, 6.M1): jedno porównanie z tolerancją 0.0 w
+    # `LineReplayTests.cs` — skład ma STAĆ przed otwarciem drzwi, ani jednego bitu ruchu.
+    # 139 -> 141 (25.09.2026, nastawnik): przejścia przez neutral.
+    # 141 -> 143 (25.09.2026, obserwacja): brak fałszywego przyspieszenia.
+    assert zero == 143, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 143" % zero)
     assert bez + zero == DOKLADNE_ZMIENNOPRZECINKOWE, (
         "porównań dokładnych jest %d, a stała mówi %d" % (bez + zero,
                                                           DOKLADNE_ZMIENNOPRZECINKOWE))

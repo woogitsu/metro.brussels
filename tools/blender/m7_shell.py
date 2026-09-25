@@ -8,7 +8,7 @@ Model powstaje w 100 % ze skryptu. Zero modelowania ręcznego.
 
 Wymiary `spec` pochodzą wyłącznie z `data/vehicle/m7-spec.json`; wszystko inne to
 jawne `design_assumption` z `m7_layout.py`. Bryła jest **techniczną skorupą**, nie
-finalnym assetem: bez kabiny, wnętrza, wózków, podwozia, szyb, materiałów
+finalnym assetem: bez kabiny, wnętrza, wózków, podwozia, przezroczystych szyb i materiałów
 finalnych i bez czegokolwiek objętego `docs/03-legal.md` — żadnych logo STIB/MIVB,
 liverii, map sieci, piktogramów ani wzorów tapicerki.
 """
@@ -24,7 +24,9 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import profiles  # noqa: E402
 import m7_report as RP  # noqa: E402
-from m7_layout import DESIGN_ASSUMPTIONS, DESIGN_SHELL_THICKNESS_M, Layout  # noqa: E402
+from m7_layout import (DESIGN_ASSUMPTIONS, DESIGN_SHELL_THICKNESS_M,
+                       DESIGN_WINDOW_BAND_BOTTOM_M, DESIGN_WINDOW_BAND_TOP_M,
+                       Layout)  # noqa: E402
 
 
 def parse_args():
@@ -64,7 +66,48 @@ def neutral_material():
     return material
 
 
-def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True):
+def dark_panel_material():
+    """Własny, neutralny panel końcowy i mieszek; bez znaków i tekstur."""
+    existing = bpy.data.materials.get("M7_neutral_dark_panel")
+    if existing:
+        return existing
+    material = bpy.data.materials.new("M7_neutral_dark_panel")
+    material.use_nodes = True
+    bsdf = material.node_tree.nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs["Base Color"].default_value = (0.115, 0.135, 0.155, 1.0)
+        bsdf.inputs["Roughness"].default_value = 0.75
+        if "Metallic" in bsdf.inputs:
+            bsdf.inputs["Metallic"].default_value = 0.0
+    return material
+
+
+def window_band_material():
+    """Własny ciemny pas okienny; kryjący, bez grafiki i przezroczystości."""
+    existing = bpy.data.materials.get("M7_neutral_window_band")
+    if existing:
+        return existing
+    material = bpy.data.materials.new("M7_neutral_window_band")
+    material.use_nodes = True
+    bsdf = material.node_tree.nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs["Base Color"].default_value = (0.08, 0.15, 0.19, 1.0)
+        bsdf.inputs["Roughness"].default_value = 0.32
+        if "Metallic" in bsdf.inputs:
+            bsdf.inputs["Metallic"].default_value = 0.0
+    return material
+
+
+def end_cap_with_panel(bm, ring):
+    """Wpuszczony neutralny panel czołowy, bez zmiany skrajni ani liczby brył."""
+    cap = bmesh.ops.contextual_create(bm, geom=ring)["faces"][0]
+    bmesh.ops.inset_region(bm, faces=[cap], thickness=0.18, depth=0.0)
+    cap.material_index = 1
+
+
+def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True,
+               dark_start=False, dark_end=False, dark_body=False,
+               window_band=False, window_dividers=()):
     """Zamknięta skorupa zbudowana z pierścieni przekroju wzdłuż X."""
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
@@ -72,22 +115,49 @@ def build_tube(name, layout, start, end, extra_inset=0.0, taper_aware=True):
 
     bm = bmesh.new()
     rings = []
-    for x in RP.x_stations(layout, start, end, taper_aware):
+    stations = set(RP.x_stations(layout, start, end, taper_aware))
+    for x0, x1 in window_dividers:
+        stations.update((x0, x1))
+    for x in sorted(stations):
         section = layout.section(x, extra_inset)
+        if window_band:
+            # Rozbij tylko istniejące pionowe lica boków: materiał nie wystaje
+            # poza podaną w specyfikacji szerokość ani nie dodaje nowej bryły.
+            right, left = section[1], section[-1]
+            section = [section[0], right,
+                       (right[0], DESIGN_WINDOW_BAND_BOTTOM_M),
+                       (right[0], DESIGN_WINDOW_BAND_TOP_M),
+                       *section[2:-1], left,
+                       (left[0], DESIGN_WINDOW_BAND_TOP_M),
+                       (left[0], DESIGN_WINDOW_BAND_BOTTOM_M)]
         rings.append([bm.verts.new((x, y, z)) for y, z in section])
     bm.verts.ensure_lookup_table()
 
     count = len(rings[0])
     for a, b in zip(rings, rings[1:]):
+        mid_x = (a[0].co.x + b[0].co.x) / 2.0
+        divider = any(x0 <= mid_x <= x1 for x0, x1 in window_dividers)
         for i in range(count):
             j = (i + 1) % count
-            bm.faces.new((a[i], a[j], b[j], b[i]))
-    bmesh.ops.contextual_create(bm, geom=rings[0])
-    bmesh.ops.contextual_create(bm, geom=rings[-1])
+            face = bm.faces.new((a[i], a[j], b[j], b[i]))
+            if window_band and not divider and i in (2, 8):
+                face.material_index = 2 if dark_start or dark_end else 1
+    if dark_start:
+        end_cap_with_panel(bm, rings[0])
+    else:
+        bmesh.ops.contextual_create(bm, geom=rings[0])
+    if dark_end:
+        end_cap_with_panel(bm, rings[-1])
+    else:
+        bmesh.ops.contextual_create(bm, geom=rings[-1])
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.to_mesh(mesh)
     bm.free()
-    mesh.materials.append(neutral_material())
+    mesh.materials.append(dark_panel_material() if dark_body else neutral_material())
+    if dark_start or dark_end:
+        mesh.materials.append(dark_panel_material())
+    if window_band:
+        mesh.materials.append(window_band_material())
     return obj
 
 
@@ -159,7 +229,10 @@ def build_shell(layout):
     cars = []
     for index in range(layout.cars):
         start, end = layout.car_body_span(index)
-        car = build_tube(f"M7_car_{index + 1}", layout, start, end)
+        car = build_tube(f"M7_car_{index + 1}", layout, start, end,
+                         dark_start=index == 0, dark_end=index == layout.cars - 1,
+                         window_band=True,
+                         window_dividers=layout.window_divider_spans(index))
         solidify(car)
         car_doors = [d for d in doors if d["car"] == index]
         if car_doors:
@@ -170,7 +243,7 @@ def build_shell(layout):
     for index, (start, end) in enumerate(layout.articulation_spans()):
         from m7_layout import DESIGN_ARTICULATION_INSET_M
         joint = build_tube(f"M7_articulation_{index + 1}", layout, start, end,
-                           extra_inset=DESIGN_ARTICULATION_INSET_M)
+                           extra_inset=DESIGN_ARTICULATION_INSET_M, dark_body=True)
         solidify(joint)
         joints.append(joint)
     return cars, joints

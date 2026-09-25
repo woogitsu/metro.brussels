@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
 using Godot;
 using MetroBxl.Game.Assets;
 using MetroBxl.Game.Input;
 using MetroBxl.Game.UI;
 using MetroBxl.Game.World;
 using MetroBxl.Sim.Line;
+using MetroBxl.Sim.Json;
 using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Signalling;
 using MetroBxl.Sim.Train;
@@ -26,6 +29,12 @@ public enum ViewKind
 
     /// <summary>Z boku i z góry, przez odrzucone tyłem ściany tunelu — tylko kontrola geometrii.</summary>
     Outside,
+
+    /// <summary>Kontrolne ujęcie boku składu z sąsiedniego toru.</summary>
+    Side,
+
+    /// <summary>Kontrolne ujęcie ze zbudowanej płyty peronu, gdy jest przy składzie.</summary>
+    Platform,
 
     /// <summary>
     /// Kamera inspekcyjna: stoi na osi tunelu przy zadanym kilometrażu i patrzy
@@ -76,6 +85,10 @@ public sealed partial class FirstRun : Node3D
 
     private TrackAxis _axis = null!;
     private SceneAxis _sceneAxis = null!;
+    private SceneAxis? _visualTailAxis;
+    private string _visualContinuationKind = "tail";
+    private string _visualContinuationVerticalStatus = "not_modelled";
+    private string _visualContinuationSourceSha256 = "";
     private VehicleModel _model = null!;
     private DriveScenario _scenario = null!;
     private RunConditions _conditions = null!;
@@ -103,6 +116,7 @@ public sealed partial class FirstRun : Node3D
     /// ktoś akurat trzyma klawisz przy oglądaniu.
     /// </summary>
     private DriverKeys _activeKeys = DriverKeys.None;
+    private readonly BrakingCueMemory _brakingCueMemory = new();
 
     private FixedStep _step;
 
@@ -130,6 +144,15 @@ public sealed partial class FirstRun : Node3D
     private bool _summaryPrinted;
     private LineDrive? _line;
     private LineCore? _lineCore;
+    private LineEntryDispatcher? _lineDispatcher;
+    private LineEntrySchedule? _scheduledEntries;
+
+    /// <summary>
+    /// Sesja linii z maszynistą — 6.M1. Jedna droga kroku i poleceń dla klawiatury,
+    /// odtworzenia z zapisu i <c>Sim.Runner replay --line</c>; powód przy
+    /// <see cref="LineSession"/>.
+    /// </summary>
+    private LineSession? _lineSession;
 
     /// <summary>
     /// Plan sygnalizacji, z którego tryb ręczny bierze prędkość dopuszczalną;
@@ -163,6 +186,7 @@ public sealed partial class FirstRun : Node3D
     /// cyklu drzwi rozjeżdża jedno z drugim.
     /// </summary>
     private DriverCommand _effectiveCommand = DriverCommand.Coast;
+    private bool _terminalBrakeEngaged;
 
     private double _acceleration;
 
@@ -171,6 +195,9 @@ public sealed partial class FirstRun : Node3D
     private ChunkManifest? _manifest;
     private string _assetDirectory = string.Empty;
     private StandardMaterial3D? _tunnelMaterial;
+    private bool _hasTrackDetail;
+    private readonly List<OmniLight3D> _trackLights = new();
+    private int _lightAnchor = int.MinValue;
     private TrainView _train = null!;
 
     /// <summary>
@@ -221,6 +248,18 @@ public sealed partial class FirstRun : Node3D
         return _trainViews.TryGetValue(id, out var widok) ? widok : _train;
     }
 
+    private bool TrainIsPresent(string id)
+    {
+        if (_lineCore is null)
+            return true;
+
+        foreach (var train in _lineCore.Trains)
+            if (train.Id == id && train.OnLine)
+                return true;
+
+        return false;
+    }
+
     private CabView _cabView = null!;
     private StationView _platforms = null!;
     private Camera3D _cab = null!;
@@ -235,6 +274,36 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private StepAccumulator _accumulator = null!;
     private long _frames;
+    private List<long>? _performanceStepTicks;
+    private List<long>? _performanceStepOrdinals;
+
+    /// <summary>Begin an opt-in timing sample of actual scene simulation steps.</summary>
+    public void BeginStepTiming()
+    {
+        _performanceStepTicks = new List<long>(4096);
+        _performanceStepOrdinals = new List<long>(4096);
+    }
+
+    /// <summary>Return elapsed microseconds per completed scene step for a local benchmark.</summary>
+    public double[] StepTimingsMicroseconds()
+    {
+        var samples = _performanceStepTicks;
+        if (samples is null)
+        {
+            return Array.Empty<double>();
+        }
+
+        var result = new double[samples.Count];
+        for (var i = 0; i < samples.Count; i++)
+        {
+            result[i] = samples[i] * (1_000_000.0 / Stopwatch.Frequency);
+        }
+
+        return result;
+    }
+
+    /// <summary>Step index within its rendered frame, paired with timing samples.</summary>
+    public long[] StepTimingOrdinals() => _performanceStepOrdinals?.ToArray() ?? Array.Empty<long>();
     private long _sampleEvery = DriveTelemetry.DefaultSampleEverySteps;
     private long _stepsPerFrame = 120;
     private double _jitter;
@@ -289,7 +358,7 @@ public sealed partial class FirstRun : Node3D
     /// naraz, a zdarzenia obu stron mają dać się porównać z rdzeniem po NAZWIE, a nie po
     /// domysłach — <c>Sim.Runner</c> używa tego samego napisu.
     /// </summary>
-    private const string SignalledTrainId = "KABINA";
+    private const string SignalledTrainId = LineSession.CabTrainId;
 
     /// <summary>
     /// Nazwa składu o indeksie <paramref name="index"/> — MB-07.
@@ -301,9 +370,7 @@ public sealed partial class FirstRun : Node3D
     /// rozjechałoby scenę z rdzeniem w każdym przebiegu, w którym składów jest jeden —
     /// czyli w każdym dzisiejszym.</para>
     /// </remarks>
-    private static string TrainIdAt(int index) =>
-        index == 0 ? SignalledTrainId : string.Create(
-            CultureInfo.InvariantCulture, $"SKLAD-{index + 1:00}");
+    private static string TrainIdAt(int index) => LineSession.TrainIdAt(index);
 
     /// <summary>
     /// Perony się nie wczytały. Odmowa, a nie cichy przejazd bez nich — i to jest
@@ -444,6 +511,7 @@ public sealed partial class FirstRun : Node3D
     /// więc zapis wejść opisywałby przejazd, którego nie da się odtworzyć.</para>
     /// </summary>
     private bool _resetPending;
+    private bool _lineCompletionReported;
 
     private bool _done;
 
@@ -497,11 +565,18 @@ public sealed partial class FirstRun : Node3D
             // z jej własną fazą. `ManualTelemetryRow` wpisałby tu `manual` i echo
             // rozjechałoby się z oryginałem w dziesiątej kolumnie już w pierwszym
             // wierszu — a `compare` odrzuca różnicę fazy przed policzeniem czegokolwiek.
-            _telemetry.Add(_scripted is not null
-                ? DriveTelemetry.Row(_scripted)
-                : _track is not null
-                    ? FromTelemetryRow()
-                    : ManualTelemetryRow());
+            //
+            // W ODTWORZENIU LINII (6.M1) wiersza zerowego nie ma: skład wchodzi na plan
+            // dopiero w pierwszym kroku linii, więc stanu „przed pierwszym krokiem" nie
+            // ma czym opisać — i tak samo nie wypisuje go `Sim.Runner replay --line`.
+            if (!_lineMode)
+            {
+                _telemetry.Add(_scripted is not null
+                    ? DriveTelemetry.Row(_scripted)
+                    : _track is not null
+                        ? FromTelemetryRow()
+                        : ManualTelemetryRow());
+            }
         }
 
         PlaceEverything();
@@ -570,8 +645,33 @@ public sealed partial class FirstRun : Node3D
         _aborted = true;
         GD.PushError(message);
         GD.PrintErr(message);
+        // Flush the named startup error before the GUI dialog waits for acknowledgement.
+        Console.Error.WriteLine(message);
+        Console.Error.Flush();
+        if (_plan?.ShouldShowStartupErrorDialog(IsHeadlessDisplay) == true
+            && code is ExitMissingInput or ExitMissingAssets or ExitTrainMissing
+                or ExitPlatformsMissing or ExitCabMissing)
+        {
+            // The GUI executable has no visible console when started by double-click.
+            // Defer the popup until the startup scene has entered the tree. Otherwise
+            // an error raised in _Ready can leave only a console message behind.
+            var dialog = new AcceptDialog
+            {
+                DialogText = message,
+                Title = message[..message.IndexOf(']')].TrimStart('['),
+                Exclusive = true,
+            };
+            AddChild(dialog);
+            dialog.Confirmed += () => GetTree().Quit(code);
+            dialog.Canceled += () => GetTree().Quit(code);
+            dialog.CloseRequested += () => GetTree().Quit(code);
+            Callable.From(() => dialog.PopupCentered()).CallDeferred();
+            return;
+        }
         GetTree().Quit(code);
     }
+
+    private static bool IsHeadlessDisplay => DisplayServer.GetName() == "headless";
 
     /// <summary>
     /// Domyślna ścieżka do zasobu — z KATALOGU REPOZYTORIUM w checkoucie, a z katalogu
@@ -881,10 +981,47 @@ public sealed partial class FirstRun : Node3D
                 // MB-07: N składów, każdy o własnym kroku wyjazdu. Przy `--trains=1`
                 // (domyślnie) pętla wykonuje się RAZ i robi dokładnie to, co robił
                 // pojedynczy `Add` przed tą pozycją — łącznie z nazwą i krokiem zero.
-                for (var i = 0; i < _plan!.Trains; i++)
+                if (_plan!.ScheduledEntriesPath is { } scheduledPath)
                 {
-                    _lineCore.Add(TrainIdAt(i), i * _plan.HeadwaySteps);
+                    using var scheduleFile = FileAccess.Open(scheduledPath, FileAccess.ModeFlags.Read);
+                    if (scheduleFile is null)
+                    {
+                        Abort(ExitMissingInput,
+                            $"[ROZKŁAD] nie da się otworzyć {scheduledPath}: {FileAccess.GetOpenError()}");
+                        return;
+                    }
+                    try
+                    {
+                        var schedule = LineEntrySchedule.FromJson(scheduleFile.GetAsText(), _axis, _step);
+                        if (_axis.Id != "L1_A" || schedule.Entries.Count != 2)
+                            throw new ArgumentException(
+                                "Scenariusz wymaga dokładnie dwóch wjazdów L1_A.");
+                        _lineDispatcher = new LineEntryDispatcher(
+                            _lineCore, schedule, schedule.ServiceDay);
+                        _scheduledEntries = schedule;
+                        GD.Print($"[ROZKŁAD] {schedule.Date}: dwa wejścia z {scheduledPath}");
+                    }
+                    catch (Exception error) when (error is ArgumentException or InvalidOperationException
+                                                  or FormatException or OverflowException)
+                    {
+                        Abort(ExitBadArgumentValue,
+                            $"[ROZKŁAD] niepoprawny plan wejść {scheduledPath}: {error.Message}");
+                        return;
+                    }
+                    catch (Exception error) when (BadFile.IsWrongJsonShape(error))
+                    {
+                        Abort(ExitBadArgumentValue,
+                            $"[ROZKŁAD] {scheduledPath} nie ma kształtu planu wejść: brak pola albo pole złego typu");
+                        return;
+                    }
                 }
+                else
+                {
+                    for (var i = 0; i < _plan.Trains; i++)
+                        _lineCore.Add(TrainIdAt(i), i * _plan.HeadwaySteps);
+                }
+
+                _lineSession = new LineSession(_lineCore, _notch, _step, _lineDispatcher);
                 GD.Print(string.Create(
                     CultureInfo.InvariantCulture,
                     $"[SYGNALIZACJA] {signalling.Blocks.Count} bloków, {signalling.Routes.Count} tras, "
@@ -1149,7 +1286,7 @@ public sealed partial class FirstRun : Node3D
         // oświetlić wnętrze zamkniętej rury o normalnych skierowanych do środka.
         // Światło kierunkowe do takiego tunelu nie wejdzie; zostaje ambient plus
         // reflektor czołowy podwieszony pod kamerą kabiny.
-        var environment = new Environment
+        using var environment = new Environment
         {
             BackgroundMode = Environment.BGMode.Color,
             BackgroundColor = new Color(0.02f, 0.02f, 0.03f),
@@ -1169,9 +1306,11 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
-        var assets = Argument("assets") ?? AssetsRoot();
+        var assetsOverride = Argument("assets");
+        var assets = assetsOverride ?? AssetsRoot();
         var manifestPath = Argument("manifest") ?? Path.Combine(assets, "chunks", "L1_A-chunks.json");
-        var shellPath = Argument("shell") ?? Path.Combine(assets, "M7_shell.glb");
+        var shellOverride = Argument("shell");
+        var shellPath = shellOverride ?? Path.Combine(assets, "M7_shell.glb");
         var platformsPath = Argument("platforms") ?? Path.Combine(assets, "L1_A-platforms.glb");
         var cabPath = Argument("cab") ?? Path.Combine(assets, "M7_cab.glb");
 
@@ -1179,8 +1318,8 @@ public sealed partial class FirstRun : Node3D
         if (manifestFile is null)
         {
             Abort(ExitMissingAssets,
-                $"[ASSETS] brak manifestu {manifestPath}. Wygeneruj chunki " +
-                "(tools/blender/tunnel_sweep.py --chunk-dir ...) albo uruchom z --no-geometry.");
+                $"[ASSETS] brak manifestu {manifestPath}. Rozpakuj pełną paczkę gry " +
+                "i pozostaw katalog zasoby obok jej pliku wykonywalnego.");
             return;
         }
 
@@ -1206,8 +1345,9 @@ public sealed partial class FirstRun : Node3D
         }
 
         _manifest = manifest;
-        var tunnelMaterial = GlbLoader.NeutralMaterial(new Color(0.52f, 0.52f, 0.53f), 0.95f);
-        var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
+        var tunnelMaterial = GlbLoader.TunnelConcreteMaterial();
+        using var trainMaterial = GlbLoader.NeutralMaterial(new Color(0.80f, 0.81f, 0.83f), 0.45f);
+        using var cabMaterial = GlbLoader.NeutralMaterial(new Color(0.13f, 0.17f, 0.20f), 0.80f);
 
         // Peron dostaje WŁASNY, ciemniejszy odcień szarości i to nie jest wybór
         // estetyczny, tylko warunek widzialności: płyta stoi 1,4 m od ściany komory
@@ -1215,13 +1355,87 @@ public sealed partial class FirstRun : Node3D
         // z kabiny w jedną plamę. Odcień zostaje neutralny — `docs/03-legal.md`
         // zabrania wystroju, piktogramów i barw STIB, a wygląd docelowy jest
         // przedmiotem osobnego zadania, nie tego.
-        var platformMaterial = GlbLoader.NeutralMaterial(new Color(0.34f, 0.34f, 0.36f), 0.90f);
+        using var platformMaterial = GlbLoader.NeutralMaterial(new Color(0.34f, 0.34f, 0.36f), 0.90f);
 
         // Katalog i materiał zapamiętane, bo streamowanie dokłada chunki w KAŻDEJ
         // klatce, a nie raz przy starcie.
         _assetDirectory = Path.GetDirectoryName(manifestPath) ?? assets;
+        _hasTrackDetail = manifest.Chunks.Count > 0 && FileAccess.FileExists(
+            Path.Combine(_assetDirectory, manifest.Chunks[0].Id + "_detail.glb"));
         _tunnelMaterial = tunnelMaterial;
         _tunnel.Stream(manifest, _assetDirectory, tunnelMaterial, _scenario.StartChainageM);
+        var connectorPreview = Argument("visual-continuation") == "connector-preview";
+        var continuationName = connectorPreview ? "L1_A-B-connector-preview" : "L1_A-visual-tail";
+        _visualContinuationKind = connectorPreview ? "connector_design_only" : "tail";
+        if (connectorPreview && _axis.Id != "L1_A")
+        {
+            Abort(ExitBadArgumentValue, "[ASSETS] projektowy łącznik wymaga osi jazdy L1_A.");
+            return;
+        }
+        var tailMeshes = _tunnel.LoadVisualContinuation(
+            Path.Combine(assets, continuationName + ".glb"),
+            Path.Combine(assets, continuationName + "-detail.glb"), tunnelMaterial);
+        if (tailMeshes < 0)
+        {
+            Abort(ExitMissingAssets, "[ASSETS] niekompletna wizualna kontynuacja za Merode; sprawdź pliki toru");
+            return;
+        }
+        if (connectorPreview && tailMeshes == 0)
+        {
+            Abort(ExitMissingAssets, "[ASSETS] brak pary GLB projektowego łącznika Merode–Montgomery.");
+            return;
+        }
+        var tailAxisPath = Path.Combine(assets, continuationName + "-axis.json");
+        if (tailMeshes > 0)
+        {
+            using var tailAxisFile = FileAccess.Open(tailAxisPath, FileAccess.ModeFlags.Read);
+            if (tailAxisFile is null)
+            {
+                Abort(ExitMissingAssets, $"[ASSETS] nie da się odczytać {tailAxisPath}");
+                return;
+            }
+            try
+            {
+                var tailJson = tailAxisFile.GetAsText();
+                var tailAxis = new SceneAxis(
+                    TrackAxis.FromJson(tailJson), DesignAssumptions.TrackOffsetM);
+                if (tailAxis.CentreLinePoint(0.0).DistanceTo(
+                    _sceneAxis.CentreLinePoint(_axis.LengthM)) > 0.02f)
+                    throw new ArgumentException("oś scenerii nie łączy się z końcem toru jazdy");
+                if (connectorPreview)
+                {
+                    using var document = JsonDocument.Parse(tailJson);
+                    var root = document.RootElement;
+                    var source = root.RequiredField("source", "oś łącznika");
+                    var vertical = root.RequiredField("vertical", "oś łącznika");
+                    var sha = source.RequiredField("content_sha256", "źródło łącznika").GetString() ?? "";
+                    var playableAxisPath = Argument("axis") ?? RepoPath("data/track/L1_A.json");
+                    using var playableFile = FileAccess.Open(playableAxisPath, FileAccess.ModeFlags.Read);
+                    if (playableFile is null)
+                        throw new ArgumentException("brak osi jazdy do kontroli źródła łącznika");
+                    using var playable = JsonDocument.Parse(playableFile.GetAsText());
+                    var playableSha = playable.RootElement.RequiredField("source", "oś jazdy")
+                        .RequiredField("content_sha256", "źródło osi jazdy").GetString();
+                    if (tailAxis.Axis.Stations.Count != 0 ||
+                        vertical.RequiredField("status", "profil pionowy łącznika").GetString() != "not_modelled" ||
+                        source.RequiredField("purpose", "źródło łącznika").GetString() != "horizontal_geometry_probe" ||
+                        !string.Equals(sha, playableSha, StringComparison.Ordinal))
+                        throw new ArgumentException("łącznik nie jest projektem poziomym z tego samego źródła co L1_A");
+                    _visualContinuationSourceSha256 = sha;
+                }
+                _visualTailAxis = tailAxis;
+            }
+            catch (Exception error) when (error is ArgumentException or FormatException or JsonException)
+            {
+                Abort(ExitBadArgumentValue, $"[ASSETS] {tailAxisPath} nie jest osią scenerii: {error.Message}");
+                return;
+            }
+            catch (Exception error) when (BadFile.IsWrongJsonShape(error))
+            {
+                Abort(ExitBadArgumentValue, $"[ASSETS] {tailAxisPath} ma nieprawidłowy kształt osi scenerii");
+                return;
+            }
+        }
 
         // Wynik `Load` był ODRZUCANY. `TrainView.Load` zwraca liczbę brył i zero znaczy
         // „nie wczytałem nic" — bez tego sprawdzenia scena szła dalej bez składu, a że
@@ -1229,35 +1443,51 @@ public sealed partial class FirstRun : Node3D
         // zielony. Zmierzone audytem mutacyjnym (Issue #107): mutacja `TrainView.cs:38`
         // przechodziła bramki, tą samą drogą przeżyły `TrackOffsetM 2.10→0.0`
         // i `CabEyeHeightM 2.20→0.0`.
-        var bodies = _train.Load(shellPath, trainMaterial);
+        // Materiały proceduralnego M7 wolno zachować tylko przy domyślnych zasobach.
+        // --shell/--assets mogą wskazywać dowolny GLB i nadal dostają neutralny materiał.
+        var preserveGeneratedShellMaterials = shellOverride is null && assetsOverride is null;
+        var bodies = _train.Load(shellPath, trainMaterial, preserveGeneratedShellMaterials);
         if (bodies <= 0)
         {
             Abort(ExitTrainMissing,
-                $"[SKŁAD] {shellPath} nie dał ani jednej bryły — scena bez składu nie jest przejazdem");
+                $"[SKŁAD] nie można wczytać {shellPath}. Rozpakuj ponownie pełną paczkę gry wraz z katalogiem zasoby.");
             return;
         }
 
         // MB-07: widoki składów po nazwie. Skład zerowy to węzeł `Train` z `.tscn`,
         // kolejne powstają obok niego i BIORĄ JEGO SIATKI — patrz `LoadSharedFrom`.
         // Przy `--trains=1` pętla nie wykonuje się ani razu i scena jest ta sama.
-        _trainViews[TrainIdAt(0)] = _train;
-        for (var i = 1; i < _plan!.Trains; i++)
+        var viewIds = new List<string>();
+        if (_scheduledEntries is { } entries)
+        {
+            foreach (var entry in entries.Entries)
+                viewIds.Add(entry.TripId);
+        }
+        else
+        {
+            for (var i = 0; i < _plan!.Trains; i++)
+                viewIds.Add(TrainIdAt(i));
+        }
+
+        _trainViews[viewIds[0]] = _train;
+        for (var i = 1; i < viewIds.Count; i++)
         {
             var widok = new TrainView { Name = $"Train{i + 1}" };
             AddChild(widok);
-            var wspolne = widok.LoadSharedFrom(_train, trainMaterial);
+            var wspolne = widok.LoadSharedFrom(_train, trainMaterial,
+                preserveGeneratedShellMaterials);
             if (wspolne <= 0)
             {
                 // Ta sama odmowa co przy składzie zerowym i z tego samego powodu:
                 // skład bez brył jest niewidoczny i nieruchomy, a przebieg kończy się
                 // kodem 0. Cisza tutaj byłaby usterką z Issue #107, tylko N-tą kopią.
                 Abort(ExitTrainMissing,
-                    $"[SKŁAD] {TrainIdAt(i)} nie dostał ani jednej bryły ze składu "
+                    $"[SKŁAD] {viewIds[i]} nie dostał ani jednej bryły ze składu "
                     + "zerowego — scena bez składu nie jest przejazdem");
                 return;
             }
 
-            _trainViews[TrainIdAt(i)] = widok;
+            _trainViews[viewIds[i]] = widok;
         }
 
         // Perony wchodzą PRZED wypisaniem opisu sceny, żeby log przejazdu mówił
@@ -1266,9 +1496,28 @@ public sealed partial class FirstRun : Node3D
         if (slabs <= 0)
         {
             Abort(ExitPlatformsMissing,
-                $"[PERON] {platformsPath} nie dał ani jednej bryły. Wygeneruj perony "
-                + "(tools/track/station_layout.py, potem tools/blender/station_kit.py "
-                + "--component platform --component edge) albo uruchom z --no-geometry.");
+                $"[PERON] nie można wczytać {platformsPath}. "
+                + "Rozpakuj ponownie pełną paczkę gry "
+                + "wraz z katalogiem zasoby.");
+            return;
+        }
+        var namePlatePath = Path.Combine(assets, "L1_A-station-board.glb");
+        var nameMarkers = _platforms.AddNameMarkers(_sceneAxis, namePlatePath);
+        if (nameMarkers != _sceneAxis.Axis.Stations.Count)
+        {
+            Abort(5, $"[STACJA] {namePlatePath} nie dał tablic nazw wszystkich stacji.");
+            return;
+        }
+        var expectedStopTargets = 0;
+        foreach (var station in _sceneAxis.Axis.Stations)
+        {
+            if (StationView.HasOverheadStopTarget(station.ChainageM, _sceneAxis.Axis.LengthM))
+                expectedStopTargets++;
+        }
+        var stopTargets = _platforms.AddStopTargets(_sceneAxis, namePlatePath);
+        if (stopTargets != expectedStopTargets)
+        {
+            Abort(5, $"[STACJA] {namePlatePath} nie dał znaczników celu postoju.");
             return;
         }
 
@@ -1277,13 +1526,13 @@ public sealed partial class FirstRun : Node3D
         // z Issue #107: scena szłaby dalej bez wnętrza, a że kamera kabinowa i tak stoi
         // w środku skorupy, kadr wyglądałby jak przed tą pozycją — czyli bramka
         // `godot-first-run.yml` zostawałaby zielona na scenie, która kabiny nie ma.
-        var cabBodies = _cabView.Load(cabPath, trainMaterial);
+        var cabBodies = _cabView.Load(cabPath, cabMaterial);
         if (cabBodies <= 0)
         {
             Abort(ExitCabMissing,
-                $"[KABINA] {cabPath} nie dał ani jednej bryły. Wygeneruj kabinę "
-                + "(tools/blender/m7_cab_build.py --out …/M7_cab.glb) albo uruchom "
-                + "z --no-geometry.");
+                $"[KABINA] nie można wczytać {cabPath}. "
+                + "Rozpakuj ponownie pełną paczkę gry "
+                + "wraz z katalogiem zasoby.");
             return;
         }
 
@@ -1381,6 +1630,17 @@ public sealed partial class FirstRun : Node3D
             HandleViewKeys();
         }
 
+        // R w trybie linii odtwarza całą scenę: nową nastawnię, składy, licznik
+        // postojów i pamięć wskazówki. Ręczny RunReset dotyczy innego sterownika.
+        if (_lineMode && _readsKeyboard && _resetPending && _replay is null)
+        {
+            _resetPending = false;
+            var error = GetTree().ReloadCurrentScene();
+            if (error != Error.Ok)
+                GD.PushError($"[LINIA] nie udało się rozpocząć przejazdu od nowa: {error}");
+            return;
+        }
+
         // SESJA SKOŃCZONA: KLATKI IDĄ DALEJ, TICKI NIE — i nie ma tu `_done`.
         // To jest cała różnica między „koniec sesji" a „koniec procesu": `_done`
         // powoduje `return` przed odczytem klawiatury, więc gracz nie mógłby ani
@@ -1436,7 +1696,12 @@ public sealed partial class FirstRun : Node3D
         // zapis puścić przy różnym podziale kroków na klatki.
         var synthetic = _scriptedMode || _replayMode || _fromTelemetryMode
             || (_lineMode && _callsPath is not null);
-        AdvanceBy(synthetic ? SyntheticFrameSeconds() : delta);
+        // Po ostatnim postoju interaktywna linia czeka na N, C albo R. Nie dopisuj
+        // fikcyjnych kroków do akumulatora w klatkach tego ekranu.
+        if (!_lineCompletionReported)
+            AdvanceBy(synthetic ? SyntheticFrameSeconds() : delta);
+        if (_stations is not null)
+            _platforms.UpdateStopTargets(_stations);
         PlaceEverything();
         UpdateHud();
 
@@ -1444,7 +1709,8 @@ public sealed partial class FirstRun : Node3D
         {
             FinishScriptedRun();
         }
-        else if (_lineMode && (_lineCore?.Finished ?? _line?.Finished ?? false))
+        else if (_lineMode && !_lineCompletionReported
+            && (_lineSession?.Finished ?? _line?.Finished ?? false))
         {
             FinishLineRun();
         }
@@ -1481,7 +1747,15 @@ public sealed partial class FirstRun : Node3D
         var executed = 0L;
         for (var i = 0L; i < wanted; i++)
         {
-            if (!StepOnce())
+            var start = _performanceStepTicks is null ? 0L : Stopwatch.GetTimestamp();
+            var completed = StepOnce();
+            if (_performanceStepTicks is not null && completed)
+            {
+                _performanceStepTicks.Add(Stopwatch.GetTimestamp() - start);
+                _performanceStepOrdinals!.Add(i);
+            }
+
+            if (!completed)
             {
                 _accumulator.DropCarry();
                 break;
@@ -1506,37 +1780,49 @@ public sealed partial class FirstRun : Node3D
             // Linia z sygnalizacją. `LineCore.Step` robi w jednym kroku wszystko:
             // wyjazdy, żądania tras nastawni, odczyt autorytetów, jazdę i meldunek
             // ruchu. Scena nie powtarza ani jednej z tych faz — tylko patrzy.
-            if (_lineCore.Finished)
+            if (_lineSession!.Finished)
             {
                 return false;
             }
 
-            var przed = _state.SpeedMps;
-
-            // DŹWIGNIA MASZYNISTY WCHODZI TUTAJ, PRZED krokiem linii — MB-07.
+            // DŹWIGNIA MASZYNISTY I POLECENIA — MB-07, MB-08, od 6.M1 przez `LineSession`.
             //
-            // `_notch.Advance` posuwa nastawnik DOKŁADNIE RAZ na krok symulacji, tak samo
-            // jak w trybie ręcznym i z tego samego powodu: nastawnik jest dźwignią, więc
-            // jego położenie zależy od liczby KROKÓW, a nie od tego, ile klatek zdążyło
-            // się narysować. Wołanie go raz na klatkę dałoby sterowanie szybsze na
-            // szybszej maszynie.
+            // Nastawnik posuwa się DOKŁADNIE RAZ na krok, i tylko na składzie
+            // obserwowanym prowadzonym przez maszynistę — powód przy `LineSession.Step`.
+            // Od 6.M1 ten krok jest w rdzeniu, a nie tutaj: tę samą kolejność wykonuje
+            // `Sim.Runner replay --line`, a porównanie sceny z rdzeniem co do bitu
+            // znaczy coś tylko wtedy, gdy obie strony idą JEDNĄ drogą.
             //
-            // Klawisze biorą się z `_keys`, a nie z `_replay`: odtworzenie prowadzi
-            // JEDEN skład kabiną i `LineCore` go nie zna (MB-06, pole „Poza zakresem"),
-            // więc w tej gałęzi `_replay` jest zawsze nullem i sięganie po niego
-            // udawałoby obsługę, której nie ma.
-            //
-            // `Drive` jest ODMOWĄ na składzie prowadzonym przez autopilota (MB-06), więc
-            // pytanie o właściciela nie jest tu ostrożnością — bez niego każdy krok
-            // rzucałby wyjątkiem w środku `_Process`.
-            var obserwowany = _lineCore.Trains[
-                Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];
-            if (obserwowany.Owner == ControlOwner.Driver)
+            // Klawisze i polecenia biorą się z `_replay` PO NUMERZE KROKU, gdy przejazd
+            // jest odtwarzany, a z klawiatury w pozostałych przypadkach. Polecenia
+            // z klawiatury wykonały się już w tej klatce, w `HandleTrainKeys`, przed
+            // pierwszym krokiem — i pod tym samym numerem kroku trafiły do zapisu.
+            var lineStep = _logStep;
+            if (_replay is not null)
             {
-                _lineCore.Drive(obserwowany.Id, _notch.Advance(_keys, _step));
+                foreach (var lineEvent in _replay.EventsAt(lineStep))
+                {
+                    ExecuteLineEvent(lineEvent);
+                }
             }
 
-            _lineCore.Step((id, point) => _command = point.Command);
+            var lineKeys = _replay?.KeysAt(lineStep) ?? _keys;
+            _recorder?.Record(lineStep, lineKeys);
+            _activeKeys = lineKeys;
+            _lineSession!.Step(lineKeys);
+            _logStep++;
+            _command = _lineSession.Command;
+
+            if (_lineSession.ActiveObservedIndex is null)
+            {
+                // No active train: the camera waits at the line entrance rather
+                // than following a vehicle that has left the plan.
+                _line = null;
+                _state = DriveState.AtRest;
+                _acceleration = 0.0;
+                _doorRefusal = null;
+                return _replay is null || _logStep < _replay.Steps;
+            }
 
             // MB-07: `_line` to prowadzenie składu OBSERWOWANEGO, a nie zerowego.
             // Jednym przypisaniem przechodzą na nowy skład: obie kamery, okno
@@ -1544,7 +1830,7 @@ public sealed partial class FirstRun : Node3D
             // `ChainageM`, czyli na `_line?.ChainageM`. To jest cała treść wyboru
             // składu; gdyby każda z tych rzeczy czytała skład osobno, przełączenie
             // byłoby czterema poprawkami, z których każda mogłaby zostać w tyle.
-            _observed = Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1);
+            _observed = _lineSession.ObservedIndex;
             _line = _lineCore.Trains[_observed].Drive;
 
             // ODMOWA GAŚNIE Z KOŃCEM POSTOJU — MB-08. Nie po czasie i nie po klatkach
@@ -1559,13 +1845,31 @@ public sealed partial class FirstRun : Node3D
             if (_line is null)
             {
                 // Skład jeszcze nie wjechał na plan (wejście zajęte). Krok się odbył,
-                // zegar linii idzie, ale prowadzenia jeszcze nie ma.
-                return true;
+                // zegar linii idzie, ale prowadzenia jeszcze nie ma. Odtworzenie kończy
+                // się jednak na długości ZAPISU także tutaj (6.M1) — inaczej kroki spoza
+                // zapisu wykonałyby się „z rozpędu" na reszcie akumulatora.
+                return _replay is null || _logStep < _replay.Steps;
             }
 
             _state = _line.State;
-            _acceleration = (_state.SpeedMps - przed) / _step.Seconds;
-            return true;
+            _acceleration = _lineSession.AccelerationMps2;
+
+            // KONIEC ODTWORZENIA LINII — 6.M1. Ten sam warunek próbki, co w
+            // `Sim.Runner replay --line`: stan składu obserwowanego, co `_sampleEvery`
+            // kroków JEGO przejazdu, plus ostatni krok zapisu albo linii.
+            if (_replay is null)
+            {
+                return true;
+            }
+
+            var lineFinished = _logStep >= _replay.Steps || _lineSession.Finished;
+            if (_telemetryPath is not null
+                && (DriveTelemetry.IsSample(_state.Steps, _sampleEvery) || lineFinished))
+            {
+                _telemetry.Add(_lineSession.TelemetryRow()!);
+            }
+
+            return !lineFinished;
         }
 
         if (_line is not null)
@@ -1698,6 +2002,15 @@ public sealed partial class FirstRun : Node3D
         // na krok symulacji — nie raz na klatkę. `AdvanceBy` woła `StepOnce` tyle razy,
         // ile kroków wypada w klatce, i to jest właściwe miejsce.
         var effective = _stations?.Filter(_state, _command, ChainageM) ?? _command;
+        if (_stations is { AtStation: true } && _stations.Calls[^1].StopId == _axis.Stations[^1].StopId)
+            _terminalBrakeEngaged = true;
+        effective = TrackEndStop.ApproachCommand(
+            _state, ChainageM,
+            _axis.Stations.Count > 0
+                ? Math.Min(_axis.Stations[^1].ChainageM, _axis.LengthM) : _axis.LengthM,
+            _conditions, _controller, BrakingPointSolver.M7,
+            _controller.ServiceBrakeMps2, effective, terminalSection: true,
+            ref _terminalBrakeEngaged);
 
         // ATP JEST OSTATNIM FILTREM POLECENIA i to jest wprost kryterium z Issue #26:
         // „nie można ominąć ATP przez input gracza". Gdyby ochrona stała przed filtrem
@@ -1714,11 +2027,23 @@ public sealed partial class FirstRun : Node3D
         // że blokada trakcji zadziałała w innym kroku. Tak samo `LineDrive` wpisuje do
         // śladu polecenie PO ingerencji: inaczej ślad mówiłby, czego maszynista chciał,
         // a nie czym pojechał.
+        if (TrackEndStop.Reached(ChainageM, _axis.LengthM))
+        {
+            effective = DriverCommand.Coast;
+        }
         _effectiveCommand = effective;
 
+        var beforeSpeed = _state.SpeedMps;
         _state = _controller.Advance(
             _state, _conditions, effective, SpeedLimitMps, _step, out var forces);
-        _acceleration = forces.AccelerationMps2;
+        _state = TrackEndStop.Apply(_state, _scenario.StartChainageM, _axis.LengthM);
+        if (TrackEndStop.Reached(ChainageM, _axis.LengthM))
+        {
+            _effectiveCommand = DriverCommand.Coast;
+        }
+        _acceleration = TrackEndStop.Reached(ChainageM, _axis.LengthM)
+            || (_terminalBrakeEngaged && beforeSpeed <= 0.0 && _state.SpeedMps <= 0.0)
+            ? 0.0 : forces.AccelerationMps2;
         _logStep++;
 
         // MELDUNEK RUCHU PO KROKU — faza 3 kroku `LineCore`. Przed krokiem opisywałby
@@ -1814,8 +2139,15 @@ public sealed partial class FirstRun : Node3D
     private void ApplyView()
     {
         var view = EffectiveView;
+        var wasCabCurrent = _cab.Current;
         _cab.Current = view == ViewKind.Cab;
         _chase.Current = view != ViewKind.Cab;
+        // Logujemy rzeczywiste przejście po _Ready, odczytując Camera3D.Current
+        // przed i po zmianie. Wstępny wybór w _Ready nie jest renderowaną klatką.
+        if (wasCabCurrent && !_cab.Current && _chase.Current && _frames > 0)
+        {
+            GD.Print($"[WIDOK] Cab->Chase kabina={_cab.Current} chase={_chase.Current} krok={_logStep}");
+        }
 
         // Z kabiny nie widać własnego pudła: kamera stoi wewnątrz skorupy M7, a ta ma
         // po solidify obie powierzchnie, więc bez ukrycia składu widać z bliska jego
@@ -1826,9 +2158,9 @@ public sealed partial class FirstRun : Node3D
         // patrzy z kabiny składu drugiego — czyli znikałby skład, na który się NIE
         // patrzy, a ten, w którym siedzi kamera, zasłaniałby jej cały kadr.
         var obserwowany = ObservedTrainView();
-        foreach (var widok in _trainViews.Values)
+        foreach (var (id, widok) in _trainViews)
         {
-            widok.Visible = widok == obserwowany ? view != ViewKind.Cab : true;
+            widok.Visible = TrainIsPresent(id) && (widok != obserwowany || view != ViewKind.Cab);
         }
 
         if (_trainViews.Count == 0)
@@ -1878,26 +2210,23 @@ public sealed partial class FirstRun : Node3D
         // Fallback jest zbędny, odkąd `SetUpScene` odmawia startu bez brył: długość
         // pochodzi teraz zawsze z wczytanej geometrii.
         var trainLength = _train.LengthM;
-        _train.PlaceAt(_sceneAxis, chainage);
-
-        // MB-07: POZOSTAŁE składy stoją tam, gdzie stoją W RDZENIU, a nie tam, gdzie
-        // patrzy kamera. Pętla jest pusta przy `--trains=1`.
-        //
-        // Widok składu, który jeszcze nie wjechał na plan (`Drive is null`), jest
-        // UKRYWANY, a nie zostawiany w origo. Zostawiony stałby na kilometrażu zero
-        // razem z peronem stacji zerowej i wyglądałby jak skład zaparkowany na stacji —
-        // czyli jak stan gry, a nie jak jego brak.
-        if (_lineCore is not null && _trainViews.Count > 1)
+        if (_lineCore is null)
         {
+            _train.PlaceAt(_sceneAxis, chainage);
+        }
+        else
+        {
+            // Każdy widok stoi na kilometrażu pociągu o tym samym ID, także widok
+            // pierwszy. Przed rozkładowym wjazdem Drive nie istnieje: ukrycie
+            // zapobiega pozornemu pociągowi na stacji początkowej.
             foreach (var skladRdzenia in _lineCore.Trains)
             {
-                if (!_trainViews.TryGetValue(skladRdzenia.Id, out var widok) || widok == _train)
+                if (!_trainViews.TryGetValue(skladRdzenia.Id, out var widok))
                 {
                     continue;
                 }
 
                 var prowadzenie = skladRdzenia.Drive;
-                widok.Visible = prowadzenie is not null;
                 if (prowadzenie is not null)
                 {
                     widok.PlaceAt(
@@ -1905,6 +2234,7 @@ public sealed partial class FirstRun : Node3D
                         Math.Min(prowadzenie.ChainageM, _axis.LengthM));
                 }
             }
+            ApplyView();
         }
 
         // Kabina jedzie po OGONIE SKORUPY, a nie po własnej rozpiętości, i to jest
@@ -1933,14 +2263,14 @@ public sealed partial class FirstRun : Node3D
         // widok liczył się z liczby, której w kadrze nie ma.
         var availability = ChaseCameraAim.Availability(
             chainage, trainLength, DesignAssumptions.ChaseRevealFromM);
-        _viewLine = _view == ViewKind.Chase ? availability.Reason : string.Empty;
+        _viewLine = _view == ViewKind.Chase ? availability.HudHint : string.Empty;
         if (availability.Available != _chaseAvailable)
         {
             _chaseAvailable = availability.Available;
             ApplyView();
         }
 
-        var (eye, forward) = _sceneAxis.CabPoint(
+        var (eye, forward) = _sceneAxis.SmoothCabPoint(
             chainage,
             DesignAssumptions.CabEyeSetbackM,
             DesignAssumptions.CabEyeHeightM,
@@ -1971,6 +2301,37 @@ public sealed partial class FirstRun : Node3D
                 DesignAssumptions.InspectLateralM).Position;
             _ = wzdluz;
             _chase.LookAtFromPosition(oko, cel, Vector3.Up);
+        }
+        else if (_view == ViewKind.Side)
+        {
+            // Kamera jest obok pierwszego członu, a nie przed czołem.
+            // To kadr inspekcyjny: nie wyznacza rzeczywistej strony peronu.
+            var (position, _) = _sceneAxis.CabPoint(
+                chainage - 14.0, 0.0, 2.0, DesignAssumptions.OutsideLateralM);
+            var target = _sceneAxis.CabPoint(
+                chainage - 28.0, 0.0, 1.8, 0.0).Position;
+            _chase.LookAtFromPosition(position, target, Vector3.Up);
+        }
+        else if (_view == ViewKind.Platform)
+        {
+            // Obie strony istnieją w modelu technicznym. Wybieramy pierwszą
+            // płytę, na której stoi kandydat kamery, bez twierdzenia, że to
+            // potwierdzona strona otwierania drzwi na rzeczywistej stacji.
+            var at = chainage - 14.0;
+            // CabPoint measures from the selected track, already displaced from
+            // the route axis. The slabs instead straddle the route axis.
+            var right = _sceneAxis.CabPoint(
+                at, 0.0, 2.7, 6.0 - _sceneAxis.TrackOffsetM).Position;
+            var left = _sceneAxis.CabPoint(
+                at, 0.0, 2.7, -6.0 - _sceneAxis.TrackOffsetM).Position;
+            // Między stacjami nie ma płyty: zachowujemy kadr boczny.
+            var fallback = _sceneAxis.CabPoint(
+                at, 0.0, 2.0, DesignAssumptions.OutsideLateralM).Position;
+            var candidate = PlatformFit.CameraPosition(
+                _platforms.PlatformFootprints, right, left, fallback);
+
+            var target = _sceneAxis.CabPoint(chainage - 28.0, 0.0, 1.8, 0.0).Position;
+            _chase.LookAtFromPosition(candidate, target, Vector3.Up);
         }
         else if (_view == ViewKind.Outside)
         {
@@ -2008,6 +2369,58 @@ public sealed partial class FirstRun : Node3D
                 ChaseCameraAim.LookTarget(position, middle, forwardAtCamera, Vector3.Up),
                 Vector3.Up);
         }
+
+        UpdateTrackLights(streamChainage);
+    }
+
+    private void UpdateTrackLights(double chainageM)
+    {
+        if (!_hasTrackDetail)
+        {
+            return;
+        }
+
+        // The Blender fixtures repeat every 16 m. Reposition a small pool only
+        // when the camera crosses a fixture interval, so a full route never owns
+        // hundreds of live lights. Inspection view uses its own subject chainage.
+        const int spacingM = 16;
+        const int intervals = 10;
+        var anchor = (int)Math.Floor(chainageM / spacingM);
+        if (anchor == _lightAnchor)
+        {
+            return;
+        }
+
+        _lightAnchor = anchor;
+        while (_trackLights.Count < intervals * 2)
+        {
+            var light = new OmniLight3D
+            {
+                LightColor = new Color(1.0f, 0.86f, 0.68f),
+                LightEnergy = 1.3f,
+                OmniRange = 15.0f,
+                ShadowEnabled = false,
+            };
+            AddChild(light);
+            _trackLights.Add(light);
+        }
+
+        for (var slot = 0; slot < intervals; slot++)
+        {
+            var at = (anchor + slot - 2) * spacingM;
+            for (var side = 0; side < 2; side++)
+            {
+                var light = _trackLights[slot * 2 + side];
+                var lateral = side == 0 ? -4.48f : 4.48f;
+                var position = _sceneAxis.FixturePoint(at, _visualTailAxis, lateral, 3.35);
+                light.Visible = position.HasValue;
+                if (!position.HasValue)
+                {
+                    continue;
+                }
+                light.Position = position.Value;
+            }
+        }
     }
 
     private void HandleViewKeys()
@@ -2042,6 +2455,44 @@ public sealed partial class FirstRun : Node3D
     }
 
     /// <summary>
+    /// Wykonuje polecenie maszynisty w trybie linii i zapisuje je pod numerem kroku,
+    /// PRZED którym się wykonało — 6.M1.
+    ///
+    /// <para>Jedno wejście dla klawiatury i dla odtworzenia. Zapis idzie tu, a nie przy
+    /// klawiszu, bo przy <c>--replay --input-log</c> ma powstać ta sama kopia zapisu,
+    /// co przy przejeździe z klawiatury — i wtedy polecenie przychodzi z pliku.</para>
+    /// </summary>
+    /// <param name="lineEvent">Polecenie; jego numer kroku zapis bierze z siebie.</param>
+    private void ExecuteLineEvent(InputLogEvent lineEvent)
+    {
+        _recorder?.RecordEvent(lineEvent.Kind, lineEvent.TrainId);
+        var response = _lineSession!.Execute(lineEvent);
+        if (response is DoorRequestResult drzwi)
+        {
+            ZapamietajOdpowiedzDrzwi(drzwi);
+            return;
+        }
+
+        if (lineEvent.Kind == LineEventKind.Observe)
+        {
+            _observed = _lineSession.ObservedIndex;
+            // Zmiana obserwacji może przypaść na klatkę bez kroku 120 Hz.
+            // HUD i kamera muszą w tej klatce czytać już wybrany skład.
+            _line = _lineSession.ActiveObservedIndex is null
+                ? null : _lineCore!.Trains[_observed].Drive;
+            _state = _line?.State ?? DriveState.AtRest;
+            _command = _lineSession.Command;
+            _acceleration = _lineSession.AccelerationMps2;
+            _activeKeys = _keys;
+
+            // Odmowa dotyczyła składu, którego gracz już nie ogląda — MB-08.
+            _doorRefusal = null;
+        }
+
+        ApplyView();
+    }
+
+    /// <summary>
     /// Wybór obserwowanego składu i przejęcie sterowania — MB-07.
     ///
     /// <para><b>Wszystkie trzy klawisze działają na ZBOCZU, nie przy trzymaniu</b>, tak
@@ -2073,34 +2524,30 @@ public sealed partial class FirstRun : Node3D
             return;
         }
 
-        if (nextKey && !_trainNextKeyHeld)
+        // KAŻDE POLECENIE IDZIE PRZEZ `ExecuteLineEvent` — 6.M1. Ta sama metoda wykonuje
+        // polecenia odtwarzane z zapisu, więc to, co gracz zrobił klawiszem, i to, co
+        // odtworzenie zrobi z pliku, przechodzi jedną drogą: zapis, rdzeń, widok.
+        if (nextKey && !_trainNextKeyHeld && _lineSession!.NextActiveTrainId() is { } nextId)
         {
-            _observed = (_observed + 1) % _lineCore.Trains.Count;
-
-            // Odmowa dotyczyła składu, którego gracz już nie ogląda — MB-08.
-            _doorRefusal = null;
-            ApplyView();
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.Observe, nextId));
         }
 
         var observed = _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];
 
-        if (takeKey && !_trainTakeKeyHeld && observed.Owner == ControlOwner.Autopilot)
+        // `TakeControl` RZUCA, gdy skład nie wszedł jeszcze na plan (MB-06), i ten
+        // wyjątek nie ma prawa wyjść z `_Process`: wywróciłby klatkę, a nie powiedział
+        // graczowi, czemu nic się nie stało. Wiersz `hud.owner.not-on-line` mówi to
+        // za niego — i mówi to z tego samego odczytu, który tu odmawia. Ten sam warunek
+        // stoi w `LineSession.Execute`, więc polecenie z zapisu zachowa się identycznie.
+        if (takeKey && !_trainTakeKeyHeld && observed.Owner == ControlOwner.Autopilot
+            && observed.OnLine)
         {
-            // `TakeControl` RZUCA, gdy skład nie wszedł jeszcze na plan (MB-06), i ten
-            // wyjątek nie ma prawa wyjść z `_Process`: wywróciłby klatkę, a nie powiedział
-            // graczowi, czemu nic się nie stało. Wiersz `hud.owner.not-on-line` mówi to
-            // za niego — i mówi to z tego samego odczytu, który tu odmawia.
-            if (observed.OnLine)
-            {
-                _lineCore.TakeControl(observed.Id);
-                ApplyView();
-            }
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.Take, observed.Id));
         }
 
         if (releaseKey && !_trainReleaseKeyHeld && observed.Owner == ControlOwner.Driver)
         {
-            _lineCore.ReleaseControl(observed.Id);
-            ApplyView();
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.Release, observed.Id));
         }
 
         // DRZWI — MB-08. Na ZBOCZU, tak samo jak trzy klawisze wyżej i z tego samego
@@ -2114,12 +2561,12 @@ public sealed partial class FirstRun : Node3D
         // o tym, kiedy wolno otworzyć drzwi, i to źródłem po stronie widoku.
         if (doorOpenKey && !_doorOpenKeyHeld)
         {
-            ZapamietajOdpowiedzDrzwi(_lineCore.RequestDoorOpen(observed.Id));
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.DoorOpen, observed.Id));
         }
 
         if (doorCloseKey && !_doorCloseKeyHeld)
         {
-            ZapamietajOdpowiedzDrzwi(_lineCore.RequestDoorClose(observed.Id));
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.DoorClose, observed.Id));
         }
 
         _trainNextKeyHeld = nextKey;
@@ -2163,8 +2610,10 @@ public sealed partial class FirstRun : Node3D
         _state = start.Drive;
         _keys = start.Keys;
         _activeKeys = start.ActiveKeys;
+        _brakingCueMemory.Reset();
         _command = start.Command;
         _effectiveCommand = start.EffectiveCommand;
+        _terminalBrakeEngaged = false;
         _acceleration = start.AccelerationMps2;
 
         // Wiersz zerowy — stan PRZED pierwszym krokiem — składa się tak samo jak
@@ -2182,12 +2631,17 @@ public sealed partial class FirstRun : Node3D
         var chainage = ChainageM;
         var name = "koniec pakietu";
         var distance = _axis.LengthM - chainage;
+        if (_stations is not null && TrackEndStop.Reached(chainage, _axis.LengthM))
+        {
+            name = UiText.Get("hud.station.track-end-name");
+            distance = 0.0;
+        }
 
         // Wiedza o tym, gdzie jest następna stacja, ma JEDNO miejsce. Poprzednio ta
         // pętla stała tutaj i była drugą kopią tego, co robi `StationService.Approach`;
         // dwie kopie tej samej wiedzy rozjeżdżają się w chwili, gdy jedna z nich dostaje
         // okno zatrzymania, a druga nie.
-        if (_line is not null)
+        if (_line is not null && !TrackEndStop.Reached(chainage, _axis.LengthM))
         {
             var nastepna = _line.NextStation;
             if (nastepna is not null)
@@ -2196,7 +2650,7 @@ public sealed partial class FirstRun : Node3D
                 distance = nastepna.Value.ChainageM - chainage;
             }
         }
-        else if (_stations is not null)
+        else if (_stations is not null && !TrackEndStop.Reached(chainage, _axis.LengthM))
         {
             var approach = _stations.Approach(chainage);
             if (approach.Exists)
@@ -2205,7 +2659,7 @@ public sealed partial class FirstRun : Node3D
                 distance = approach.DistanceM;
             }
         }
-        else
+        else if (!TrackEndStop.Reached(chainage, _axis.LengthM))
         {
             foreach (var station in _axis.Stations)
             {
@@ -2218,12 +2672,16 @@ public sealed partial class FirstRun : Node3D
             }
         }
 
+        var viewLine = _visualContinuationKind == "connector_design_only"
+            ? UiText.Get("hud.connector-preview") + (_viewLine.Length > 0 ? " · " + _viewLine : "")
+            : _viewLine;
         _hud.Update(
             _state.SpeedKmh, SufitKmh(), _acceleration,
             chainage, _axis.LengthM,
             name, distance, _command.Throttle, _command.Brake, _mode,
-            StationLine(), SignallingLine(), _viewLine,
-            EmergencyBrake.Notice(_activeKeys, _command),
+            StationLine(), SignallingLine(), viewLine,
+            EmergencyBrake.Notice(_activeKeys, _command,
+                !_lineMode || ObservedOwner() == ControlOwner.Driver),
             HelpLine(),
             SummaryLine(),
             TractionLine());
@@ -2322,6 +2780,11 @@ public sealed partial class FirstRun : Node3D
             return DriverInput.Help;
         }
 
+        if (_lineCore is null)
+        {
+            return DriverActions.HelpWhenLegacyLineRuns;
+        }
+
         return ObservedOwner() == ControlOwner.Driver
             ? DriverActions.HelpWhenTheDriverHasTaken
             : DriverActions.HelpWhenTheCoreDrives;
@@ -2386,13 +2849,19 @@ public sealed partial class FirstRun : Node3D
             return SignallingHud.WithoutSignalling;
         }
 
+        if (_lineCore.Trains.Count == 0)
+        {
+            return _lineDispatcher is null
+                ? SignallingHud.BeforeFirstStep : SignallingHud.AwaitingScheduledEntry;
+        }
+
         // MB-07: wiersz mówi o składzie OBSERWOWANYM, a nie o zerowym. Gdyby został
         // przy zerowym, po przełączeniu kamery HUD opisywałby bloki i autorytet
         // składu, którego nie widać w kadrze — i wyglądałoby to na poprawny wiersz.
         var train = _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];
         if (train.Drive is null || train.Authority is not MovementAuthority authority)
         {
-            return SignallingHud.NotOnPlanYet;
+            return SignallingHud.WithoutAuthority(train);
         }
 
         if (train.Protection is not ProtectionDecision decision)
@@ -2424,6 +2893,13 @@ public sealed partial class FirstRun : Node3D
     {
         if (_line is not null)
         {
+            // Na końcu osi nazwa stacji i odległość pozostają dostępne w postoju,
+            // ale przed założeniem postoju pokaż faktyczny koniec toru.
+            if (TrackEndStop.Reached(ChainageM, _axis.LengthM) && !_line.AtStation)
+            {
+                return UiText.Get("hud.station.track-end");
+            }
+
             var zaLinie = _line.Calls.Count;
             if (_line.AtStation)
             {
@@ -2447,12 +2923,17 @@ public sealed partial class FirstRun : Node3D
                         zaLinie);
                 }
 
-                return UiText.Format(
+                var automaticStop = UiText.Format(
                     "hud.station.doors",
                     Faza(_line.Phase),
                     _line.DwellRemainingSeconds.ToString("F1", CultureInfo.InvariantCulture),
                     blad,
                     zaLinie);
+                // D/F also reach LineCore under autopilot. The core refuses them with
+                // AutomaticControl; show that answer while this stop is still active.
+                return _doorRefusal is null
+                    ? automaticStop
+                    : automaticStop + '\n' + DoorPrompt.For(_line.Phase, _doorRefusal);
             }
 
             var nastepnaNaLinii = _line.NextStation;
@@ -2461,12 +2942,30 @@ public sealed partial class FirstRun : Node3D
                 return UiText.Format("hud.station.run-over", zaLinie);
             }
 
+            var odleglosc = nastepnaNaLinii.Value.ChainageM - ChainageM;
+            // Automatyczny --line korzysta z LineDrive bez LineCore. Podpowiedź
+            // hamowania jest tylko dla przejętego składu, więc nie odczytuj tu
+            // identyfikatora pociągu, gdy rdzeń sesji nie istnieje.
+            var fazaHamowaniaNaLinii = _lineCore is { Trains.Count: > 0 }
+                && ObservedOwner() == ControlOwner.Driver
+                ? _brakingCueMemory.Update(
+                    _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)].Id,
+                    nastepnaNaLinii.Value.ChainageM, true,
+                    _activeKeys, _command, odleglosc, _state.SpeedMps,
+                    DesignAssumptions.ControlNotchRatePerSecond,
+                    _controller.ServiceBrakeMps2, BrakingPointSolver.M7)
+                : BrakingCueStage.None;
+            var hamowanieNaLinii = fazaHamowaniaNaLinii == BrakingCueStage.Now
+                ? UiText.Get("hud.station.brake-now")
+                : fazaHamowaniaNaLinii == BrakingCueStage.Prepare
+                    ? UiText.Get("hud.station.brake-prepare")
+                    : string.Empty;
             return UiText.Format(
                 "hud.station.next",
                 nastepnaNaLinii.Value.Name,
                 (nastepnaNaLinii.Value.ChainageM - ChainageM).ToString(
                     "F0", CultureInfo.InvariantCulture),
-                zaLinie);
+                zaLinie) + hamowanieNaLinii;
         }
 
         if (_stations is null)
@@ -2474,8 +2973,14 @@ public sealed partial class FirstRun : Node3D
             return string.Empty;
         }
 
+        if (TrackEndStop.Reached(ChainageM, _axis.LengthM))
+        {
+            return UiText.Get("hud.station.track-end");
+        }
+
         var licznik = UiText.Format(
             "hud.station.counter", _stations.Calls.Count, _stations.Missed.Count);
+        var outcomeCue = ManualStopOutcomeCue.For(_stations);
 
         if (_stations.AtStation)
         {
@@ -2494,23 +2999,33 @@ public sealed partial class FirstRun : Node3D
                 blokada,
                 _stations.Calls[^1].StopErrorM.ToString(
                     BladZatrzymaniaFormat, CultureInfo.InvariantCulture),
-                licznik);
+                licznik) + outcomeCue;
         }
 
         if (_stations.Finished)
         {
-            return UiText.Format("hud.station.no-more", licznik);
+            return UiText.Format("hud.station.no-more", licznik) + outcomeCue;
         }
 
         var approach = _stations.Approach(ChainageM);
         var okno = approach.WithinWindow ? UiText.Get("hud.station.in-window") : string.Empty;
+        var fazaHamowania = _brakingCueMemory.Update(
+            SignalledTrainId, approach.ChainageM, !approach.WithinWindow,
+            _activeKeys, _command, approach.DistanceM, _state.SpeedMps,
+            DesignAssumptions.ControlNotchRatePerSecond, _controller.ServiceBrakeMps2,
+            BrakingPointSolver.M7);
+        var hamowanie = fazaHamowania == BrakingCueStage.Now
+            ? UiText.Get("hud.station.brake-now")
+            : fazaHamowania == BrakingCueStage.Prepare
+                ? UiText.Get("hud.station.brake-prepare")
+                : string.Empty;
         return UiText.Format(
             "hud.station.approach",
             approach.DisplayName,
             approach.DistanceM.ToString("F0", CultureInfo.InvariantCulture),
             _stations.WindowM.ToString("F1", CultureInfo.InvariantCulture),
-            okno,
-            licznik);
+            okno + hamowanie,
+            licznik) + outcomeCue;
     }
 
     /// <summary>
@@ -2573,7 +3088,7 @@ public sealed partial class FirstRun : Node3D
             $"[ODTWORZENIE] koniec: kroków={_state.Steps} t={_state.TimeSeconds(_step):F3} s "
             + $"chainage={ChainageM:F3} m droga={_state.DistanceM:F3} m klatek={_frames} "
             + $"sesja={_logStep} kroków resetów={_replay?.Resets.Count ?? 0} "
-            + $"zapis={_replayPath}"));
+            + $"zapis={_replayPath} odcisk-linii-sha256={_lineSession?.StateSha256()}"));
 
         // Podsumowanie ochrony LICZBAMI, w tym samym kształcie, co wypisuje
         // `Sim.Runner replay --atp`. Telemetria nie ma kolumny o ingerencji — polecenie
@@ -2706,17 +3221,28 @@ public sealed partial class FirstRun : Node3D
         // Jedyne miejsce, w którym zapis wejść z przejazdu KLAWIATUROWEGO może powstać:
         // taki przejazd nie kończy się sam, kończy go Esc albo zamknięcie okna.
         WriteInputLog();
+        // Meshes keep their own native references to the concrete material.
+        // Release the C# handle only after streaming has stopped with the scene.
+        _tunnelMaterial?.Dispose();
+        _tunnelMaterial = null;
         base._ExitTree();
     }
 
     private void FinishLineRun()
     {
-        if (_done)
+        if (_lineCompletionReported)
         {
             return;
         }
 
-        _done = true;
+        _lineCompletionReported = true;
+        var interactive = _readsKeyboard && _callsPath is null && _replay is null;
+        _done = !interactive;
+
+        // Linia skończyła się PRZED końcem zapisu albo przejazdu z klawiatury — 6.M1.
+        // Oba pliki mają wtedy powstać tak samo, jak przy końcu odtworzenia.
+        WriteTelemetry();
+        WriteInputLog();
         var result = _line!.Result("arrived");
         GD.Print(string.Create(
             CultureInfo.InvariantCulture,
@@ -2724,6 +3250,8 @@ public sealed partial class FirstRun : Node3D
             + $"{result.TotalDistanceM:F2} m, {result.TotalSeconds:F2} s, "
             + $"postoje {result.DwellSeconds:F2} s, kroków {result.Steps}, "
             + $"koniec={result.FinishReason}"));
+        if (_lineDispatcher is not null)
+            GD.Print($"[ROZKŁAD] zarejestrowane wjazdy: {_lineDispatcher.RegisteredEntries}");
         foreach (var call in result.Calls)
         {
             GD.Print($"[STACJA] {call}");
@@ -2754,7 +3282,8 @@ public sealed partial class FirstRun : Node3D
         }
 
         WriteCalls(result);
-        GetTree().Quit();
+        if (!interactive)
+            GetTree().Quit();
     }
 
     /// <summary>
@@ -2954,7 +3483,7 @@ public sealed partial class FirstRun : Node3D
 
     private void SaveShot()
     {
-        if (DisplayServer.GetName() == "headless")
+        if (IsHeadlessDisplay)
         {
             Abort(ExitHeadlessCannotRender,
                 "[ZRZUT] --headless wyłącza renderer; użyj xvfb-run i --rendering-driver opengl3");
@@ -2979,10 +3508,10 @@ public sealed partial class FirstRun : Node3D
     /// Kształt pola `scene` jest ten sam, co w metadanych Blenderowych, żeby
     /// `check_geometry` nie potrzebowało dwóch ścieżek na dwa silniki.
     ///
-    /// Plik jest JEDEN na prefiks, więc kolejne ujęcia go nadpisują. Pole `scene` jest
-    /// dla wszystkich pięciu identyczne (ta sama wczytana geometria) i to ono jest tu
-    /// treścią; `last_shot` opisuje wyłącznie ostatnie ujęcie i tak się nazywa, żeby
-    /// nikt nie odczytał go jako opisu całego zestawu.
+    /// Plik jest JEDEN na prefiks, więc kolejne ujęcia go nadpisują. Pole `scene`
+    /// opisuje rezydentne chunki przejezdnej osi, które sprawdza predykat
+    /// streamowania. Osobna sceneria za końcem osi nie jest częścią tego manifestu
+    /// i nie może rozszerzać jego obwiedni. `last_shot` opisuje tylko ostatnie ujęcie.
     /// </summary>
     private void WriteShotMetadata(int width, int height)
     {
@@ -3018,6 +3547,21 @@ public sealed partial class FirstRun : Node3D
         var name = _shotPath[(_shotPath.LastIndexOf('/') + 1)..];
         var prefix = name.Contains('_') ? name[..name.IndexOf('_')] : "GODOT";
         var path = $"{directory}/{prefix}_metadata.json";
+        var tailBounds = _tunnel.VisualContinuationBounds();
+        var tailPresent = tailBounds.HasValue && _visualTailAxis is not null;
+        var tailPresentJson = tailPresent ? "true" : "false";
+        var tailLow = tailBounds?.Position ?? Vector3.Zero;
+        var tailHigh = tailBounds?.End ?? Vector3.Zero;
+        var tailMinJson = tailPresent
+            ? string.Create(CultureInfo.InvariantCulture,
+                $"[{tailLow.X:F4}, {tailLow.Y:F4}, {tailLow.Z:F4}]") : "null";
+        var tailMaxJson = tailPresent
+            ? string.Create(CultureInfo.InvariantCulture,
+                $"[{tailHigh.X:F4}, {tailHigh.Y:F4}, {tailHigh.Z:F4}]") : "null";
+        var tailLengthM = tailPresent ? _visualTailAxis!.Axis.LengthM : 0.0;
+        var tailSeamGapM = tailPresent
+            ? _visualTailAxis!.CentreLinePoint(0.0).DistanceTo(_sceneAxis.CentreLinePoint(_axis.LengthM))
+            : 0.0f;
         var json = string.Create(CultureInfo.InvariantCulture, $$"""
         {
          "engine": "godot",
@@ -3030,7 +3574,7 @@ public sealed partial class FirstRun : Node3D
           "bbox_min": [{{lo.X:F4}}, {{lo.Y:F4}}, {{lo.Z:F4}}],
           "bbox_max": [{{hi.X:F4}}, {{hi.Y:F4}}, {{hi.Z:F4}}],
           "size_m": [{{bounds.Size.X:F4}}, {{bounds.Size.Y:F4}}, {{bounds.Size.Z:F4}}],
-          "mesh_objects": {{_tunnel.MeshNodes}},
+          "mesh_objects": {{_tunnel.ResidentMeshNodes}},
           "vertices": {{faces * 3}},
           "faces": {{faces}},
           "chunks_loaded": {{_tunnel.LoadedChunks}},
@@ -3038,6 +3582,17 @@ public sealed partial class FirstRun : Node3D
           "window_low_m": {{_tunnel.WindowLowM:F3}},
           "window_high_m": {{_tunnel.WindowHighM:F3}},
           "axis_length_m": {{_manifest.AxisLengthM:F3}}
+         },
+         "visual_continuation": {
+          "kind": "{{_visualContinuationKind}}",
+          "vertical_status": "{{_visualContinuationVerticalStatus}}",
+          "source_sha256": "{{_visualContinuationSourceSha256}}",
+          "present": {{tailPresentJson}},
+          "mesh_objects": {{_tunnel.VisualContinuationMeshNodes}},
+          "bbox_min": {{tailMinJson}},
+          "bbox_max": {{tailMaxJson}},
+          "axis_length_m": {{tailLengthM:F3}},
+          "seam_gap_m": {{tailSeamGapM:F4}}
          },
          "platforms": {
           "slabs": {{_platforms.SlabCount}},
