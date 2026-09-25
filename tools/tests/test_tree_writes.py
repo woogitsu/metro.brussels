@@ -96,6 +96,12 @@ METODY_SCIEZKI = ("write_text", "write_bytes")
 ZASLEPKA_TESTOW_SWEEPA = "test_this_file_is_the_stub_not_the_real_tests"
 
 POZA_DRZEWEM = {
+    ("test_t400_evidence.py", "test_side_view_png_and_log_byte_changes_are_rejected", "Path.write_bytes"):
+        "uszkodzona kopia dowodu zapisywana wyłącznie w tempfile.TemporaryDirectory",
+    ("test_t400_evidence.py", "test_side_view_png_wrong_dimensions_rejected_even_with_updated_hash", "Path.write_bytes"):
+        "zmieniony nagłówek PNG zapisywany wyłącznie w tempfile.TemporaryDirectory",
+    ("test_t400_evidence.py", "test_side_view_png_wrong_dimensions_rejected_even_with_updated_hash", "Path.write_text"):
+        "próbny manifest z aktualną sumą zapisywany wyłącznie w tempfile.TemporaryDirectory",
     ("test_connector_probe.py", "test_connector_probe_provenance_and_vertical_unknown", "Path.write_bytes"):
         "próbne archiwum źródła w tempfile.TemporaryDirectory",
     ("test_connector_probe.py", "test_connector_probe_provenance_and_vertical_unknown", "Path.write_text"):

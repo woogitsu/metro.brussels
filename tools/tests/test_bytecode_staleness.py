@@ -513,7 +513,7 @@ KROK_ZESTAWU = "Run tool tests"
 #: **201 → 202 przy 6.D138**, bo doszedł moduł `test_mass_copies.py`. Bramka niżej
 #: zapaliła się na tej jedynce sama, w pierwszym przebiegu po dopisaniu pliku, i to
 #: jest dowód, że mierzy drzewo, a nie własny komentarz. Rozkład dzisiejszy:
-#: `tools/tests` **149**, `tools/blender` 33, `tools/track` 25, `tools/ci` 10,
+#: `tools/tests` **150**, `tools/blender` 33, `tools/track` 25, `tools/ci` 10,
 #: `tools/visual` 8, `tools/physics` 3, `tools/data` 2.
 #:
 #: **Rozklad modulow po katalogach — 6.D263, i to jest zapadka na ZDANIE, nie na sume.**
@@ -530,7 +530,7 @@ KROK_ZESTAWU = "Run tool tests"
 #: przyrost W JEDNYM katalogu przy niezmienionej sumie jest zdarzeniem, ktorego
 #: suma nie widzi.
 ROZKLAD_MODULOW = {
-    "tools/tests": 149,  # 148 -> 149 (24.09.2026, test connector probe)
+    "tools/tests": 150,  # 149 -> 150 (25.09.2026, T-400 side evidence test)
     "tools/blender": 33,  # 32 -> 33 (24.09.2026): generator tablic stacji.
     "tools/track": 25,  # 24 -> 25 (24.09.2026, connector probe generator)
     "tools/ci": 10,  # 9 -> 10 (18.09.2026, 6.D280)
@@ -571,7 +571,8 @@ BAJTKOD_PO_COMPILEALL_KATALOGI = 7
 # 226 -> 228 (24.09.2026, generator łącznika i jego test).
 # 228 -> 229 (25.09.2026, T-400 evidence verifier).
 # 229 -> 230 (25.09.2026, budowniczy animacji Parc/Park).
-BAJTKOD_PO_COMPILEALL_PLIKI = 230
+# 230 -> 231 (25.09.2026, T-400 side evidence test).
+BAJTKOD_PO_COMPILEALL_PLIKI = 231
 
 
 def _workflow_zestawu():
@@ -926,7 +927,8 @@ KATALOG_Z_PYTHONEM = "tools"
 # 226 -> 228 (24.09.2026, generator łącznika i jego test).
 # 228 -> 229 (25.09.2026, T-400 evidence verifier).
 # 229 -> 230 (25.09.2026, budowniczy animacji Parc/Park).
-MODULOW_W_CALYM_DRZEWIE = 230
+# 230 -> 231 (25.09.2026, T-400 side evidence test).
+MODULOW_W_CALYM_DRZEWIE = 231
 
 
 def moduly_calego_drzewa(korzen=None):
