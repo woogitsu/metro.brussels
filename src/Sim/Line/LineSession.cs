@@ -72,7 +72,43 @@ public sealed class LineSession
     /// <summary>Indeks składu obserwowanego w <see cref="LineCore.Trains"/>.</summary>
     public int ObservedIndex => _core.Trains.Count == 0
         ? 0
-        : Math.Clamp(_observed, 0, _core.Trains.Count - 1);
+        : ActiveObservedIndex ?? Math.Clamp(_observed, 0, _core.Trains.Count - 1);
+
+    /// <summary>An active view, or no train while all registered trips are off the line.</summary>
+    public int? ActiveObservedIndex
+    {
+        get
+        {
+            if (_core.Trains.Count == 0)
+                return null;
+            var selected = Math.Clamp(_observed, 0, _core.Trains.Count - 1);
+            // A not-yet-entered train may be selected explicitly by a replay event.
+            // Only a train that has actually left the plan must lose its camera.
+            if (!_core.Trains[selected].LeftPlan)
+                return _core.Trains[selected].OnLine ? selected : null;
+            for (var offset = 1; offset <= _core.Trains.Count; offset++)
+            {
+                var candidate = (selected + offset) % _core.Trains.Count;
+                if (_core.Trains[candidate].OnLine)
+                    return candidate;
+            }
+            return null;
+        }
+    }
+
+    /// <summary>Next train currently on the line, for the player's N key.</summary>
+    public string? NextActiveTrainId()
+    {
+        var count = _core.Trains.Count;
+        var current = ActiveObservedIndex ?? Math.Clamp(_observed, 0, Math.Max(0, count - 1));
+        for (var offset = 1; offset < count; offset++)
+        {
+            var candidate = (current + offset) % count;
+            if (_core.Trains[candidate].OnLine)
+                return _core.Trains[candidate].Id;
+        }
+        return null;
+    }
 
     /// <summary>Skład obserwowany — do niego idzie dźwignia maszynisty.</summary>
     public LineTrain Observed => _core.Trains[ObservedIndex];
@@ -84,14 +120,17 @@ public sealed class LineSession
     public DriverCommand Command { get; private set; } = DriverCommand.Coast;
 
     /// <summary>
-    /// Następny skład na liście jako obserwowany — klawisz <c>N</c>.
+    /// Następny skład obecny na linii jako obserwowany — klawisz <c>N</c>.
     /// </summary>
     /// <returns>Identyfikator składu, który jest obserwowany po zmianie.</returns>
     public string ObserveNext()
     {
         if (_core.Trains.Count == 0)
             throw new InvalidOperationException("Nie ma jeszcze składu do obserwowania.");
-        _observed = (ObservedIndex + 1) % _core.Trains.Count;
+        var next = NextActiveTrainId();
+        if (next is null)
+            throw new InvalidOperationException("Nie ma składu na planie do obserwowania.");
+        _observed = IndexOf(next);
         return Observed.Id;
     }
 
@@ -193,7 +232,7 @@ public sealed class LineSession
 
         var observed = Observed;
         var before = observed.Drive?.State.SpeedMps ?? 0.0;
-        if (observed.Owner == ControlOwner.Driver)
+        if (observed.OnLine && observed.Owner == ControlOwner.Driver)
         {
             _core.Drive(observed.Id, _notch.Advance(keys, _step));
             _notchTrainId = observed.Id;
@@ -204,24 +243,33 @@ public sealed class LineSession
         else
             _dispatcher.Step((id, point) => _commands[id] = point.Command);
 
+        var switched = ObservedIndex != _observed;
+        if (switched)
+            _observed = ObservedIndex;
+        if (ActiveObservedIndex is null)
+        {
+            Command = DriverCommand.Coast;
+            AccelerationMps2 = 0.0;
+            return true;
+        }
         observed = Observed;
         if (_commands.TryGetValue(observed.Id, out var command))
         {
             Command = command;
         }
 
-        AccelerationMps2 = observed.Drive is { } drive
+        AccelerationMps2 = !switched && observed.Drive is { } drive
             ? (drive.State.SpeedMps - before) / _step.Seconds
             : 0.0;
         return true;
     }
 
     /// <summary>
-    /// Wiersz telemetrii składu obserwowanego, albo <c>null</c>, gdy skład nie wszedł
-    /// jeszcze na plan i nie ma czego opisać.
+    /// Wiersz telemetrii składu obserwowanego, albo <c>null</c>, gdy na planie nie ma
+    /// aktywnego składu.
     /// </summary>
     /// <returns>Wiersz zgodny z <see cref="DriveTelemetry.Header"/>.</returns>
-    public string? TelemetryRow() => Observed.Drive is { } drive
+    public string? TelemetryRow() => ActiveObservedIndex is not null && Observed.Drive is { } drive
         ? DriveTelemetry.Row(
             drive.State, _step, drive.ChainageM, AccelerationMps2, Command, DriveTelemetry.ManualPhase)
         : null;
