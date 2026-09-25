@@ -162,10 +162,11 @@ jobs:
           echo "wynik=${{ steps.upload.outcome }}" >> "$GITHUB_OUTPUT"
           echo "wysyłka artefaktów: ${{ steps.upload.outcome }}"
 
-  # DRUGI SYGNAŁ W LIŚCIE CHECKÓW (6.D63). Ten job jest czerwony WYŁĄCZNIE wtedy, gdy
-  # padła wysyłka artefaktów — więc para checków rozróżnia dwa zdarzenia bez czytania
-  # logu: „visual-regression czerwony, artefakty zielone" znaczy, że bramka znalazła
-  # różnicę, a „oba czerwone" — że odmówiła usługa artefaktów.
+  # DRUGI SYGNAŁ W LIŚCIE CHECKÓW (6.D63). Ten job jest czerwony tylko wtedy, gdy
+  # poprzedni job zakończył się pomyślnie, ale wysyłka artefaktów nie zapisała sukcesu.
+  # Gdy visual-regression znalazł różnicę, nie próbujemy ponownie klasyfikować jego
+  # awarii jako awarii usługi artefaktów: wynik poprzednika jest wtedy jedynym sygnałem
+  # regresji, a ten job kończy się neutralnie.
   #
   # `continue-on-error` na kroku wysyłki jest ODRZUCONE i to jest wybór, nie
   # przeoczenie: schowałoby prawdziwą awarię wysyłki, czyli osłabiło bramkę zamiast
@@ -186,6 +187,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          upstream="${{ needs.visual-regression.result }}"
+          if [ "$upstream" != "success" ]; then
+            echo "visual-regression zakończył się stanem $upstream; pomijam klasyfikację wysyłki artefaktów"
+            exit 0
+          fi
           wynik="${{ needs.visual-regression.outputs.upload }}"
           echo "wysyłka artefaktów: ${wynik:-BRAK}"
           if [ "$wynik" = "success" ]; then
