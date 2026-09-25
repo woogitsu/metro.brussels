@@ -6,8 +6,9 @@ using MetroBxl.Sim.Signalling;
 namespace MetroBxl.Game;
 
 /// <summary>
-/// Wiersz HUD-u o sygnalizacji: prędkość dopuszczalna, autorytet jazdy, powód jego
-/// końca, licznik nastawni i to, czy ochrona pociągu właśnie hamuje za maszynistę.
+/// Wiersz HUD-u o sygnalizacji: identyfikator obserwowanego składu, prędkość
+/// dopuszczalna, koniec i odległość autorytetu jazdy, powód jego końca, licznik
+/// nastawni i to, czy ochrona pociągu właśnie hamuje za maszynistę.
 ///
 /// <para><b>Dlaczego osobny plik BEZ GODOTA.</b> Ta sama decyzja i ten sam powód, co
 /// przy <see cref="RunPlan"/>, <see cref="RunHeader"/> i <see cref="RunReset"/>: napis
@@ -76,8 +77,8 @@ public static class SignallingHud
                 $"  ATP HAMUJE: {decision.Action} {decision.BrakeDemandMps2:F2} m/s²");
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"v_dop {Units.MpsToKmh(decision.PermittedSpeedMps),5:F1} km/h   "
-            + $"autorytet {authority.DistanceM,7:F0} m ({authority.Reason}, blok {authority.LimitBlockId})   "
+            $"{authority.TrainId}   v_dop {Units.MpsToKmh(decision.PermittedSpeedMps),5:F1} km/h   "
+            + $"autorytet do {authority.EndChainageM:F1} m / {authority.DistanceM:F1} m ({authority.Reason}, blok {authority.LimitBlockId})   "
             + $"tras {lockedRoutes}/odmów {refusedRoutes}"
             + $"{ostrzezenie}{ingerencja}");
     }

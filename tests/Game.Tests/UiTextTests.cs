@@ -2646,7 +2646,7 @@ public sealed class UiTextTests
     /// <para>Zapadka RÓWNOŚCIOWA i to jest jej treść: nazwa członu wyliczenia trafia
     /// na ekran przez dziurę, a nie przez literał, więc rodziny z 6.D154…6.D183 —
     /// wszystkie liczone po literałach — zobaczyć jej nie mogą. Dwudziesta pierwsza
-    /// dziura zapala ten test i każe ją zaklasyfikować, zamiast wpaść po cichu.</para>
+    /// nowa dziura zapala ten test i każe ją zaklasyfikować, zamiast wpaść po cichu.</para>
     /// </summary>
     //
     // **20 -> 18 (14.09.2026, MB-03), i ta liczba SPADŁA, a nie urosła.** Wiersz
@@ -2659,7 +2659,9 @@ public sealed class UiTextTests
     // w kodzie, liczba wróciłaby do dwudziestu i ten test by o tym powiedział.
     // 18 -> 20 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
-    private const int DziurNaEkranie = 20;
+    // 20 -> 22 (25.09.2026, T-400): identyfikator składu i koniec autorytetu są
+    // odczytami tej samej decyzji sygnalizacji, którą wiersz HUD już pokazywał.
+    private const int DziurNaEkranie = 22;
 
     /// <summary>
     /// Które z tych dziur wstawiają wartość wyliczenia — WPISANE, nie wyprowadzone.

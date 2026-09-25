@@ -670,7 +670,8 @@ ROZKLAD_POSTACI = {
         # 5553 -> 5560 (25.09.2026, komunikaty asercji odcisku i drugiego składu).
         # 5566 -> 5569 i 858 -> 859 (25.09.2026, AZERTY): mapa, pomoc i test.
         # 5569 -> 5570 (25.09.2026, T-400 side): publiczna nazwa --view=side.
-        "zwykly": 5570,
+        # 5570 -> 5571 (25.09.2026, T-400 HUD): identyfikator składu w teście.
+        "zwykly": 5571,
         "interpolowany ($)": 859,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
