@@ -672,7 +672,8 @@ ROZKLAD_POSTACI = {
         # 5569 -> 5570 (25.09.2026, T-400 HUD): identyfikator składu w teście.
         # 5570 -> 5571 (25.09.2026, T-400 side): publiczna nazwa --view=side.
         # 5571 -> 5582 i 859 -> 863 (25.09.2026, T-400 ATP): test trzech składów.
-        "zwykly": 5582,
+        # 5582 -> 5585 (25.09.2026, T-400 platform): widok, nazwa i komunikat.
+        "zwykly": 5585,
         "interpolowany ($)": 863,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -760,7 +761,8 @@ ROZKLAD_POSTACI = {
         # 1614 -> 1619 (25.09.2026, odcisk sesji): znacznik wersji i jednoznaczne
         # znaczniki typów w kodowaniu stanu. Przeliczone przez ten sam czytnik.
         # 1619 -> 1621 (25.09.2026, T-400 side): widok w KnownViews i parserze.
-        "zwykly": 1621,
+        # 1621 -> 1623 (25.09.2026, T-400 platform): nazwa widoku i parser.
+        "zwykly": 1623,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

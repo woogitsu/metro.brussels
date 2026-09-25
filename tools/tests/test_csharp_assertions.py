@@ -506,7 +506,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2216 -> 2220 (25.09.2026, odcisk taktu pytań nastawni).
 # 2220 -> 2223 (25.09.2026, AZERTY): trzy asercje pary W/Z mają komunikaty.
 # 2223 -> 2232 (25.09.2026, T-400 ATP): wszystkie dziewięć nowych asercji ma komunikat.
-Z_KOMUNIKATEM_RAZEM = 2232
+# 2232 -> 2233 (25.09.2026, T-400 platform): mapowanie widoku z komunikatem.
+Z_KOMUNIKATEM_RAZEM = 2233
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -660,7 +661,8 @@ NIEROZSTRZYGNIETYCH = 69
 # 3678 -> 3682 (25.09.2026, stan nastawni o różnych terminach pytań).
 # 3682 -> 3685 (25.09.2026, AZERTY): trzy asercje nowego testu mapy.
 # 3685 -> 3694 (25.09.2026, T-400 ATP): dziewięć asercji testu trzech składów.
-ASERCJI_RAZEM = 3694
+# 3694 -> 3695 (25.09.2026, T-400 platform): jawna kontrola mapowania widoku.
+ASERCJI_RAZEM = 3695
 
 
 def _rozklad():

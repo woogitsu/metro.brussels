@@ -29,12 +29,16 @@ namespace MetroBxl.Game.World;
 public sealed partial class StationView : Node3D
 {
     private readonly List<Aabb> _slabs = new();
+    private readonly List<Aabb> _platformSlabs = new();
 
     /// <summary>Liczba brył peronowych trzymanych w scenie.</summary>
     public int SlabCount => _slabs.Count;
 
     /// <summary>Obwiednie brył w układzie świata; do pomiarów i do metadanych zrzutu.</summary>
     public IReadOnlyList<Aabb> Slabs => _slabs;
+
+    /// <summary>Same płyty peronowe, bez pasów krawędziowych i wyposażenia stacji.</summary>
+    public IReadOnlyList<Aabb> PlatformSlabs => _platformSlabs;
 
     /// <summary>
     /// Wczytuje GLB peronów i zapamiętuje obwiednię każdej bryły. Zwraca liczbę brył;
@@ -62,6 +66,7 @@ public sealed partial class StationView : Node3D
         using var slabMaterial = GlbLoader.NeutralMaterial(new Color(0.48f, 0.48f, 0.46f), 0.95f);
 
         _slabs.Clear();
+        _platformSlabs.Clear();
         foreach (var instance in MeshInstances(scene))
         {
             if (IsEdgeMeshName((string)instance.Name))
@@ -71,6 +76,7 @@ public sealed partial class StationView : Node3D
             else if (IsPlatformMeshName((string)instance.Name))
             {
                 instance.MaterialOverride = slabMaterial;
+                _platformSlabs.Add(instance.GlobalTransform * instance.GetAabb());
             }
 
             _slabs.Add(instance.GlobalTransform * instance.GetAabb());

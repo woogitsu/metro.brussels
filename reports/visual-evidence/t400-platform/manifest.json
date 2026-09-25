@@ -1,0 +1,19 @@
+{
+    "files":  [
+                  {
+                      "sha256":  "b5d6ae2256a2597ed32c3de7a43d4e3f39e615e8dbf3a89179b510918026f315",
+                      "name":  "PARC_platform.png",
+                      "bytes":  131201
+                  },
+                  {
+                      "sha256":  "aad7cf924fcce9a404c25e9c3c26fe50e344e22814959a92936264d46d6e2d18",
+                      "name":  "PARC_platform.log",
+                      "bytes":  6088
+                  }
+              ],
+    "source":  {
+                   "view":  "platform",
+                   "chainage_m":  4075.66,
+                   "capture":  "local WSL Ubuntu-24.04; Godot 4.7.2 Xvfb/OpenGL3; generated package A; candidate camera 6.0 m lateral from modeled route axis; technical side only"
+               }
+}
