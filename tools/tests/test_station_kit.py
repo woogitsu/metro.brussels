@@ -184,6 +184,23 @@ def test_the_gap_has_no_default_because_no_source_gives_it():
         # `test_all.py` uruchamia wszystko w jednym interpreterze.
         sys.argv = saved
 
+
+def test_dimensions_must_be_finite_and_positive():
+    import contextlib
+    import io as _io
+    saved = sys.argv
+    for option, value in (("--platform-gap-m", "0"), ("--platform-gap-m", "nan"),
+                          ("--ring-step-m", "-1")):
+        sys.argv = ["station_kit.py", "--", "--axis", "a", "--layout", "b",
+                    "--out", "c", "--platform-gap-m", "0.08", option, value]
+        try:
+            with contextlib.redirect_stderr(_io.StringIO()):
+                SK.parse_args()
+        except SystemExit:
+            continue
+        raise AssertionError(f"{option} {value} zostało przyjęte")
+    sys.argv = saved
+
     sys.argv = ["station_kit.py", "--", "--axis", "a", "--layout", "b", "--out", "c",
                 "--platform-gap-m", "0.08"]
     try:
