@@ -121,6 +121,32 @@ public sealed class FixedBlockSystem
     /// <summary>Chainage czoła składu.</summary>
     public double FrontOf(string trainId) => Require(trainId).FrontM;
 
+    /// <summary>
+    /// Mutable runtime fields omitted by StateDigest, whose narrower contract is
+    /// replayable block/route state. LastAuthority controls future event emission.
+    /// </summary>
+    internal void AppendRuntimeState(StateHashWriter hash)
+    {
+        hash.Add(_sequence);
+        hash.Add(_trains.Count);
+        foreach (var train in _trains)
+        {
+            hash.Add(train.Id);
+            hash.Add(train.LengthM);
+            hash.Add(train.FrontM);
+            hash.Add(train.RouteId);
+            hash.Add(train.LastAuthority.HasValue);
+            if (train.LastAuthority is { } authority)
+            {
+                hash.Add(authority.TrainId);
+                hash.Add(authority.FrontChainageM);
+                hash.Add(authority.EndChainageM);
+                hash.Add(authority.LimitBlockId);
+                hash.Add((long)authority.Reason);
+            }
+        }
+    }
+
     /// <summary>Chainage tyłu składu, przycięty do planu.</summary>
     public double RearOf(string trainId)
     {

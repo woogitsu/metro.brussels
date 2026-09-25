@@ -502,7 +502,9 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2198 -> 2202 (25.09.2026, integracja obserwacji i podglądu łącznika).
 # 2202 -> 2206 (25.09.2026, nastawnik): cztery asercje przejścia przez neutral.
 # 2206 -> 2209 (25.09.2026, tablice stacyjne): trzy kontrole z komunikatami.
-Z_KOMUNIKATEM_RAZEM = 2209
+# 2209 -> 2216 (25.09.2026, asercje odcisku i drugiego składu z komunikatami).
+# 2216 -> 2220 (25.09.2026, odcisk taktu pytań nastawni).
+Z_KOMUNIKATEM_RAZEM = 2220
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -652,7 +654,9 @@ NIEROZSTRZYGNIETYCH = 69
 # 3660 -> 3664 (25.09.2026, integracja obserwacji i podglądu łącznika).
 # 3664 -> 3668 (25.09.2026, nastawnik): cztery asercje przejścia przez neutral.
 # 3668 -> 3671 (25.09.2026, tablice stacyjne): trzy kontrole skrajni i stropu.
-ASERCJI_RAZEM = 3671
+# 3671 -> 3678 (25.09.2026, powtarzalność odcisku i drugi skład).
+# 3678 -> 3682 (25.09.2026, stan nastawni o różnych terminach pytań).
+ASERCJI_RAZEM = 3682
 
 
 def _rozklad():
