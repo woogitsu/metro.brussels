@@ -159,7 +159,9 @@ MAX_JUSTIFICATIONS = 14
 #: wnosi ten commit i mówi to wprost, bo bramka liczy także własny raport (6.A26).
 # 29 -> 30 (14.09.2026, MB-08): ścieżka dopisana przez `HandleTrainKeysGateTests`,
 # która szuka korzenia repozytorium po `MetroBxl.sln` i czyta `src/Game/FirstRun.cs`.
-MIN_PATHS_IN_TREE = 30
+# 30 -> 31 (25.09.2026, #26): odtwarzalne polecenie Sim.Runner w raporcie
+# `t400-performance-baseline-1080p.md` dopisało jedną ścieżkę bin/net10.0.
+MIN_PATHS_IN_TREE = 31
 # 8 -> 9 (14.09.2026, MB-08): `HandleTrainKeysGateTests.cs` — dziewiąty plik,
 # który składa ścieżkę do drzewa. Ta zapadka idzie w parze z `MIN_PATHS_IN_TREE`
 # i obie ruszają się razem, bo nowa bramka leksykalna czyta źródło `src/Game/`.

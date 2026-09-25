@@ -1,6 +1,8 @@
 # T400 scene performance baseline at 1080p
 
-Measured 2026-09-25 from `codex/issue26-performance-baseline` (`8e24db5`) on WSL2 Ubuntu 24.04, Intel Core Ultra 7 270K Plus (18 logical CPUs). Godot 4.7.2 .NET rendered the real `Scenes/FirstRun.tscn` through Xvfb/OpenGL 4.5 Mesa llvmpipe. This is a **software-rendering baseline**, not a GPU performance result.
+**Date:** 2026-09-25 · **Measurement base:** `8e24db521e2fc634b731894fa8874a82bc26845d`.
+
+Measured on WSL2 Ubuntu 24.04, Intel Core Ultra 7 270K Plus (18 logical CPUs). Godot 4.7.2 .NET rendered the real `src/Game/Scenes/FirstRun.tscn` through Xvfb/OpenGL 4.5 Mesa llvmpipe. This is a **software-rendering baseline**, not a GPU performance result.
 
 ## Reproduce
 

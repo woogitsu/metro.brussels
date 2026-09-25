@@ -442,6 +442,10 @@ których agent nie ruszy bez decyzji właściciela.
 - **Zrobione (etap 1):** `src/Game/` — Godot 4.7.2 mono, jeden skład M7 jedzie 6,56 km po
   pakiecie A, napędzany rdzeniem. Rozjazd Godot ↔ rdzeń **0,000 m** przy progu 0, ten sam
   odcisk telemetrii przy nierównym podziale kroków. `reports/T-400-first-run.md`
+- **Pomiar bazowy 1080p (#26, 25.09.2026):** trzy ukryte przebiegi rzeczywistej sceny
+  w Xvfb/Mesa llvmpipe, z czasem klatki, liczbą wywołań rysowania, geometrią i pamięcią.
+  Jest to wynik renderingu programowego; sprzętowe GPU wymaga odrębnego pomiaru.
+  Metoda i wyniki: `reports/t400-performance-baseline-1080p.md`.
 - **Zrobione (etap 2):** zrzuty z silnika idą przez kontrolę wizualną z T-012,
   odtwarzalne co do bajtu również między maszynami (`reports/T-012-godot-capture.md`)
 - **Zrobione (etap 3a):** scena **streamuje** chunki i przełącza LOD. `TunnelView.Stream`

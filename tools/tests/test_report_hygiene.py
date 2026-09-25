@@ -527,7 +527,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 474 -> 475 (24.09.2026, źródła wymiarów okien M7).
 # 475 -> 476 (25.09.2026, 6.D360): pomiar pi?ciu rozszerze? w raportach.
 # 476 -> 477 (25.09.2026, 6.D348): pomiar dwoch dokladnosci w narzedziach sceny.
-MIN_REPORTS = 477
+# 477 -> 478 (25.09.2026, #26): baseline wydajności sceny 1080p.
+MIN_REPORTS = 478
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
