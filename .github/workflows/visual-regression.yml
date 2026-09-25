@@ -153,8 +153,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "wynik=${{ steps.upload.outcome }}" >> "$GITHUB_OUTPUT"
-          echo "wysyłka artefaktów: ${{ steps.upload.outcome }}"
+          wynik="${{ steps.upload.outcome || 'failure' }}"
+          echo "wynik=$wynik" >> "$GITHUB_OUTPUT"
+          echo "wysyłka artefaktów: $wynik"
 
   # DRUGI SYGNAŁ W LIŚCIE CHECKÓW (6.D63). Ten job jest czerwony WYŁĄCZNIE wtedy, gdy
   # padła wysyłka artefaktów — więc para checków rozróżnia dwa zdarzenia bez czytania
