@@ -48,8 +48,18 @@ public sealed class StationWayfindingTests
     public void NameBoardHangersReachTheStationCeiling()
     {
         Assert.AreEqual(0.14f, StationView.NameMarkerHangerLength(4.20f, 0.72f), 0.001f,
-            "The single-line name board must connect to the playable ceiling");
+            "A suspended board must connect to the playable ceiling");
         Assert.AreEqual(0.25f, StationView.NameMarkerHangerLength(4.15f, 0.60f), 0.001f,
-            "The two-line name board must connect to the playable ceiling");
+            "Hanger length follows the board's top edge");
+        foreach (var bilingual in new[] { false, true })
+        {
+            var (centre, height) = StationView.NameMarkerVerticalLayout(bilingual);
+            Assert.IsTrue(centre - height / 2 >= 3.60f + 0.30f + 0.019f,
+                "Both board layouts must clear the M7 roof, its 0.30 m gauge reserve, and a 0.02 m buffer");
+            Assert.IsTrue(centre + height / 2 <= 4.70f,
+                "The board must stay below the playable tunnel ceiling");
+            Assert.IsTrue(StationView.NameMarkerHangerLength(centre, height) > 0,
+                "Each board must have room for a hanger beneath the ceiling");
+        }
     }
 }

@@ -650,7 +650,8 @@ NIEROZSTRZYGNIETYCH = 69
 # Równoległa gałąź miała pomiary 3606 → 3610 i 3610 → 3645.
 # 3660 -> 3664 (25.09.2026, integracja obserwacji i podglądu łącznika).
 # 3664 -> 3668 (25.09.2026, nastawnik): cztery asercje przejścia przez neutral.
-ASERCJI_RAZEM = 3668
+# 3668 -> 3671 (25.09.2026, tablice stacyjne): trzy kontrole skrajni i stropu.
+ASERCJI_RAZEM = 3671
 
 
 def _rozklad():
