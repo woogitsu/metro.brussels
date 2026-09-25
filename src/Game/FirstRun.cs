@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using Godot;
@@ -267,6 +268,28 @@ public sealed partial class FirstRun : Node3D
     /// </summary>
     private StepAccumulator _accumulator = null!;
     private long _frames;
+    private List<long>? _performanceStepTicks;
+
+    /// <summary>Begin an opt-in timing sample of actual scene simulation steps.</summary>
+    public void BeginStepTiming() => _performanceStepTicks = new List<long>(4096);
+
+    /// <summary>Return elapsed microseconds per completed scene step for a local benchmark.</summary>
+    public double[] StepTimingsMicroseconds()
+    {
+        var samples = _performanceStepTicks;
+        if (samples is null)
+        {
+            return Array.Empty<double>();
+        }
+
+        var result = new double[samples.Count];
+        for (var i = 0; i < samples.Count; i++)
+        {
+            result[i] = samples[i] * (1_000_000.0 / Stopwatch.Frequency);
+        }
+
+        return result;
+    }
     private long _sampleEvery = DriveTelemetry.DefaultSampleEverySteps;
     private long _stepsPerFrame = 120;
     private double _jitter;
@@ -1671,7 +1694,14 @@ public sealed partial class FirstRun : Node3D
         var executed = 0L;
         for (var i = 0L; i < wanted; i++)
         {
-            if (!StepOnce())
+            var start = _performanceStepTicks is null ? 0L : Stopwatch.GetTimestamp();
+            var completed = StepOnce();
+            if (_performanceStepTicks is not null && completed)
+            {
+                _performanceStepTicks.Add(Stopwatch.GetTimestamp() - start);
+            }
+
+            if (!completed)
             {
                 _accumulator.DropCarry();
                 break;

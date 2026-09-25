@@ -36,9 +36,11 @@ lines = [line.removeprefix("[PERF] ") for line in text.splitlines()
 if len(lines) != 1 or "SCRIPT ERROR:" in text or "ERROR:" in text:
     raise SystemExit(f"{log}: brak pojedynczego pomiaru albo błąd Godota")
 result = json.loads(lines[0])
-if result["resolution"] != [1920, 1080] or result["draw_calls"]["median"] <= 0:
-    raise SystemExit(f"{log}: zła rozdzielczość albo pusta klatka")
+if (result["resolution"] != [1920, 1080] or result["draw_calls"]["median"] <= 0
+        or result["scene_steps"] <= 0):
+    raise SystemExit(f"{log}: zła rozdzielczość, pusta klatka albo brak kroków sceny")
 print(f"{log}: {result['frames']} klatek, mediana {result['frame_ms']['median']:.3f} ms, "
-      f"draw calls {result['draw_calls']['median']:.0f}")
+      f"draw calls {result['draw_calls']['median']:.0f}, "
+      f"krok sceny {result['scene_step_us']['median']:.3f} µs")
 PY
 done
