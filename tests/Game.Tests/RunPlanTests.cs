@@ -41,6 +41,8 @@ public sealed class RunPlanTests
         Assert.IsNull(plan.TelemetryPath);
         Assert.IsNull(plan.ShotPath);
         Assert.AreEqual(ViewKind.Cab, plan.View);
+        Assert.IsTrue(plan.ShouldShowStartupErrorDialog(false));
+        Assert.IsFalse(plan.ShouldShowStartupErrorDialog(true));
     }
 
     [TestMethod]
@@ -384,6 +386,7 @@ public sealed class RunPlanTests
         Assert.AreEqual("telemetry", plan.Mode);
         Assert.IsTrue(plan.ScriptedMode);
         Assert.AreEqual("build/t400/run.csv", plan.TelemetryPath);
+        Assert.IsFalse(plan.ShouldShowStartupErrorDialog(false));
     }
 
     [TestMethod]

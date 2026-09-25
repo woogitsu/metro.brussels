@@ -648,21 +648,25 @@ public sealed partial class FirstRun : Node3D
         // Flush the named startup error before the GUI dialog waits for acknowledgement.
         Console.Error.WriteLine(message);
         Console.Error.Flush();
-        if (_plan?.ReadsKeyboard == true
+        if (_plan?.ShouldShowStartupErrorDialog(IsHeadlessDisplay) == true
             && code is ExitMissingInput or ExitMissingAssets or ExitTrainMissing
                 or ExitPlatformsMissing or ExitCabMissing)
         {
             // The GUI executable has no visible console when started by double-click.
-            // Headless jobs keep their exit status without waiting for a dialog.
-            if (!IsHeadlessDisplay)
+            // Defer the popup until the startup scene has entered the tree. Otherwise
+            // an error raised in _Ready can leave only a console message behind.
+            var dialog = new AcceptDialog
             {
-                var dialog = new AcceptDialog { DialogText = message };
-                AddChild(dialog);
-                dialog.Confirmed += () => GetTree().Quit(code);
-                dialog.Canceled += () => GetTree().Quit(code);
-                dialog.PopupCentered();
-                return;
-            }
+                DialogText = message,
+                Title = message[..message.IndexOf(']')].TrimStart('['),
+                Exclusive = true,
+            };
+            AddChild(dialog);
+            dialog.Confirmed += () => GetTree().Quit(code);
+            dialog.Canceled += () => GetTree().Quit(code);
+            dialog.CloseRequested += () => GetTree().Quit(code);
+            Callable.From(() => dialog.PopupCentered()).CallDeferred();
+            return;
         }
         GetTree().Quit(code);
     }
@@ -1446,7 +1450,7 @@ public sealed partial class FirstRun : Node3D
         if (bodies <= 0)
         {
             Abort(ExitTrainMissing,
-                $"[SKŁAD] {shellPath} nie dał ani jednej bryły — scena bez składu nie jest przejazdem");
+                $"[SKŁAD] nie można wczytać {shellPath}. Rozpakuj ponownie pełną paczkę gry wraz z katalogiem zasoby.");
             return;
         }
 
@@ -1492,9 +1496,9 @@ public sealed partial class FirstRun : Node3D
         if (slabs <= 0)
         {
             Abort(ExitPlatformsMissing,
-                $"[PERON] {platformsPath} nie dał ani jednej bryły. Wygeneruj perony "
-                + "(tools/track/station_layout.py, potem tools/blender/station_kit.py "
-                + "--component platform --component edge) albo uruchom z --no-geometry.");
+                $"[PERON] nie można wczytać {platformsPath}. "
+                + "Rozpakuj ponownie pełną paczkę gry "
+                + "wraz z katalogiem zasoby.");
             return;
         }
         var namePlatePath = Path.Combine(assets, "L1_A-station-board.glb");
@@ -1526,9 +1530,9 @@ public sealed partial class FirstRun : Node3D
         if (cabBodies <= 0)
         {
             Abort(ExitCabMissing,
-                $"[KABINA] {cabPath} nie dał ani jednej bryły. Wygeneruj kabinę "
-                + "(tools/blender/m7_cab_build.py --out …/M7_cab.glb) albo uruchom "
-                + "z --no-geometry.");
+                $"[KABINA] nie można wczytać {cabPath}. "
+                + "Rozpakuj ponownie pełną paczkę gry "
+                + "wraz z katalogiem zasoby.");
             return;
         }
 
