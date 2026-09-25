@@ -53,6 +53,8 @@ generatora i wszystkie są wypisane w `DESIGN_ASSUMPTIONS`.
 | `DESIGN_TOTAL_HEIGHT_M` | 3,60 m | wysokość całkowita pojazdu nie jest publikowana |
 | `DESIGN_ROOF_CHAMFER_M` | 0,35 m | ścięcie naroża dachu; brak rysunku przekroju |
 | `DESIGN_SHELL_THICKNESS_M` | 0,08 m | grubość skorupy, żeby podłoga wypadła dokładnie na 1,03 m |
+| `DESIGN_WINDOW_BAND_BOTTOM_M` | 2,05 m | dolna granica neutralnego ciemnego pasa na ścianie bocznej; nie jest pomiarem okien M7 |
+| `DESIGN_WINDOW_BAND_TOP_M` | 2,78 m | górna granica tego pasa, poniżej projektowej fazy dachu |
 | `DESIGN_ARTICULATION_LENGTH_M` | 1,10 m | długość mieszka przegubu |
 | `DESIGN_ARTICULATION_INSET_M` | 0,18 m | wcięcie mieszka względem pudła |
 | `DESIGN_NOSE_LENGTH_M` | 2,40 m | długość strefy czołowej |
@@ -77,7 +79,7 @@ mieszki. Model analityczny skrajni używa cięciwy nominalnej i jest przez to
 | rozstaw czopów skrętu | `blocked` | brak w publicznych materiałach; **działa przeciwnie do strzałki cięciwy, więc rzeczywisty luz jest mniejszy niż policzony** |
 | geometria wózków | `blocked` | to samo |
 | podział długości między człony | `design_assumption` | patrz `DESIGN_EQUAL_CAR_SPLIT` |
-| okna, wnętrze, kabina, poszycie | poza zakresem | T-220 celowo tego nie robi |
+| przezroczyste szyby, wnętrze, kabina, detale poszycia | poza zakresem | ciemny pas boczny jest neutralnym znacznikiem wizualnym, nie odtworzeniem okien M7 |
 
 ## 2. Profile tuneli (`tools/blender/profiles.py`)
 

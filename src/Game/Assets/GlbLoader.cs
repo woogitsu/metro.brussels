@@ -52,7 +52,7 @@ public static class GlbLoader
     /// bezpieczna ścieżka dla zewnętrznych plików podanych przez argumenty.
     ///
     /// <c>docs/03-legal.md</c> jest twarde: żadnych logo, liverii, piktogramów ani
-    /// wystroju STIB/MIVB. Własna proceduralna skorupa M7 zachowuje dwa neutralne
+    /// wystroju STIB/MIVB. Własna proceduralna skorupa M7 zachowuje neutralne
     /// materiały z generatora; pozostałe GLB dostają jednolitą szarość.
     /// </summary>
     public static int ApplyNeutralMaterial(Node node, StandardMaterial3D material)
