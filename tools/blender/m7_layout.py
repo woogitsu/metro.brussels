@@ -198,6 +198,12 @@ class Layout:
 
     def window_divider_spans(self, index):
         """Słupki pośrodku odstępów między drzwiami, symetryczne po obu stronach."""
+        if index >= self.cars // 2:
+            # Druga połowa jest dokładnym odbiciem pierwszej. Niezależne
+            # zaokrąglenie midpointów rozsuwało końcowe słupki o 1 µm.
+            opposite = self.window_divider_spans(self.cars - 1 - index)
+            return [(round(self.length - end, 6), round(self.length - start, 6))
+                    for start, end in reversed(opposite)]
         doors = sorted((d for d in self.double_doors()
                         if d["car"] == index and d["side"] == 1),
                        key=lambda d: d["center_x"])
