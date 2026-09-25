@@ -17054,8 +17054,11 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
   kontekstem i powodem. Dodatkowo propozycja, jak przyszła kontrola ZIP mogłaby
   rozróżniać te klasy bez fałszywego alarmu.
 - **Weryfikacja:** ponowny skan wszystkich `reports/*.md` filtrem 6.D360,
-  sprawdzenie obu kontekstów w raporcie źródłowym i porównanie z historią gita;
-  `python3 tools/tests/test_all.py test_report_hygiene.py test_field_paths.py`.
+  sprawdzenie obu kontekstów w raporcie źródłowym i porównanie z historią gita.
+  ```bash
+  python3 tools/tests/test_all.py test_report_hygiene.py test_field_paths.py
+  ```
+  Oczekiwane: zielone testy oraz lista obu kontekstów z klasyfikacją.
 - **Skończone, gdy:** żaden odsyłacz ZIP z raportów nie pozostaje bez
   klasyfikacji, a proponowany warunek odróżnia nieobecne historyczne wejście
   od zepsutej ścieżki do pliku wymaganej dzisiaj.
