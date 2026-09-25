@@ -1,5 +1,7 @@
 # T-400: visual evidence for the current vertical slice
 
+**Date of review:** 25.09.2026. **Measured on commit:** `4cc4237e400de1fbc416f4c7c5beac660c7bd145` (hosted frames); additional local Parc frames use `1afb4d6235b5811699f5221cac58e47e8ac5957f`. These are capture sources, not the commit that adds this report.
+
 This is a review of actual 1280×720 Godot frames, not a claim that screenshot commands alone prove scene quality. The committed PNGs and capture logs are in [visual-evidence/t400-run-36078093066](visual-evidence/t400-run-36078093066). `manifest.json` records exact SHA-256 values and two distinct sources. `python3 tools/visual/verify_t400_evidence.py` verifies every committed file and PNG dimensions; it cannot decide whether a visual requirement is satisfied.
 
 ## Provenance and reproduction

@@ -48,6 +48,8 @@ mówić — i na docstringu tego pliku. Zmierzone 08.09.2026 przy #413: sprawdze
 Kotwica rozstrzyga to bez żadnej listy wyjątków, a lista wyjątków byłaby tu gorsza:
 plik, który raz na niej stanie, przestaje być pilnowany na zawsze.
 """
+import hashlib
+import json
 import os
 import re
 import subprocess
@@ -116,9 +118,26 @@ def znaczniki_w_drzewie():
     trafienia = []
     przeczytane = 0
     nieczytelne = []
+    evidence_prefix = "reports/visual-evidence/t400-run-36078093066/"
+    manifest_path = os.path.join(ROOT, evidence_prefix, "manifest.json")
+    with open(manifest_path, encoding="utf-8") as manifest_file:
+        evidence = {item["name"]: item for item in json.load(manifest_file)["files"]}
+    seen_pngs = set()
     for wzgledna in _pliki_repozytorium():
         pelna = os.path.join(ROOT, wzgledna)
         if not os.path.isfile(pelna):
+            continue
+        if wzgledna.startswith(evidence_prefix) and wzgledna.endswith(".png"):
+            name = wzgledna[len(evidence_prefix):]
+            data = open(pelna, "rb").read()
+            item = evidence.get(name)
+            if (item is None or len(data) != item["bytes"] or
+                    hashlib.sha256(data).hexdigest() != item["sha256"] or
+                    data[:8] != b"\x89PNG\r\n\x1a\n"):
+                nieczytelne.append(wzgledna)
+                continue
+            seen_pngs.add(name)
+            przeczytane += 1
             continue
         try:
             with open(pelna, encoding="utf-8") as uchwyt:
@@ -130,6 +149,8 @@ def znaczniki_w_drzewie():
         for numer, wiersz in enumerate(wiersze, start=1):
             if any(wzorzec.match(wiersz) for wzorzec in ZNACZNIKI):
                 trafienia.append((wzgledna, numer, wiersz[:60]))
+    if seen_pngs != {name for name in evidence if name.endswith(".png")}:
+        nieczytelne.append("manifest PNG evidence mismatch")
     return trafienia, przeczytane, nieczytelne
 
 

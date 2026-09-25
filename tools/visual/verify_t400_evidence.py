@@ -12,16 +12,22 @@ def main() -> None:
     declared = [item["name"] for item in manifest["files"]]
     source_files = [name for source in manifest["sources"] for name in source["files"]]
     actual = [path.name for path in folder.iterdir() if path.is_file() and path.name != "manifest.json"]
-    assert len(declared) == len(set(declared)), "duplicate manifest entries"
-    assert set(declared) == set(source_files) == set(actual), "evidence files differ from manifest sources"
+    if len(declared) != len(set(declared)):
+        raise ValueError("duplicate manifest entries")
+    if set(declared) != set(source_files) or set(declared) != set(actual):
+        raise ValueError("evidence files differ from manifest sources")
     for item in manifest["files"]:
         path = folder / item["name"]
         data = path.read_bytes()
-        assert len(data) == item["bytes"], path
-        assert hashlib.sha256(data).hexdigest() == item["sha256"], path
+        if len(data) != item["bytes"]:
+            raise ValueError(f"unexpected file size: {path}")
+        if hashlib.sha256(data).hexdigest() != item["sha256"]:
+            raise ValueError(f"SHA-256 mismatch: {path}")
         if path.suffix == ".png":
-            assert data[:8] == b"\x89PNG\r\n\x1a\n", path
-            assert struct.unpack(">II", data[16:24]) == (1280, 720), path
+            if data[:8] != b"\x89PNG\r\n\x1a\n":
+                raise ValueError(f"invalid PNG signature: {path}")
+            if struct.unpack(">II", data[16:24]) != (1280, 720):
+                raise ValueError(f"unexpected PNG dimensions: {path}")
     print(f"Verified {len(manifest['files'])} unchanged evidence files")
 
 
