@@ -131,7 +131,7 @@ nie podaje liczby po triażu, więc jego wiersz ma w tej kolumnie kreskę, a nie
 | `tools/blender/m7_layout.py` | parametry | 1 | 1 | 0 | 17 | 17 | moduł bez zmian od `fe92daa` — `git diff` pusty |
 | `tools/track/station_layout.py` | parametry | 1 | 1 | 0 | 7 | 8 | `b7eef85` dołożył 1 mutację, zabitą |
 | `tools/data/provenance.py` | parametry | 0 | 0 | 0 | 7 | 7 | moduł bez zmian od `fe92daa` — `git diff` pusty |
-| `tools/track/data_freshness.py` | parametry | 0 | 0 | 0 | 5 | 5 | moduł bez zmian od `fe92daa` — `git diff` pusty |
+| `tools/track/data_freshness.py` | parametry | 0 | 0 | 0 | 5 | 6 | 6.D168 dołożył sprawdzenie dokładnego kształtu wiersza jawnej baseline (`set(row) != {file, valid_to, retrieved_at}`); kontrola negatywna z obcym polem dowodzi odmowy. Historyczne 0 ocalałych dotyczy 5 dawnych mutacji; nowej nie przypisano ocalałej bez osobnego przebiegu mutacyjnego. |
 | `tools/blender/placement.py` | placement | — | 26 | — | 40 | 40 | **nie przypisano**: raport triażu nie podaje liczby po; moduł bez zmian od `3262bb4` |
 | `tools/visual/pngio.py` | png-metadata | 7 | 4 | -3 | 38 | 38 | `b16ae65` scalił dwie kopie przycinania w jedną (−3 ocalałe równoważne) |
 | `tools/ci/assert_shot_metadata.py` | png-metadata | 2 | 32 | +30 | 33 | 114 | `a643f05` +4 ocalałe, `2c916de` +26 ocalałych (bramka peronu bez testów); 73 → 108 po dodaniu kontroli wizualnego przedłużenia, 108 → 114 po jawnej kontroli podglądu łącznika; ocalałych nie przeliczono |
