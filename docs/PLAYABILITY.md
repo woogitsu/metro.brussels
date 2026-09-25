@@ -100,7 +100,7 @@ są prawdziwe i mówią o czym innym.
 | 1 | **MB-01** jeden start treningu | można od razu prowadzić właściwy tryb | MB-00 |
 | 2 | **MB-02** sesja, koniec, wynik i ponów | istnieje kompletna pętla gry | MB-01 |
 | 3 | **MB-03** HUD treningowy | gracz rozumie, co ma zrobić | MB-02 |
-| 4 | **MB-04** paczka i playtest | **ZROBIONE 14.09.2026** — M1 bez środowiska developerskiego; odbiór Windows x64 **niewykonany i tak oznaczony** | MB-03 |
+| 4 | **MB-04** paczka i playtest | **ZROBIONE 14.09.2026** — M1 bez środowiska developerskiego; Windows x64: [eksport i przebieg headless sprawdzone](../reports/m1-windows-package-qa-2026-09-25.md); widoczny dialog błędu jeszcze bez odbioru | MB-03 |
 | 5 | **MB-05** integracja kanonicznej kabiny | **ZROBIONE 14.09.2026** co do litery pola „Skończone, gdy"; **ściany kabiny są PYTANIEM OTWARTYM** — zasób ich nie ma, a skorupa jest w tym widoku chowana | MB-03 |
 | 6 | **MB-06** wspólne źródło komend AI/gracza | **ZROBIONE 14.09.2026** — przejęcie w rdzeniu; bez komend gracza ślad linii ma tę samą sumę MD5 co przed zmianą | M1 |
 | 7 | **MB-07** wiele widoków i take/release | **ZROBIONE 14.09.2026** (#604) — dwa składy w scenie, wybór obserwowanego, przejęcie i oddanie; skład, który dojechał, schodzi z planu | MB-06 |
