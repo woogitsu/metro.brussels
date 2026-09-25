@@ -1346,6 +1346,7 @@ właściciel.
 | 6.D369 | **Testy doctora udają brak SDK, lecz widzą systemowe `/opt/dotnet/dotnet`** | 23.09.2026: na runnerze z SDK 10.0.401 pod `/opt` pięć testów `test_dotnet_version.py` daje wynik zależny od hosta, choć podstawiają `HOME` i `PATH`. `doctor.sh` skanuje również trzy bezwzględne ścieżki systemowe. Kontrolowany prefiks tych ścieżek w testach ma zachować zwykłe zachowanie doctora i obie strony próby: brak oraz obecność SDK | S |
 | 6.D361 | **Komunikat bramki rozkładu postaci literału nazywa drzewo „zapisanym”, a zapis „zmierzonym”** | zmierzone 23.09.2026 przy 6.D356: `test_rozklad_SZESCIU_postaci_literalu_zgadza_sie_z_drzewem` wypisuje `rozklad postaci pod tests/ to <widziane>, a zmierzono <oczekiwany>` — liczby z DRZEWA stoją po „to”, a liczby wpisane w zapadkę po „zmierzono”. Przy rozjeździe czyta się to odwrotnie i łatwo przepisać do zapadki nie tę stronę. Poprawka dotyczy wyłącznie tekstu komunikatu | S |
 | 6.D360 | **ZROBIONE (25.09.2026): policzono pięć rozszerzeń pomijanych przez bramkę raportów.** Wynik dla glb/jsonl/log/png/zip: odpowiednio 0/0, 0/0, 6/0, 0/0 i 2/2 (trafienia/braki). Oba brakujące odsyłacze wskazują to samo archiwum GTFS, usunięte po pomiarze zgodnie z wcześniejszym raportem. Kontrola rozszerzenia md: 929 trafień w obu czytnikach. Nie znaleziono zapisanego powodu różnicy wzorców; nie zmieniono żadnego z nich. Pomiar: `reports/6d360-piec-rozszerzen-poza-bramka-raportow.md`. | M |
+| 6.D371 | **Czy dwa odsyłacze ZIP w raportach opisują historyczne wejście, czy obiecują obecny plik?** | 6.D360 znalazło dwa odsyłacze do tego samego usuniętego po pomiarze archiwum GTFS. Trzeba sprawdzić je w kontekście i ustalić, jak odróżniać historyczne wejścia od aktualnych ścieżek przed ewentualnym objęciem ZIP bramką raportów. | M |
 
 #### Szczegóły pozycji z kompletem sześciu pól
 
@@ -17032,3 +17033,33 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 - **Poza zakresem:** zmiana któregokolwiek `PATH_TOKEN`; zmiana `ROZSZERZENIA_PILNOWANE`
   i `ROZSZERZENIA_BEZ_TRAFIEN`; poprawianie raportów ze złą ścieżką; `src/`; `data/`.
 - **Zależy od:** 6.D352 (stamtąd różnica pięciu rozszerzeń).
+
+##### 6.D371 · Historyczne archiwum ZIP w odsyłaczach raportów
+
+- **Skąd:** pomiar 6.D360 wykazał dwa odsyłacze do tego samego nieobecnego
+  `data/gtfs/stib_gtfs.zip` w `reports/zapisy-do-data.md`. Raport wyjaśnia, że
+  archiwum było gitignorowanym wejściem pomiaru i zostało potem usunięte.
+  Sama nieobecność pliku nie rozstrzyga, czy oba zdania obiecują plik dostępny
+  dziś, czy zapisują wyłącznie historię wykonanej pracy.
+- **Dlaczego bez decyzji:** pozycja czyta i klasyfikuje istniejące odsyłacze.
+  Nie wprowadza nowej polityki przechowywania archiwów ani nowej bramki.
+- **Czego NIE wolno przyjąć bez pomiaru:** że każde wystąpienie `.zip` w raporcie
+  jest żywym odsyłaczem, albo że każde jest tylko historycznym przykładem.
+  Rozstrzyga pełne zdanie i rola wskazanego pliku w czasie pomiaru.
+- **Wejście:** `reports/6d360-piec-rozszerzen-poza-bramka-raportow.md`,
+  `reports/zapisy-do-data.md`, `tools/tests/test_report_hygiene.py` i historia
+  usunięcia archiwum.
+- **Wyjście:** lista obu wystąpień z numerem wiersza i klasyfikacją
+  „historyczne wejście” albo „aktualnie wymagany plik”, wraz z cytowanym
+  kontekstem i powodem. Dodatkowo propozycja, jak przyszła kontrola ZIP mogłaby
+  rozróżniać te klasy bez fałszywego alarmu.
+- **Weryfikacja:** ponowny skan wszystkich `reports/*.md` filtrem 6.D360,
+  sprawdzenie obu kontekstów w raporcie źródłowym i porównanie z historią gita;
+  `python3 tools/tests/test_all.py test_report_hygiene.py test_field_paths.py`.
+- **Skończone, gdy:** żaden odsyłacz ZIP z raportów nie pozostaje bez
+  klasyfikacji, a proponowany warunek odróżnia nieobecne historyczne wejście
+  od zepsutej ścieżki do pliku wymaganej dzisiaj.
+- **Poza zakresem:** przywracanie ZIP do `data/`, zmiana obu `PATH_TOKEN`,
+  dodawanie wyjątku do `ROZSZERZENIA_BEZ_TRAFIEN` i przepisywanie historii
+  raportów.
+- **Zależy od:** 6.D360, bo dostarczył oba odsyłacze i filtr pomiaru.
