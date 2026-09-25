@@ -127,6 +127,10 @@ public sealed partial class StationView : Node3D
     public static float NameMarkerHangerLength(float centreHeight, float plateHeight) =>
         4.70f - (centreHeight + plateHeight / 2);
 
+    /// <summary>Board placement above the M7 gauge and beneath the playable tunnel roof.</summary>
+    public static (float CentreHeight, float PlateHeight) NameMarkerVerticalLayout(bool bilingual) =>
+        bilingual ? (4.30f, 0.76f) : (4.22f, 0.60f);
+
     /// <summary>
     /// Place a neutral station-name marker above the tracks at each platform.
     /// The names come from the axis, not from copied operator signage.
@@ -152,10 +156,10 @@ public sealed partial class StationView : Node3D
             var names = station.Name.Split('|');
             var bilingual = names.Length == 2;
             var text = NameMarkerText(station.Name);
-            // Two bilingual lines occupy about 2 * 44 * 0.009 = 0.792 m,
-            // within the 0.82 m plate and the 4.70 m playable tunnel roof.
+            // Keep the two lines and their outline inside the plate, while
+            // leaving the 0.30 m vehicle-gauge reserve below it.
             var fontSize = bilingual ? 44 : 60;
-            var pixelSize = bilingual ? 0.009f : 0.0095f;
+            var pixelSize = bilingual ? 0.0073f : 0.0095f;
             var longestLine = 0;
             foreach (var name in names)
             {
@@ -165,8 +169,7 @@ public sealed partial class StationView : Node3D
                 2.5f, 8.0f);
             // The playable tunnel still uses box_double at stations: roof 4.70 m.
             // Keep the plate above the 3.60 m train and below that actual roof.
-            var height = bilingual ? 0.82f : 0.60f;
-            var centreHeight = 4.15f;
+            var (centreHeight, height) = NameMarkerVerticalLayout(bilingual);
             foreach (var at in NameMarkerPositions(station.ChainageM, sceneAxis.Axis.LengthM))
             {
                 var frame = sceneAxis.Chord(at - 0.5, at + 0.5);
