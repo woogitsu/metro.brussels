@@ -634,7 +634,8 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # 426 -> 427 (23.09.2026, 6.D356): blok 6.D361 dopisany z kompletem szesciu pol
 # (znalezisko przy przeliczaniu zapadki rozkladu postaci literalu); ZMIERZONE.
 # 427 -> 428 (23.09.2026, 6.D352): blok 6.D360 dopisany z kompletem szesciu pol.
-MINIMUM_DETAIL_BLOCKS = 428
+# 428 -> 429 (25.09.2026, 6.D360): blok 6.D371 dopisany z kompletem szesciu pol.
+MINIMUM_DETAIL_BLOCKS = 429
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je
