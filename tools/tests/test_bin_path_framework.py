@@ -165,7 +165,8 @@ MIN_PATHS_IN_TREE = 31
 # 8 -> 9 (14.09.2026, MB-08): `HandleTrainKeysGateTests.cs` — dziewiąty plik,
 # który składa ścieżkę do drzewa. Ta zapadka idzie w parze z `MIN_PATHS_IN_TREE`
 # i obie ruszają się razem, bo nowa bramka leksykalna czyta źródło `src/Game/`.
-MIN_FILES_WITH_PATHS = 9
+# 9 -> 10 (25.09.2026, #26): nowy raport jest dziesiątym plikiem ze ścieżką.
+MIN_FILES_WITH_PATHS = 10
 
 
 def _read(path):
