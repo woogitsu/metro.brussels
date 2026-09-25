@@ -1432,6 +1432,64 @@ jobs:
           test "$rc" -ne 0 || { echo "BŁĄD: odtworzenie bez przejęcia przeszło porównanie" >&2; exit 1; }
           echo "[NEGATYW] odtworzenie linii bez przejęcia odrzucone, tak jak ma być"
 
+      - name: Line takeover and doors preserve state at 30, 60, and 120 FPS
+        shell: bash
+        # Issue #26: ten sam zapis przejęcia, ręcznych drzwi i oddania składu
+        # przez rzeczywistą scenę przy logicznych 4/2/1 krokach na klatkę.
+        # Ucinamy dopiero PO oddaniu (krok 8040), aby 120 FPS nie musiało
+        # odtwarzać dalszych 7959 kroków autopilota bez nowego pokrycia.
+        # Headless mierzy podział kroków, nie fizyczny monitor 30/60/120 Hz.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/linia-fps
+          python3 - <<'KEYS'
+          from pathlib import Path
+
+          source = Path("tests/data/m1-linia-drzwi.log").read_text(encoding="utf-8")
+          assert source.count("kroki=16000") == 1
+          assert "8040;oddaj:KABINA" in source
+          Path("build/t400/linia-fps/keys.log").write_text(
+              source.replace("kroki=16000", "kroki=8041", 1), encoding="utf-8")
+          KEYS
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys build/t400/linia-fps/keys.log --line --atp \
+            --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --limit-kmh 70 --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/linia-fps/core.csv \
+            > build/t400/linia-fps/core.log 2>&1
+          grep -q 'sesja=8041 kroków, zdarzeń linii=4 odmów drzwi=0' \
+            build/t400/linia-fps/core.log
+          grep -q 'zatrzymań=1' build/t400/linia-fps/core.log
+          for spf in 4 2 1; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --line --limit-kmh=70 \
+              --signalling="$PWD/data/design/signalling/classic-2026.json" \
+              --replay="$PWD/build/t400/linia-fps/keys.log" \
+              --telemetry="$PWD/build/t400/linia-fps/scene-spf$spf.csv" \
+              --steps-per-frame="$spf" \
+              > "build/t400/linia-fps/scene-spf$spf.log" 2>&1
+            python3 tools/ci/assert_no_godot_warnings.py \
+              "build/t400/linia-fps/scene-spf$spf.log"
+            grep -q '^\[ODTWORZENIE\] koniec: kroków=8041 ' \
+              "build/t400/linia-fps/scene-spf$spf.log"
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/linia-fps/core.csv \
+              "build/t400/linia-fps/scene-spf$spf.csv" --tolerance 0
+          done
+          python3 - <<'FRAMES'
+          import re
+          from pathlib import Path
+
+          for spf, expected_frames in ((4, 2011), (2, 4021), (1, 8041)):
+              path = Path(f"build/t400/linia-fps/scene-spf{spf}.log")
+              text = path.read_text(encoding="utf-8")
+              match = re.search(r"^\[ODTWORZENIE\] koniec: kroków=8041 .* klatek=(\d+) ",
+                                text, re.MULTILINE)
+              assert match and int(match.group(1)) == expected_frames, (
+                  f"{path}: expected {expected_frames} frames for {spf} steps/frame")
+          FRAMES
+
       - name: ATP must really brake above the plan limit
         shell: bash
         # DOWÓD, ŻE OCHRONA POCIĄGU DZIAŁA, A NIE TYLKO LICZY.

@@ -533,7 +533,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 480 -> 481 (25.09.2026, #26): czas kroku tej samej sceny 1080p.
 # 481 -> 482 (25.09.2026, 6.D344): audyt czterech sit adresowych.
 # 482 -> 483 (25.09.2026, #26): rozkład czasu według kolejności kroku w klatce.
-MIN_REPORTS = 483
+# 483 -> 484 (25.09.2026, #26): zgodność przejęcia i drzwi przy 30/60/120 FPS.
+MIN_REPORTS = 484
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
