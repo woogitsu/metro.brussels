@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
@@ -52,6 +53,152 @@ public sealed class LineDriveTests
             new TrainController(VehicleModel.M7),
             new BrakingPointSolver(VehicleModel.M7),
             FixedStep.Simulation);
+
+    [TestMethod]
+    public void Reczny_postoj_S_na_koncowej_stacji_nie_pozwala_odjechac_po_W()
+    {
+        var axis = Axis(0.0, 1000.0);
+        var model = VehicleModel.M7;
+        var controller = new TrainController(model);
+        var solver = new BrakingPointSolver(model);
+        var drive = new LineDrive(axis, Level(), Settings(limitKmh: 30.0),
+            controller, solver, FixedStep.Simulation);
+        drive.DoorControl = DoorControl.Manual;
+
+        var brakingByDriver = false;
+        while (!drive.AtStation && drive.Steps < 30_000)
+        {
+            var remaining = 1000.0 - drive.ChainageM;
+            if (!brakingByDriver && drive.State.SpeedMps > 0.0 &&
+                remaining <= solver.DistanceM(drive.State.SpeedMps, 0.0,
+                    controller.ServiceBrakeMps2) + 2.0)
+                brakingByDriver = true;
+            drive.DriverInput = brakingByDriver
+                ? DriverCommand.FullServiceBrake : DriverCommand.FullPower;
+            drive.Step();
+        }
+
+        Assert.IsTrue(brakingByDriver, "test musi użyć ręcznego S");
+        Assert.IsTrue(drive.AtStation,
+            $"ręczne S ma zatrzymać w oknie peronu, stanął na {drive.ChainageM:R}");
+        var stoppedAt = drive.ChainageM;
+        drive.DriverInput = DriverCommand.FullPower;
+        for (var i = 0; i < 100; i++)
+        {
+            drive.Step();
+            Assert.AreEqual(stoppedAt, drive.ChainageM, 1e-9,
+                "po ręcznym postoju końcowym W nie może przesunąć składu");
+            Assert.AreEqual(0.0, drive.State.SpeedMps,
+                "po ręcznym postoju końcowym prędkość musi pozostać zerowa");
+        }
+        Assert.IsTrue(drive.Result("manual-terminal-S-W").Energy.RelativeResidual < 1e-8,
+            "zatrzask postoju nie może rozjechać bilansu energii");
+    }
+
+    [TestMethod]
+    public void Reczna_pelna_trakcja_na_L1_A_wywoluje_hamowanie_sluzbowe_przed_Merode()
+    {
+        var path = Path.Combine(MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka,
+            "data", "track", "L1_A.json");
+        var axis = TrackAxis.FromJson(File.ReadAllText(path));
+        var settings = Settings(limitKmh: 72.0, usage: 1.0);
+        var model = VehicleModel.M7;
+        var conditions = new RunConditions(model.MassKg(TrainLoad.Aw2), 0.0,
+            model.Adhesion(RailCondition.Dry), TrackEnvironment.Tunnel);
+        var drive = new LineDrive(axis, conditions, settings,
+            new TrainController(VehicleModel.M7), new BrakingPointSolver(VehicleModel.M7),
+            FixedStep.Simulation, startStationIndex: axis.Stations.Count - 2);
+        drive.DoorControl = DoorControl.Manual;
+        drive.DriverInput = DriverCommand.FullPower;
+
+        var intervention = false;
+        var hardStop = false;
+        var trace = new List<LineRun.TracePoint>();
+        while (drive.State.SpeedMps > 0.0 || drive.Steps == 0)
+        {
+            Assert.IsTrue(drive.Steps < 30_000, "skład nie dojechał do Merode");
+            drive.Step(trace.Add);
+            if (drive.State.SpeedMps > 0.0 && trace[^1].Command.Brake > 0.0)
+                intervention = true;
+            hardStop |= drive.ChainageM >= axis.LengthM;
+        }
+
+        Assert.IsTrue(intervention, "hamowanie musi zadziałać zanim zatrzyma się skład");
+        Assert.IsFalse(hardStop, "hamulec służbowy ma zatrzymać przed fizycznym końcem osi");
+        drive.Step(trace.Add);
+        Assert.IsTrue(drive.AtStation,
+            $"zatrzymanie musi zostać rozpoznane na Merode, chainage={drive.ChainageM:R}");
+        Assert.IsTrue(Math.Abs(drive.ChainageM - axis.Stations[^1].ChainageM) <= settings.StopWindowM,
+            "hamowanie powinno zakończyć się w oknie peronu");
+        Assert.AreEqual("Merode", drive.Calls[^1].Name,
+            "postój po hamowaniu służbowym musi zostać przypisany do Merode");
+        var standingAt = drive.ChainageM;
+        for (var i = 0; i < 100; i++)
+        {
+            drive.Step(trace.Add);
+            Assert.AreEqual(standingAt, drive.ChainageM, 1e-9,
+                "przytrzymany ciąg nie może wznowić jazdy podczas postoju końcowego");
+            Assert.AreEqual(0.0, drive.State.SpeedMps,
+                "ciąg W nie może wznowić jazdy po zatrzymaniu na Merode");
+        }
+        Assert.IsTrue(drive.Result("manual-terminal").Energy.RelativeResidual < 1e-8,
+            "hamowanie i zatrzask postoju muszą zachować bilans energii");
+    }
+
+    [TestMethod]
+    public void Reczna_trakcja_na_Merode_nie_wyjezdza_poza_koniec_osi()
+    {
+        // Ostatni peron jest o 0,25 m za końcem geometrii, jak na pakiecie A.
+        var axis = TrackAxis.FromJson(
+            """
+            {"id":"END","length_m":0.0,"vertical":{"status":"not_modelled"},
+             "points":[[0,0,0],[100,0,0]],
+             "stations":[{"name":"Start","chainage_m":0,"stop_id":"P0"},
+                         {"name":"Merode","chainage_m":100.25,"stop_id":"P1"}]}
+            """, 0.0);
+        var drive = Drive(axis, Settings(limitKmh: 30.0));
+        drive.DoorControl = DoorControl.Manual;
+        drive.DriverInput = DriverCommand.FullPower;
+        var trace = new List<LineRun.TracePoint>();
+
+        while ((drive.State.SpeedMps > 0.0 || drive.Steps == 0) && drive.Steps < 20_000)
+        {
+            drive.Step(trace.Add);
+            Assert.IsTrue(drive.ChainageM <= axis.LengthM,
+                "nawet krok przekraczający koniec nie może ruszyć składu poza oś");
+        }
+
+        Assert.IsTrue(drive.ChainageM <= axis.LengthM,
+            "skład nie może przekroczyć końca osi");
+        Assert.IsTrue(drive.ChainageM >= axis.LengthM - 0.01,
+            "hamowanie powinno dojechać blisko końca osi");
+        Assert.AreEqual(0.0, drive.State.SpeedMps);
+        Assert.AreEqual(0.0, trace[^1].SpeedMps,
+            "ślad ostatniego kroku musi pokazywać zatrzymanie");
+        Assert.AreEqual(0.0, trace[^1].Command.Throttle,
+            "HUD ma pokazywać brak ciągu, choć nastawnik nadal jest na W");
+        var standingAt = drive.ChainageM;
+        for (var i = 0; i < 100; i++)
+        {
+            drive.Step(trace.Add);
+            Assert.AreEqual(standingAt, drive.ChainageM, 1e-9,
+                "po postoju końcowym pozycja nie może się zmienić");
+            Assert.AreEqual(0.0, drive.State.SpeedMps,
+                "po postoju końcowym prędkość musi pozostać zerowa");
+            Assert.AreEqual(0.0, trace[^1].Command.Throttle,
+                "ślad postoju końcowego musi pokazywać odcięty ciąg");
+        }
+
+        Assert.IsTrue(drive.AtStation, "postój Merode musi powstać po zatrzymaniu");
+        Assert.AreEqual("Merode", drive.Calls[^1].Name);
+        Assert.AreEqual(standingAt - 100.25, drive.Calls[^1].StopErrorM, 1e-9,
+            "błąd zatrzymania musi być liczony względem punktu peronowego");
+        Assert.IsFalse(drive.Finished, "ręczny postój czeka na obsługę drzwi");
+        Assert.AreEqual(standingAt, trace[^1].ChainageM, 1e-9,
+            "ślad musi zachować końcową pozycję składu");
+        Assert.IsTrue(drive.Result("manual-stop").Energy.RelativeResidual < 1e-8,
+            "bilans energii musi używać drogi i prędkości po ograniczeniu osi");
+    }
 
     private static List<LineRun.TracePoint> RunToEnd(LineDrive drive)
     {

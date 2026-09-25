@@ -48,6 +48,8 @@ mówić — i na docstringu tego pliku. Zmierzone 08.09.2026 przy #413: sprawdze
 Kotwica rozstrzyga to bez żadnej listy wyjątków, a lista wyjątków byłaby tu gorsza:
 plik, który raz na niej stanie, przestaje być pilnowany na zawsze.
 """
+import hashlib
+import json
 import os
 import re
 import subprocess
@@ -116,9 +118,38 @@ def znaczniki_w_drzewie():
     trafienia = []
     przeczytane = 0
     nieczytelne = []
+    evidence_prefixes = (
+        "reports/visual-evidence/t400-run-36078093066/",
+        "reports/visual-evidence/parc-arrival/",
+        "reports/visual-evidence/t400-side/",
+        "reports/visual-evidence/t400-platform/",
+        "reports/visual-evidence/t400-stop-target/",
+    )
+    evidence = {}
+    for prefix in evidence_prefixes:
+        manifest_path = os.path.join(ROOT, prefix, "manifest.json")
+        with open(manifest_path, encoding="utf-8") as manifest_file:
+            for item in json.load(manifest_file)["files"]:
+                if item["name"].endswith((".png", ".gif")):
+                    evidence[prefix + item["name"]] = item
+    seen_images = set()
     for wzgledna in _pliki_repozytorium():
         pelna = os.path.join(ROOT, wzgledna)
         if not os.path.isfile(pelna):
+            continue
+        if any(wzgledna.startswith(prefix) for prefix in evidence_prefixes) and wzgledna.endswith((".png", ".gif")):
+            data = open(pelna, "rb").read()
+            item = evidence.get(wzgledna)
+            signature_ok = (data.startswith(b"\x89PNG\r\n\x1a\n")
+                            if wzgledna.endswith(".png")
+                            else data.startswith((b"GIF87a", b"GIF89a")))
+            if (item is None or len(data) != item["bytes"] or
+                    hashlib.sha256(data).hexdigest() != item["sha256"] or
+                    not signature_ok):
+                nieczytelne.append(wzgledna)
+                continue
+            seen_images.add(wzgledna)
+            przeczytane += 1
             continue
         try:
             with open(pelna, encoding="utf-8") as uchwyt:
@@ -130,6 +161,8 @@ def znaczniki_w_drzewie():
         for numer, wiersz in enumerate(wiersze, start=1):
             if any(wzorzec.match(wiersz) for wzorzec in ZNACZNIKI):
                 trafienia.append((wzgledna, numer, wiersz[:60]))
+    if seen_images != set(evidence):
+        nieczytelne.append("manifest visual evidence mismatch")
     return trafienia, przeczytane, nieczytelne
 
 

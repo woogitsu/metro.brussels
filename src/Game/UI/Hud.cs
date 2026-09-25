@@ -46,11 +46,15 @@ public sealed partial class Hud : CanvasLayer
                  { _speed, _position, _controls, _station, _signalling, _view, _help,
                    _summary, _traction })
         {
-            label.AddThemeFontSizeOverride("font_size", 20);
+            label.AddThemeFontSizeOverride("font_size", 17);
             label.AddThemeColorOverride("font_color", new Color(0.92f, 0.94f, 0.96f));
         }
 
-        _speed.AddThemeFontSizeOverride("font_size", 34);
+        _speed.AddThemeFontSizeOverride("font_size", 27);
+        // The next stop is the driver's immediate target, so distinguish it
+        // from the chainage and other diagnostic rows at first glance.
+        _station.AddThemeFontSizeOverride("font_size", 19);
+        _station.AddThemeColorOverride("font_color", new Color(0.98f, 0.88f, 0.62f));
 
         // Wiersz stacji startuje UKRYTY. W .tscn ma tekst zastępczy, żeby scena dała się
         // otworzyć w edytorze, a widoczność ustawia dopiero `Update` — inaczej przebieg
@@ -206,12 +210,8 @@ public sealed partial class Hud : CanvasLayer
         // Granica jest postawiona świadomie: szablon niesie kolejność pól i słowa,
         // a `F1`, `F0` i szerokości pól zostają w kodzie, bo pole „Skończone, gdy"
         // pozycji żąda „jednostki i formaty liczb zostają".
-        _position.Text = UiText.Format(
-            "hud.position",
-            chainageM.ToString("F1", CultureInfo.InvariantCulture).PadLeft(9),
-            axisLengthM.ToString("F1", CultureInfo.InvariantCulture),
-            nextStation,
-            toStationM.ToString("F0", CultureInfo.InvariantCulture));
+        _position.Text = PositionLine(chainageM, axisLengthM, nextStation,
+            toStationM, station.Length > 0);
         var emergencySuffix = emergency.Length > 0 ? "   " + emergency : string.Empty;
         _controls.Text = UiText.Format(
             "hud.controls",
@@ -237,6 +237,21 @@ public sealed partial class Hud : CanvasLayer
         // rdzenia, a nie HUD. Pusty znaczy „trakcja wolna", czyli wiersza nie ma.
         _traction.Text = traction;
         _traction.Visible = traction.Length > 0;
+    }
+
+    /// <summary>Format kilometrażu bez powtórzenia celu widocznego w osobnym wierszu.</summary>
+    public static string PositionLine(double chainageM, double axisLengthM,
+        string nextStation, double toStationM, bool stationVisible)
+    {
+        var chainage = chainageM.ToString("F1", CultureInfo.InvariantCulture).PadLeft(9);
+        var axisLength = axisLengthM.ToString("F1", CultureInfo.InvariantCulture);
+        // Widoczny wiersz stacji podaje już nazwę i odległość. Powtórzenie długiej
+        // nazwy w pozycji dodawało zawinięte linie poza dolnym panelem przy 800x600.
+        return stationVisible
+            ? UiText.Format("hud.position.with-station", chainage, axisLength)
+            : UiText.Format(
+                "hud.position", chainage, axisLength, nextStation,
+                toStationM.ToString("F0", CultureInfo.InvariantCulture));
     }
 
     private static string Bar(double value)

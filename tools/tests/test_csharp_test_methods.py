@@ -606,12 +606,91 @@ ROZKLAD_POSTACI = {
         # 4643 -> 4720, 802 -> 812 i 92 -> 95 (22.09.2026, 6.D235): `FileReadGuardTests.cs`
         # (tekst wzorcowy przyrzadu, trzy wzorce werbatim) i `BadFileTests.cs` (osiem
         # zlych ksztaltow). Przeliczone z drzewa, nie zsumowane.
-        "zwykly": 4720,
-        "interpolowany ($)": 812,
-        "werbatim (@)": 95,
+        # 4720 -> 4730 i 95 -> 96 (23.09.2026, 6.D365): testy kultury w `DoorCycleTests.cs`
+        # i `TrainingSessionTests.cs`, wzorzec czasu postoju jako `@"..."`; ZMIERZONE.
+        # 4730 -> 4732 (23.09.2026, 6.D368): dwie postacie w tescie sciezki `a=b.csv`.
+        # 4732 -> 4788 i 812 -> 819 (23.09.2026, 6.M1): `LineReplayTests.cs` (zapisy
+        # wejsc w tekscie, komunikaty asercji) i nowy test `RunPlanTests.cs`.
+        # Przeliczone z drzewa.
+        # 4788 -> 4800 i 819 -> 820 (23.09.2026, 6.M3): testy okna drzwi
+        # w `StopWindowParityTests.cs`. Przeliczone z drzewa.
+        # 4800 -> 4807, 820 -> 826 i 96 -> 98 (23.09.2026, 6.D357): dwie nowe metody
+        # `BrokenJsonRefusalTests.cs` — komunikaty asercji, ksztalt wielowierszowy
+        # i DWA wzorce werbatim (slowo z lacznikiem, pozycja „w wierszu …, bajt …");
+        # ZMIERZONE.
+        # 4807 -> 4843, 826 -> 836, 98 -> 99 i 7 -> 8 (23.09.2026, 6.D356):
+        # `BrokenJsonRefusalTests.cs` — komunikaty asercji, argumenty `line`, wzorzec
+        # slowa `@"..."` i dopasowanie slowa zakazanego `$@"..."`. ZMIERZONE.
+        # 4843 -> 4851 i 836 -> 837 (23.09.2026): testy nowej sceny i komunikaty.
+        # 4851 -> 4875 i 99 -> 100 (24.09.2026, door-prompt-service):
+        # literały tekstowe i komunikaty asercji nowych testow postoju; ZMIERZONE.
+        # 4875 -> 4886 (24.09.2026, braking cue): testy warunku przejecia i hamulca.
+        # 4886 -> 4892 (24.09.2026, PR #771): nazwy siatek i komunikat asercji.
+        # 4892 -> 4901 i 838 -> 840 (24.09.2026, kamera): testy ciaglosci.
+        # 4901 -> 4904 (24.09.2026, integracja): scisle porownania w DoorPromptTests.
+        # 4904 -> 4915 i 840 -> 842 (24.09.2026, dwustopniowe cue): testy obu faz.
+        # 4915 -> 4920 (24.09.2026, S): cztery literały i komunikat asercji.
+        # 4920 -> 4929 (24.09.2026, oznaczenia stacji): pelna nazwa i
+        # komunikaty pieciu asercji testow znacznikow; zmierzone czytnikiem.
+        # 4929 -> 4957 i 842 -> 843 (24.09.2026, pamiec cue): test przejazdu i zakresu pamieci.
+        # 4957 -> 4970 (24.09.2026, autopilot E): osiem asercji i ich komunikaty.
+        # 4970 -> 4977 (24.09.2026, HUD 800x600): dwa testy pozycji i ich komunikaty.
+        # 4977 -> 5000, 843 -> 844 (24.09.2026, wybór składu i HUD): testy N/T,
+        # komunikaty asercji oraz pełny wiersz pozycji; przeliczone czytnikiem.
+        # 5000 -> 5021 (24.09.2026, interaktywne R): test kolejności guardów
+        # i diagnostyki błędu, przeliczone czytnikiem testów.
+        # 5021 -> 5030 (24.09.2026, automat bez sygnalizacji): trzy igły
+        # strażnika, trzy komunikaty asercji i pozostałe literały testu.
+        # 5030 -> 5031, werbatim 100 -> 101 (24.09.2026, chase 800x600):
+        # komunikat asercji oraz wzorzec węzła View.
+        # 5031 -> 5038 (24.09.2026, krótki HUD chase): teksty i komunikaty testu.
+        # 5054 -> 5064 (24.09.2026, test końca planu): wejścia i komunikaty
+        # rzeczywistego przebiegu LineCore w SignallingHudTests.
+        # 5064 -> 5066 (24.09.2026, mocowania tablic): komunikaty dwóch asercji.
+        # 5066 -> 5087 and 849 -> 850 (24.09.2026, mid-axis admission tests).
+        # 5087 -> 5165, 850 -> 852 (24.09.2026, T-320): plan wejść i obiegi.
+        # 5165 -> 5187 (24.09.2026, T-320): kursy, bloki i komunikaty bramki.
+        # 5187 -> 5210 (24.09.2026, T-320): nazwy kursów i komunikaty kolejności.
+        # 5210 -> 5222 (24.09.2026, T-320): dwa kursy i komunikaty testów pominięcia.
+        # 5222 -> 5232 (24.09.2026, T-320): plan dnia i odmowy błędnej daty.
+        # 5232 -> 5236 (24.09.2026, test lamp i osłony czytnika osi scenerii).
+        # 5236 -> 5244 (24.09.2026, test skrętu osi scenerii i odmowy brakującego JSON).
+        # 5244 -> 5268 i 852 -> 853 (24.09.2026, dwa wjazdy rozkładowe):
+        # identyfikatory kursów, komunikaty wszystkich asercji i interpolowany krok diagnostyki.
+        # Równoległy pomiar gałęzi obserwacji:
+        # 5400 -> 5491 i 856 -> 858 po polaczeniu testow sceny i Runnera.
+        # 5491 -> 5500: test pierwszego kroku i dostosowanie kontroli kabiny.
+        # 5500 -> 5536 (25.09.2026, obserwacja czynnych składów): wejścia,
+        # identyfikatory i komunikaty nowych asercji; zmierzone czytnikiem.
+        # Równoległy pomiar gałęzi podglądu łącznika:
+        # 5410 -> 5510, 856 -> 858, 101 -> 102 (25.09.2026, integracja rozkładu
+        # i podglądu łącznika wraz z pomiarami w UiTextTests).
+        # 5546 -> 5550 (25.09.2026, nastawnik): cztery komunikaty przejścia przez neutral.
+        # 5550 -> 5553 (25.09.2026, tablice stacyjne): trzy komunikaty skrajni i stropu.
+        # 5553 -> 5560 (25.09.2026, komunikaty asercji odcisku i drugiego składu).
+        # 5566 -> 5569 i 858 -> 859 (25.09.2026, AZERTY): mapa, pomoc i test.
+        # 5569 -> 5570 (25.09.2026, T-400 HUD): identyfikator składu w teście.
+        # 5570 -> 5571 (25.09.2026, T-400 side): publiczna nazwa --view=side.
+        # 5571 -> 5582 i 859 -> 863 (25.09.2026, T-400 ATP): test trzech składów.
+        # 5582 -> 5585 (25.09.2026, T-400 platform): widok, nazwa i komunikat.
+        # 5585 -> 5592 (25.09.2026, T-400 platform): siedem literałów testu obrysu.
+        # 5592 -> 5599 (25.09.2026, T-400 stop target): seven assertion messages.
+        # 5599 -> 5602 (25.09.2026, T-400 stop target): active-track placement messages.
+        # 5602 -> 5623 (25.09.2026, T-400 outcome): domain fixture and lifecycle checks.
+        # 5623 -> 5631 (25.09.2026, T-400 outcome): in-cab cue texts and checks.
+        # 5631 -> 5636 (25.09.2026, dwie jawne drogi etykiet oraz ratchety STOP).
+        # 5636 -> 5638 (25.09.2026, dwa osobne ramiona domyślne wyniku STOP).
+        "zwykly": 5638,
+        "interpolowany ($)": 863,
+        "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
-        "surowy (\"\"\")": 8,
-        "werbatim interpolowany ($@)": 7,
+        # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
+        # 10 -> 12 (24.09.2026, T-320): dwa dokumenty syntetycznego planu.
+        # 12 -> 13 (24.09.2026, T-320): plan z datą dnia służby.
+        # 14 -> 15 (24.09.2026, syntetyczna oś scenerii w SceneAxisTests).
+        # 15 -> 16 (25.09.2026, T-400 stop target): curved placement fixture.
+        "surowy (\"\"\")": 16,
+        "werbatim interpolowany ($@)": 8,
     },
     "src": {
         # 1223 -> 1264 i 446 -> 456 (13.09.2026, MB-02): `TrainingSession.cs`,
@@ -657,10 +736,63 @@ ROZKLAD_POSTACI = {
         # `JsonFields.RequiredField` i jej wołań — każdy odczyt wymaganego pola
         # niesie dziś NAZWĘ pola i opis właściciela, bo bez nich komunikat odmowy
         # nie mówi, czego brakuje. Przeliczone z drzewa.
-        "zwykly": 1409,
+        # 1409 -> 1450 (23.09.2026, 6.M1): kody i komunikaty zdarzen linii w
+        # `InputLog`, `LineSession`, pola sidecara i odmowy `replay --line` w `Sim.Runner`,
+        # nowa odmowa w `RunPlan`. Przeliczone z drzewa, nie zsumowane.
+        # 1450 -> 1452 (23.09.2026, 6.D356): DWA literaly polskiego opisu dokumentu
+        # innego ksztaltu, `Program.WrongJsonShapeText` w `Sim.Runner`. ZMIERZONE.
+        # 1452 -> 1456 (23.09.2026): cztery literaly kodu nowej sceny.
+        # 1456 -> 1460 (24.09.2026, braking cue): wskazowka w obu trybach.
+        # 1460 -> 1464 (24.09.2026, dwustopniowe cue): cztery nowe literały HUD.
+        # 1464 -> 1465 i 514 -> 515 (24.09.2026, oznaczenia stacji):
+        # sciezka GLB i odmowa braku; zmierzone czytnikiem po obu katalogach.
+        # 1465 -> 1468 (24.09.2026, HUD 800x600): klucz i dwa warianty pozycji.
+        # 1470 -> 1471 (24.09.2026, HUD po końcu planu): nowy wiersz stanu.
+        # 1471 -> 1474 (24.09.2026, mid-axis entry validation and tests).
+        # 1474 -> 1477 (24.09.2026, visual tail GLB paths and refusal).
+        # 1510 -> 1512 (24.09.2026, kolor i rozmiar celu na starcie).
+        # 1512 -> 1513 (24.09.2026, T-320): odmowa pustego kursu.
+        # 1513 -> 1514 (24.09.2026, T-320): wymóg planu w bramce.
+        # 1514 -> 1516 (24.09.2026, T-320): błędna data i odmowa dnia służby.
+        # 1516 -> 1523 (24.09.2026, koniec osi): komunikaty i klucze HUD.
+        # 1523 -> 1525 (24.09.2026, oś scenerii za Merode).
+        # 1525 -> 1526 (24.09.2026, ścieżka JSON tej osi w FirstRun).
+        # 1526 -> 1530: komunikaty odmowy, status przebiegu i zgodności osi.
+        # 1530 -> 1531 (24.09.2026, świeża linia): komunikat odmowy konstruktora.
+        # Równoległy pomiar gałęzi obserwacji:
+        # 1535 -> 1566 (24.09.2026, scena i Runner z rozkladem).
+        # 1566 -> 1567 (25.09.2026, obserwacja): odmowa przełączenia,
+        # gdy na planie nie ma czynnego składu.
+        # Równoległy pomiar gałęzi podglądu łącznika:
+        # 1582 -> 1613 (25.09.2026, dwa wejścia rozkładowe w scenie i Runnerze).
+        # Połączone drzewo jest mierzone poniższą zapadką.
+        # 1614 -> 1619 (25.09.2026, odcisk sesji): znacznik wersji i jednoznaczne
+        # znaczniki typów w kodowaniu stanu. Przeliczone przez ten sam czytnik.
+        # 1619 -> 1621 (25.09.2026, T-400 side): widok w KnownViews i parserze.
+        # 1621 -> 1623 (25.09.2026, T-400 platform): nazwa widoku i parser.
+        # 1623 -> 1624 (25.09.2026, T-400 stop target): STOP label.
+        # 1624 -> 1628 (25.09.2026, T-400 outcome): four board state labels.
+        # 1628 -> 1637 (25.09.2026, T-400 outcome): HUD cue keys and messages.
+        "zwykly": 1637,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
-        "interpolowany ($)": 494,
+        # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
+        # linii (`InputLog`), wiersz `[ODTWORZENIE]` linii w `Sim.Runner`. Przeliczone.
+        # 513 -> 514 (23.09.2026, 6.D357): wiersz odmowy `JsonText.Parse` przestal
+        # doklejac `error.Message` i ma DWIE postacie — z pozycja z liczb parsera
+        # i bez niej, gdy parser jej nie podal; jedna byla, sa dwie. ZMIERZONE.
+        # 515 -> 516 (24.09.2026, interaktywne R): błąd przeładowania sceny.
+        # 516 -> 518 (24.09.2026, krótki HUD chase): dystans i granica.
+        # 527 -> 529 (24.09.2026, T-320): zegar i ponowny kurs obiegu.
+        # 529 -> 531 (24.09.2026, T-320): wskazanie pominiętego kursu i porządku.
+        # 531 -> 533 (24.09.2026, T-320): data planu i zegara.
+        # 533 -> 536 (24.09.2026, odmowy dla osi scenerii).
+        # 536 -> 537: odmowa ponownego użycia block_id wskazuje obieg.
+        # 539 -> 546 (24.09.2026, komunikaty rozkladu).
+        # 546 -> 547 (25.09.2026, log aktywnej kamery Cab->Chase).
+        # 547 -> 548: wiersz odcisku w Runnerze; scena rozbudowuje istniejący log.
+        # 548 -> 549: explicit error when the stop-target board is missing.
+        "interpolowany ($)": 549,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,
@@ -1078,4 +1210,3 @@ def test_czytnik_rodzin_odroznia_TO_SAMO_CIALO_od_TEJ_SAMEJ_NAZWY():
         "duplikatem" % sorted(jednoimienne))
     assert "WJednymPliku" not in identyczne and "WJednymPliku" not in jednoimienne, (
         "przeciazenie w JEDNYM pliku policzone jako rodzina miedzy plikami")
-

@@ -10,6 +10,33 @@ namespace MetroBxl.Sim.Train;
 /// <param name="Keys">Stan klawiszy obowiązujący od tego kroku do następnego wpisu.</param>
 public readonly record struct InputLogEntry(long Step, DriverKeys Keys);
 
+/// <summary>Rodzaj polecenia maszynisty w trybie linii — 6.M1.</summary>
+public enum LineEventKind
+{
+    /// <summary>Przejęcie sterowania składem od autopilota.</summary>
+    Take,
+
+    /// <summary>Oddanie sterowania autopilotowi.</summary>
+    Release,
+
+    /// <summary>Żądanie otwarcia drzwi.</summary>
+    DoorOpen,
+
+    /// <summary>Żądanie zamknięcia drzwi.</summary>
+    DoorClose,
+
+    /// <summary>Zmiana składu obserwowanego, czyli tego, do którego idzie nastawnik.</summary>
+    Observe,
+}
+
+/// <summary>
+/// Jedno polecenie maszynisty w trybie linii, przypięte do kroku — 6.M1.
+/// </summary>
+/// <param name="Step">Numer kroku symulacji, PRZED którym polecenie się wykonuje.</param>
+/// <param name="Kind">Rodzaj polecenia.</param>
+/// <param name="TrainId">Skład, którego polecenie dotyczy.</param>
+public readonly record struct InputLogEvent(long Step, LineEventKind Kind, string TrainId);
+
 /// <summary>
 /// Zapis wejść maszynisty **po numerze kroku**, nie po czasie ściennym.
 /// <c>docs/01-architecture.md</c> §Determinizm: „z ziarna + zapisu wejść da się
@@ -76,8 +103,14 @@ public sealed class InputLog
     /// <summary>Wersja formatu z wpisami resetu.</summary>
     public const int VersionWithResets = 2;
 
+    /// <summary>Wersja formatu ze zdarzeniami linii (przejęcie, drzwi, obserwacja) — 6.M1.</summary>
+    public const int VersionWithLineEvents = 3;
+
     /// <summary>Napis w kolumnie klawiszy oznaczający reset przejazdu.</summary>
     public const string ResetCode = "reset";
+
+    /// <summary>Znak między kodem zdarzenia linii a identyfikatorem składu: <c>przejmij:A</c>.</summary>
+    public const char EventTrainSeparator = ':';
 
     /// <summary>Nazwa pola nagłówka z wersją formatu.</summary>
     public const string VersionField = "wersja";
@@ -90,6 +123,7 @@ public sealed class InputLog
 
     private readonly InputLogEntry[] _entries;
     private readonly long[] _resets;
+    private readonly InputLogEvent[] _events;
 
     /// <summary>
     /// Zapis bez resetów — z jawnej listy wpisów.
@@ -115,9 +149,32 @@ public sealed class InputLog
     /// <exception cref="ArgumentOutOfRangeException">Liczba kroków jest ujemna.</exception>
     /// <exception cref="ArgumentException">Numery kroków nie rosną, są ujemne albo wychodzą poza przejazd.</exception>
     public InputLog(long steps, IReadOnlyList<InputLogEntry> entries, IReadOnlyList<long> resets)
+        : this(steps, entries, resets, Array.Empty<InputLogEvent>())
+    {
+    }
+
+    /// <summary>
+    /// Zapis z wpisami klawiszy, resetami i zdarzeniami linii — 6.M1.
+    /// </summary>
+    /// <param name="steps">Liczba kroków przejazdu; nieujemna.</param>
+    /// <param name="entries">Wpisy w rosnącej kolejności numerów kroków.</param>
+    /// <param name="resets">Numery kroków z resetem, rosnąco; reset obowiązuje PRZED swoim krokiem.</param>
+    /// <param name="events">
+    /// Zdarzenia linii w NIEMALEJĄCEJ kolejności kroków. Kilka zdarzeń w jednym kroku
+    /// jest dozwolone i wykonuje się w kolejności listy — tak, jak zapisała je scena.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Któraś z list jest <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Liczba kroków jest ujemna.</exception>
+    /// <exception cref="ArgumentException">Numery kroków są w złej kolejności, ujemne albo wychodzą poza przejazd.</exception>
+    public InputLog(
+        long steps,
+        IReadOnlyList<InputLogEntry> entries,
+        IReadOnlyList<long> resets,
+        IReadOnlyList<InputLogEvent> events)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(resets);
+        ArgumentNullException.ThrowIfNull(events);
         if (steps < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(steps), steps,
@@ -186,9 +243,45 @@ public sealed class InputLog
             previousReset = reset;
         }
 
+        // ZDARZENIA LINII — 6.M1. Kolejność NIEMALEJĄCA, a nie rosnąca jak przy wpisach
+        // klawiszy: w jednej klatce gracz może przejąć skład i od razu otworzyć drzwi,
+        // a oba polecenia trafiają przed ten sam krok. Ten sam warunek na koniec
+        // przejazdu, co przy resetach, i z tego samego powodu.
+        var eventCopy = new InputLogEvent[events.Count];
+        var previousEvent = 0L;
+        for (var i = 0; i < events.Count; i++)
+        {
+            var lineEvent = events[i];
+            if (lineEvent.Step < previousEvent)
+            {
+                throw new ArgumentException(
+                    $"Numery kroków zdarzeń linii nie mogą maleć: zdarzenie {i} ma krok "
+                    + $"{lineEvent.Step}, a poprzednie {previousEvent}.", nameof(events));
+            }
+
+            if (lineEvent.Step >= steps && steps > 0)
+            {
+                throw new ArgumentException(
+                    $"Zdarzenie {i} obowiązuje przed krokiem {lineEvent.Step}, a przejazd ma "
+                    + $"{steps} kroków — takie zdarzenie nigdy by się nie wykonało.", nameof(events));
+            }
+
+            if (string.IsNullOrEmpty(lineEvent.TrainId)
+                || lineEvent.TrainId.IndexOfAny(new[] { ';', EventTrainSeparator, '\n', '\r' }) >= 0)
+            {
+                throw new ArgumentException(
+                    $"Zdarzenie {i} ma identyfikator składu '{lineEvent.TrainId}', którego nie da "
+                    + "się zapisać w jednym polu wiersza.", nameof(events));
+            }
+
+            eventCopy[i] = lineEvent;
+            previousEvent = lineEvent.Step;
+        }
+
         Steps = steps;
         _entries = copy;
         _resets = resetCopy;
+        _events = eventCopy;
     }
 
     /// <summary>Liczba kroków przejazdu. Odtworzenie kończy się po tylu krokach.</summary>
@@ -207,7 +300,69 @@ public sealed class InputLog
     /// Wersja formatu, w której ten zapis zostanie zapisany. Decyduje TREŚĆ: zapis bez
     /// resetu wychodzi w wersji 1, czyli bajt w bajt jak przed dopisaniem resetów.
     /// </summary>
-    public int FormatVersion => _resets.Length == 0 ? VersionWithoutResets : VersionWithResets;
+    public int FormatVersion => _events.Length > 0 ? VersionWithLineEvents
+        : _resets.Length == 0 ? VersionWithoutResets : VersionWithResets;
+
+    /// <summary>Zdarzenia linii w kolejności wykonania — 6.M1.</summary>
+    public IReadOnlyList<InputLogEvent> Events => _events;
+
+    /// <summary>
+    /// Zdarzenia linii, które wykonują się PRZED krokiem <paramref name="step"/>,
+    /// w kolejności zapisu. Pusta lista, gdy w tym kroku nie ma żadnego.
+    /// </summary>
+    /// <param name="step">Numer kroku sesji.</param>
+    public IReadOnlyList<InputLogEvent> EventsAt(long step)
+    {
+        var low = 0;
+        var high = _events.Length;
+        while (low < high)
+        {
+            var middle = low + ((high - low) / 2);
+            if (_events[middle].Step < step)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        var end = low;
+        while (end < _events.Length && _events[end].Step == step)
+        {
+            end++;
+        }
+
+        return end == low ? Array.Empty<InputLogEvent>() : _events[low..end];
+    }
+
+    /// <summary>Kod zdarzenia linii w kolumnie zapisu — 6.M1.</summary>
+    /// <param name="rodzajZdarzenia">Rodzaj zdarzenia.</param>
+    public static string EventCode(LineEventKind rodzajZdarzenia) => rodzajZdarzenia switch
+    {
+        LineEventKind.Take => "przejmij",
+        LineEventKind.Release => "oddaj",
+        LineEventKind.DoorOpen => "drzwi-otworz",
+        LineEventKind.DoorClose => "drzwi-zamknij",
+        LineEventKind.Observe => "obserwuj",
+        _ => throw new ArgumentOutOfRangeException(nameof(rodzajZdarzenia), rodzajZdarzenia, "nieznany rodzaj zdarzenia linii"),
+    };
+
+    private static bool TryEventKind(string code, out LineEventKind rodzajZdarzenia)
+    {
+        foreach (var candidate in Enum.GetValues<LineEventKind>())
+        {
+            if (EventCode(candidate) == code)
+            {
+                rodzajZdarzenia = candidate;
+                return true;
+            }
+        }
+
+        rodzajZdarzenia = default;
+        return false;
+    }
 
     /// <summary>
     /// Stan klawiszy obowiązujący w zadanym kroku. Wyszukiwanie binarne, nie skan —
@@ -290,6 +445,13 @@ public sealed class InputLog
             text.Append("# numer kroku NIE wraca wtedy do zera, bo zapis indeksuje sesję, nie przejazd\n");
         }
 
+        if (_events.Length > 0)
+        {
+            text.Append(CultureInfo.InvariantCulture,
+                $"# zdarzenia linii 'kod{EventTrainSeparator}skład' wykonują się PRZED swoim krokiem: ");
+            text.Append("przejmij, oddaj, drzwi-otworz, drzwi-zamknij, obserwuj\n");
+        }
+
         text.Append(CultureInfo.InvariantCulture, $"{VersionField}={FormatVersion}\n");
         text.Append(CultureInfo.InvariantCulture, $"{StepsField}={Steps}\n");
         text.Append(ColumnHeader);
@@ -299,16 +461,30 @@ public sealed class InputLog
         // klawiszy — bo tak też się wykonują. Plik czytany od góry do dołu opisuje więc
         // tę samą kolejność zdarzeń, którą wykona odtworzenie; inna kolejność zapisu
         // dałaby plik poprawny dla `Parse` i mylący dla człowieka.
+        //
+        // Zdarzenia linii (6.M1) stoją między resetem a zmianą klawiszy tego samego kroku:
+        // wykonują się przed krokiem, tak jak reset, ale po nim — bo reset zaczyna
+        // przejazd od nowa, a polecenie wydane po resecie dotyczy już nowego przejazdu.
         var nextEntry = 0;
         var nextReset = 0;
-        while (nextEntry < _entries.Length || nextReset < _resets.Length)
+        var nextEvent = 0;
+        while (nextEntry < _entries.Length || nextReset < _resets.Length || nextEvent < _events.Length)
         {
+            var entryStep = nextEntry < _entries.Length ? _entries[nextEntry].Step : long.MaxValue;
+            var eventStep = nextEvent < _events.Length ? _events[nextEvent].Step : long.MaxValue;
             var takeReset = nextReset < _resets.Length
-                && (nextEntry >= _entries.Length || _resets[nextReset] <= _entries[nextEntry].Step);
+                && _resets[nextReset] <= entryStep && _resets[nextReset] <= eventStep;
             if (takeReset)
             {
                 text.Append(CultureInfo.InvariantCulture, $"{_resets[nextReset]};{ResetCode}\n");
                 nextReset++;
+            }
+            else if (nextEvent < _events.Length && eventStep <= entryStep)
+            {
+                var lineEvent = _events[nextEvent];
+                text.Append(CultureInfo.InvariantCulture,
+                    $"{lineEvent.Step};{EventCode(lineEvent.Kind)}{EventTrainSeparator}{lineEvent.TrainId}\n");
+                nextEvent++;
             }
             else
             {
@@ -339,6 +515,7 @@ public sealed class InputLog
         var inRows = false;
         var entries = new List<InputLogEntry>();
         var resets = new List<long>();
+        var events = new List<InputLogEvent>();
         var lineNumber = 0;
 
         foreach (var raw in text.Split('\n'))
@@ -412,6 +589,20 @@ public sealed class InputLog
                 continue;
             }
 
+            var separator = field.IndexOf(EventTrainSeparator, StringComparison.Ordinal);
+            if (separator >= 0)
+            {
+                if (!TryEventKind(field[..separator], out LineEventKind rodzajZdarzenia))
+                {
+                    throw new FormatException(
+                        $"Wiersz {lineNumber}: '{field[..separator]}' nie jest zdarzeniem linii; "
+                        + "znane: przejmij, oddaj, drzwi-otworz, drzwi-zamknij, obserwuj.");
+                }
+
+                events.Add(new InputLogEvent(entryStep, rodzajZdarzenia, field[(separator + 1)..]));
+                continue;
+            }
+
             DriverKeys keys;
             try
             {
@@ -430,11 +621,30 @@ public sealed class InputLog
             throw new FormatException($"Brak pola nagłówka '{VersionField}='.");
         }
 
-        if (version != VersionWithoutResets && version != VersionWithResets)
+        if (version != VersionWithoutResets && version != VersionWithResets
+            && version != VersionWithLineEvents)
         {
             throw new FormatException(
                 $"Zapis wejść jest w wersji {version}, a ta wersja programu czyta "
-                + $"{VersionWithoutResets} i {VersionWithResets}.");
+                + $"{VersionWithoutResets}, {VersionWithResets} i {VersionWithLineEvents}.");
+        }
+
+        // Ta sama zasada co przy resetach, o jeden rodzajZdarzenia wpisu dalej (6.M1): wersja 3
+        // istnieje WYŁĄCZNIE dla zapisów ze zdarzeniami linii, a zapis bez nich musi
+        // mówić o sobie 1 albo 2.
+        if (version == VersionWithLineEvents && events.Count == 0)
+        {
+            throw new FormatException(
+                $"Zapis mówi '{VersionField}={VersionWithLineEvents}', a nie ma ani jednego "
+                + "zdarzenia linii; zapis bez nich jest w wersji "
+                + $"{VersionWithoutResets} albo {VersionWithResets}.");
+        }
+
+        if (version != VersionWithLineEvents && events.Count > 0)
+        {
+            throw new FormatException(
+                $"Zapis mówi '{VersionField}={version}', a zawiera {events.Count} zdarzeń linii; "
+                + $"zdarzenia istnieją dopiero od wersji {VersionWithLineEvents}.");
         }
 
         // WERSJA MA ZGADZAĆ SIĘ Z TREŚCIĄ W OBIE STRONY. Plik, który mówi o sobie co
@@ -465,6 +675,6 @@ public sealed class InputLog
             throw new FormatException($"Brak wiersza kolumn '{ColumnHeader}'.");
         }
 
-        return new InputLog(steps.Value, entries, resets);
+        return new InputLog(steps.Value, entries, resets, events);
     }
 }

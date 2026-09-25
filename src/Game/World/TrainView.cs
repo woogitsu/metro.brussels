@@ -290,7 +290,8 @@ public sealed partial class TrainView : Node3D
     public int BodyCount => _bodies.Count;
 
     /// <summary>Wczytuje skorupę i przygotowuje bryły do ustawiania. Zwraca liczbę brył.</summary>
-    public int Load(string shellPath, StandardMaterial3D material)
+    public int Load(string shellPath, StandardMaterial3D material,
+        bool preserveGeneratedMaterials = false)
     {
         var scene = GlbLoader.Load(shellPath);
         if (scene is null)
@@ -336,7 +337,12 @@ public sealed partial class TrainView : Node3D
         WidthM = maxZ - minZ;
         RoofHeightM = maxY;
 
-        GlbLoader.ApplyNeutralMaterial(this, material);
+        // Wyjątek dotyczy wyłącznie naszej proceduralnej skorupy M7. Dla assetów
+        // podanych przez gracza zachowujemy neutralną nakładkę bez względu na GLB.
+        if (!preserveGeneratedMaterials)
+        {
+            GlbLoader.ApplyNeutralMaterial(this, material);
+        }
         return _bodies.Count;
     }
 
@@ -368,10 +374,12 @@ public sealed partial class TrainView : Node3D
     /// i <see cref="RoofHeightM"/> są KOPIOWANE ze źródła. Drugi rachunek na tych
     /// samych bryłach mógłby dać inną liczbę tylko przez pomyłkę.</para>
     ///
-    /// <para>Materiał zostaje per-instancja (<c>MaterialOverride</c>), więc
-    /// współdzielenie <c>Mesh</c> nie zabiera możliwości pomalowania składów różnie.</para>
+    /// <para>Materiał zewnętrznego GLB zostaje per-instancja
+    /// (<c>MaterialOverride</c>); własne materiały M7 pozostają w dzielonej siatce.
+    /// Współdzielenie <c>Mesh</c> nie zabiera możliwości pomalowania składów różnie.</para>
     /// </summary>
-    public int LoadSharedFrom(TrainView source, StandardMaterial3D material)
+    public int LoadSharedFrom(TrainView source, StandardMaterial3D material,
+        bool preserveGeneratedMaterials = false)
     {
         ArgumentNullException.ThrowIfNull(source);
         if (source._bodies.Count == 0)
@@ -392,7 +400,10 @@ public sealed partial class TrainView : Node3D
         WidthM = source.WidthM;
         RoofHeightM = source.RoofHeightM;
 
-        GlbLoader.ApplyNeutralMaterial(this, material);
+        if (!preserveGeneratedMaterials)
+        {
+            GlbLoader.ApplyNeutralMaterial(this, material);
+        }
         return _bodies.Count;
     }
 

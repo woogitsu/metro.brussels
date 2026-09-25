@@ -2198,8 +2198,27 @@ def _istnieje_w_drzewie(nazwa):
 # 1379 -> 1381 i 554 -> 555 (22.09.2026, 6.M2): blok 6.M2 przeszedl do wykonanych; ZMIERZONE.
 # 1381 -> 1385 i 555 -> 556 (22.09.2026, 6.D235): blok 6.D235 przeszedl do wykonanych; ZMIERZONE.
 # 1385 -> 1387, 72 -> 73 i 556 -> 557 (23.09.2026, 6.D359): blok 6.D359 przeszedl do wykonanych; ZMIERZONE.
-# 1387 -> 1389 i 557 -> 558 (23.09.2026, 6.D351, po scaleniu main z 6.D359): blok 6.D351 przeszedl do wykonanych; ZMIERZONE.
-ADRESOW_W_WYKONANYCH = {"Wejście": 1389, "Wyjście": 73, "Weryfikacja": 558}
+# 1387 -> 1391 i 557 -> 559 (23.09.2026, 6.D365): blok 6.D365 przeszedl do wykonanych; ZMIERZONE.
+# 1391 -> 1394 i 559 -> 561 (23.09.2026, 6.D366): blok czytnika `times`; ZMIERZONE.
+# 1394 -> 1398 i 561 -> 564 (23.09.2026, 6.M1): blok 6.M1 przeszedl do wykonanych; ZMIERZONE.
+# 1398 -> 1402 i 564 -> 565 (23.09.2026, 6.M3): blok 6.M3 przeszedl do wykonanych; ZMIERZONE.
+# 1402 -> 1405, „Wyjście" 73 i „Weryfikacja" 565 bez zmiany (23.09.2026, 6.D357): blok 6.D357 przeszedl do wykonanych; ZMIERZONE.
+# 1405 -> 1408 i 565 -> 566 (23.09.2026, 6.D356): blok 6.D356 przeszedl do wykonanych; ZMIERZONE.
+# 1408 -> 1411 i 566 -> 567 (23.09.2026, 6.D352): blok 6.D352 przeszedl do wykonanych; ZMIERZONE.
+# 1411 -> 1413 i 567 -> 570 (25.09.2026, 6.D367): blok paczki Windows przeszedl do wykonanych; ZMIERZONE.
+# 1413 -> 1414 i 570 -> 571 (25.09.2026, 6.D368): blok izolacji plikow
+# tymczasowych przeszedl do wykonanych; obie liczby zmierzone na drzewie.
+# 1414 -> 1416 i 571 -> 573 (25.09.2026, 6.D360): blok pomiaru rozszerzen
+# przeszedl do wykonanych po scaleniu z 6.D368; liczby dla calego drzewa.
+# 1416 -> 1419 i 573 -> 575 (25.09.2026, 6.D348): blok audytu
+# dokladnosci przeszedl do wykonanych; liczby zmierzone na drzewie.
+# 1419 -> 1424 i 575 -> 576 (25.09.2026, 6.D344): blok audytu
+# czterech sit adresowych przeszedł do wykonanych; oba pola przeliczone z drzewa.
+# 1424 -> 1426 i 576 -> 577 (25.09.2026, 6.D345): domknięty blok
+# wniósł dwa odsyłacze w Wejściu i jeden w Weryfikacji; zmierzone skanem.
+# 1426 -> 1428 i 577 -> 578 (25.09.2026, 6.D346): domknięty blok
+# wniósł dwa odsyłacze w Wejściu i jeden w Weryfikacji; zmierzone skanem.
+ADRESOW_W_WYKONANYCH = {"Wejście": 1428, "Wyjście": 73, "Weryfikacja": 578}
 
 #: Ile WYWOLAN modulu (`test_all.py X` w plotku) stoi tam, per pole — 6.D158.
 # 120 -> 121 (14.09.2026, 6.D203): jedno wywołanie modułu więcej w polu
@@ -2394,9 +2413,18 @@ ADRESOW_W_WYKONANYCH = {"Wejście": 1389, "Wyjście": 73, "Weryfikacja": 558}
 # wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
 # 256 -> 258 (23.09.2026, 6.D359): blok 6.D359 przeszedl do wykonanych; jego plotek
 # wymienia DWA moduly, wiec zapadka rosnie o dwa. ZMIERZONE.
-# 258 -> 260 (23.09.2026, 6.D351, po scaleniu main z 6.D359): blok 6.D351 przeszedl
-# do wykonanych; jego plotek wymienia DWA moduly. ZMIERZONE.
-WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 260}
+# 258 -> 260 (23.09.2026, 6.D366): blok 6.D366 przeszedl do wykonanych; jego plotek
+# wymienia DWA wywolania `test_all.py`, wiec zapadka rosnie o dwa. ZMIERZONE.
+# 260 -> 262 (23.09.2026, 6.D352): dwa wywolania test_all.py; ZMIERZONE.
+# 262 -> 263 (25.09.2026, 6.D367): blok paczki Windows ma jedno wywolanie zestawu; ZMIERZONE.
+# 263 -> 265 (25.09.2026, 6.D360): blok ma dwa wywolania testowych modulow; ZMIERZONE.
+# 265 -> 267 (25.09.2026, 6.D348): dwa wywolania modulow z bloku
+# audytu dokladnosci; liczba zmierzona na drzewie.
+# 267 -> 269 (25.09.2026, 6.D344): dwa moduły z pola Weryfikacja
+# nowo domkniętego bloku weszły do populacji.
+# 269 -> 270 (25.09.2026, 6.D345): jeden moduł test_value_chains.py.
+# 270 -> 272 (25.09.2026, 6.D346): dwa moduły z pola Weryfikacja.
+WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 272}
 
 #: Ilu kandydatow zlego adresu daje regula prozy, per pole — 6.D158.
 # 12 -> 13 (14.09.2026, 6.D204): trzynastym kandydatem jest `test_mutation_sweep.py`
@@ -2428,11 +2456,13 @@ WYWOLAN_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 260}
 # 21 -> 22 (23.09.2026, 6.D359): kandydat z plotka „Weryfikacji" bloku tej pozycji,
 # `test_next_task.py` — nazwa modulu bez sciezki, ktorej proza bloku nie wymienia
 # (odczytane wprost z `kandydaci_pola_w_wykonanych`). Ten sam ksztalt co poprzednie.
-# 22 -> 24 (23.09.2026, 6.D351, po scaleniu main z 6.D359): dwaj kandydaci z plotka „Weryfikacji" bloku tej
-# pozycji, `test_doctor_queue_claim.py` i `test_suite_runtime_budget.py` — nazwy
-# modulow bez sciezki, ktorych proza bloku nie wymienia (odczytane wprost z
-# `kandydaci_pola_w_wykonanych`). Ten sam ksztalt co dwadziescia jeden poprzednich.
-KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 24}
+# 22 -> 24 (25.09.2026, 6.D348): dwa nowe trafienia z bloku wykonanej
+# weryfikacji; licznik przeliczony, reguly bez zmian.
+# 24 -> 25 (25.09.2026, 6.D345): test_value_chains.py z polecenia
+# weryfikacji to istniejący moduł bez ścieżki, nie błędny adres.
+# 25 -> 27 (25.09.2026, 6.D346): test_value_chains.py i
+# test_tree_walks.py z polecenia weryfikacji, oba istniejące moduły bez ścieżki.
+KANDYDATOW_W_WYKONANYCH = {"Wejście": 0, "Wyjście": 0, "Weryfikacja": 27}
 
 
 def adresy_pola_w_wykonanych(pole):
@@ -2627,7 +2657,12 @@ MIN_GOLYCH_W_DOKUMENTACH = 1200
 # 36 -> 38 (18.09.2026, 6.D280): doszly `LOD2-render-sanity.json`
 # i `_metadata.json` — pliki ARTEFAKTU CI, ktorych w drzewie nie ma
 # i byc nie moze, bo powstaja w przebiegu i regula 8 zabrania ich komitowac.
-GOLYCH_BEZ_ODPOWIEDNIKA = 38
+# 38 -> 41 (23.09.2026, 6.D368): trzy nowe nazwy probek plikow w opisie kolizji.
+# 41 -> 42 (23.09.2026, 6.D366): doszla `times-po.txt` z wiersza i bloku 6.D366,
+# gdzie stoi w cytacie komunikatu awarii — plik kroku `Run tool tests` zapisywany
+# do `$RUNNER_TEMP`, czyli POZA drzewem; druga rodzina, wytwory przebiegu; ZMIERZONE.
+# 42 -> 41 (25.09.2026, T-400): dokumentacja wskazuje nowy raport.
+GOLYCH_BEZ_ODPOWIEDNIKA = 41
 
 #: To samo, ale WYLACZNIE w trzech polach skanowanych — czyli tam, gdzie poszerzony
 #: `PATH_TOKEN` naprawde by zapalal. Zmierzone 13.09.2026: **244** wystapienia,

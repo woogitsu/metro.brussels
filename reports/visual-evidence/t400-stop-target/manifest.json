@@ -1,0 +1,22 @@
+{
+  "source": {
+    "base_commit": "65c5adfbc55066cf5bbfecd36d54728fec850d3b",
+    "capture": "WSL Ubuntu 24.04; Godot 4.7.2 under Xvfb/OpenGL3; generated package A",
+    "view": "cab",
+    "near_chainage_m": 4060.1,
+    "line_stop_chainage_m": 4075.4,
+    "line_stop_steps": 54449
+  },
+  "files": [
+    {
+      "name": "PARC_near_cab.png",
+      "bytes": 246106,
+      "sha256": "251bab5b42aa8ec3bc006f37a9054b08536ef603998d6325b175d4f46d442c45"
+    },
+    {
+      "name": "PARC_line_cab.png",
+      "bytes": 271754,
+      "sha256": "306024ae3e0bdefcdbfba9480a069ec5e76da0cbb1bc0500be736e0b893d3a3c"
+    }
+  ]
+}

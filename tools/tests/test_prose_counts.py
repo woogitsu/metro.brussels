@@ -1040,7 +1040,7 @@ def wyliczenia_prozy(root=None):
 #:   sam akapit nazywa usterkami. Bramka na te cztery pary zapalalaby sie na
 #:   PRAWIDLOWEJ prozie — czyli poszlaby do wylaczenia, ksztalt 6.D27.
 #:
-#: Falszywych alarmow byloby wiec OSIEM z dziewieciu wyliczen, gdyby sito uznalo
+#: Falszywych alarmow byloby wiec SIEDEM z dziewieciu wyliczen, gdyby sito uznalo
 #: kazda pare „nazwa + liczba" za czlon rozkladu. Zlapane czytaniem zrodla,
 #: nie przez bramke — i dlatego przybita jest KLASA kazdego wyliczenia, a nie
 #: sama ich liczba.
@@ -1050,7 +1050,6 @@ KLASA_LUZ = "luz progu"
 KLASA_CYTAT = "cytat bledu"
 KLASA_LANCUCH = "lancuch rewizji"
 KLASA_PARAMETRY = "parametry sceny"
-KLASA_DWA_ROZKLADY = "dwa rozklady w akapicie"
 KLASA_OPIS = "opis cudzych wyliczen"
 
 #: Odcisk -> klasa. Porownywane W OBIE STRONY (6.D243): wpis bez wyliczenia
@@ -1067,8 +1066,6 @@ KLASY_WYLICZEN = {
      ("depth_m", "frame_width_m", "slab_radius_m", "yaw_deg")): KLASA_PARAMETRY,
     ("test_clearance_profile.py",
      ("bore_single", "box_double", "station")): KLASA_WARTOSC,
-    ("test_dead_constants_csharp.py",
-     ("const", "private", "public")): KLASA_DWA_ROZKLADY,
     ("test_dimension_audit.py",
      ("DEFAULT_MAX_CHUNK_M", "DEFAULT_MIN_CHUNK_M", "DEFAULT_RING_STEP_M",
       "DEFAULT_STATION_HALO_M", "UV_METRES_PER_UNIT")): KLASA_WARTOSC,
@@ -1120,9 +1117,9 @@ def test_ile_wyliczen_prozy_jest_ROZKLADEM_a_ile_INNYM_ZWIAZKIEM():
 
     rozkladow = sum(1 for o in odciski if KLASY_WYLICZEN[o] == KLASA_ROZKLAD)
     z_suma = sum(1 for _o, _p, _s, t in wyliczenia if t)
-    assert (len(wyliczenia), rozkladow, z_suma) == (10, 2, WYLICZEN_Z_SUMA_W_STALEJ), (
-        "wyliczen %d, rozkladow %d, z suma w stalej %d — pomiar 18.09.2026 dal "
-        "10, 2 i %d. Dwa rozklady to TEN SAM rozklad modulow w dwoch miejscach"
+    assert (len(wyliczenia), rozkladow, z_suma) == (9, 2, WYLICZEN_Z_SUMA_W_STALEJ), (
+        "wyliczen %d, rozkladow %d, z suma w stalej %d — po integracji jest "
+        "9, 2 i %d. Dwa rozklady to TEN SAM rozklad modulow w dwoch miejscach"
         % (len(wyliczenia), rozkladow, z_suma, WYLICZEN_Z_SUMA_W_STALEJ))
 
 

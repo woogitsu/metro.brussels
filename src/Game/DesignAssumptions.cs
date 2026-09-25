@@ -56,8 +56,12 @@ public static class DesignAssumptions
     /// <summary>Wysokość kamery obserwacyjnej nad główką szyny.</summary>
     public const double ChaseHeightM = 2.60;
 
-    /// <summary>Wyprzedzenie kamery kontrolnej przed czołem składu.</summary>
-    public const double OutsideAheadM = 26.0;
+    /// <summary>
+    /// Wyprzedzenie kamery kontrolnej przed czołem składu. Dwanaście metrów
+    /// utrzymuje kamerę poza pociągiem, a na postoju Parc/Park pokazuje jego czoło
+    /// i bok razem z peronem oraz tablicą; przy 26 m skład ginął w głębi kadru.
+    /// </summary>
+    public const double OutsideAheadM = 12.0;
 
     /// <summary>Przesunięcie kamery kontrolnej w bok względem osi toru składu.</summary>
     public const double OutsideLateralM = -4.20;

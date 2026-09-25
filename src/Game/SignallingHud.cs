@@ -1,12 +1,14 @@
 using System.Globalization;
+using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
 using MetroBxl.Sim.Signalling;
 
 namespace MetroBxl.Game;
 
 /// <summary>
-/// Wiersz HUD-u o sygnalizacji: prędkość dopuszczalna, autorytet jazdy, powód jego
-/// końca, licznik nastawni i to, czy ochrona pociągu właśnie hamuje za maszynistę.
+/// Wiersz HUD-u o sygnalizacji: identyfikator obserwowanego składu, prędkość
+/// dopuszczalna, koniec i odległość autorytetu jazdy, powód jego końca, licznik
+/// nastawni i to, czy ochrona pociągu właśnie hamuje za maszynistę.
 ///
 /// <para><b>Dlaczego osobny plik BEZ GODOTA.</b> Ta sama decyzja i ten sam powód, co
 /// przy <see cref="RunPlan"/>, <see cref="RunHeader"/> i <see cref="RunReset"/>: napis
@@ -39,11 +41,21 @@ public static class SignallingHud
     /// <summary>Wiersz składu, który jeszcze nie wjechał na plan (wejście zajęte).</summary>
     public const string NotOnPlanYet = "sygnalizacja: skład jeszcze nie wjechał na plan";
 
+    /// <summary>Skład po końcu przejazdu zjechał z planu; nie oczekuje na wyjazd.</summary>
+    public const string LeftPlan = "sygnalizacja: skład zakończył przejazd i zjechał z planu";
+
+    /// <summary>Stan składu bez bieżącego autorytetu jazdy.</summary>
+    public static string WithoutAuthority(LineTrain train) =>
+        train.LeftPlan ? LeftPlan : NotOnPlanYet;
+
     /// <summary>Wiersz przejazdu pod planem, ale bez ochrony pociągu.</summary>
     public const string WithoutProtection = "sygnalizacja: linia bez ochrony pociągu";
 
     /// <summary>Wiersz przed pierwszym krokiem, gdy decyzji ochrony jeszcze nie ma.</summary>
     public const string BeforeFirstStep = "sygnalizacja: przed pierwszym krokiem";
+
+    /// <summary>Zegar rozkładu biegnie, ale pierwszy skład jeszcze nie został zgłoszony.</summary>
+    public const string AwaitingScheduledEntry = "sygnalizacja: oczekiwanie na pierwszy wjazd rozkładowy";
 
     /// <summary>
     /// Wiersz z liczbami. Bierze gotową decyzję i gotowy autorytet — niczego nie liczy
@@ -65,8 +77,8 @@ public static class SignallingHud
                 $"  ATP HAMUJE: {decision.Action} {decision.BrakeDemandMps2:F2} m/s²");
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"v_dop {Units.MpsToKmh(decision.PermittedSpeedMps),5:F1} km/h   "
-            + $"autorytet {authority.DistanceM,7:F0} m ({authority.Reason}, blok {authority.LimitBlockId})   "
+            $"{authority.TrainId}   v_dop {Units.MpsToKmh(decision.PermittedSpeedMps),5:F1} km/h   "
+            + $"autorytet do {authority.EndChainageM:F1} m / {authority.DistanceM:F1} m ({authority.Reason}, blok {authority.LimitBlockId})   "
             + $"tras {lockedRoutes}/odmów {refusedRoutes}"
             + $"{ostrzezenie}{ingerencja}");
     }

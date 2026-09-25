@@ -223,6 +223,22 @@ def _pin_sdk():
     return dopasowanie.group(1)
 
 
+def test_dwa_przebiegi_doctora_uzywaja_roznych_logow():
+    """Równoległe uruchomienia nie mogą współdzielić pliku z wynikiem zestawu."""
+    wypisy = [_doctor_z_atrapa(ATRAPA_CZERWONA) for _ in range(2)]
+    sciezki = {"python": [], "sim": []}
+    for wypis in wypisy:
+        for rodzaj, wzorzec in (
+            ("python", r"wyciąg z (\S*mbxl_tests\.\S+\.log):"),
+            ("sim", r"zobacz (\S*mbxl_sim_tests\.\S+\.log)"),
+        ):
+            dopasowanie = re.search(wzorzec, wypis)
+            assert dopasowanie, wypis[-2000:]
+            sciezki[rodzaj].append(dopasowanie.group(1))
+    for para in sciezki.values():
+        assert para[0] != para[1], sciezki
+
+
 def test_padniety_zestaw_POKAZUJE_nazwy_padlych_testow_a_nie_sciezke_do_pliku():
     """Wypis zawiera nazwy z wierszy `FAIL`, nie samo odesłanie do logu.
 

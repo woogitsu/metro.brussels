@@ -645,12 +645,12 @@ PRZYPISANIE_STALEJ = re.compile(r"^\s*([A-Z][A-Z0-9_]*)\s*=\s*\S")
 # miejscu. Przyczyna jest zmierzona: rozklad PO PLIKACH pokazuje przyrost dokladnie
 # w tym module, 1 -> 4, czyli tam, gdzie dopisalem trzy ogniwa lancucha. Ogniwo
 # niesie pare wartosci, wiec wchodzi w okno prozy opisujacej te sama stala.
-# Ten sam ksztalt zlapal mnie przy 6.D278 i 6.D280; zapisany jako pozycja 6.D284.
-POKRYTYCH_PRZYPISANIEM = 16
+# 16 -> 15 (24.09.2026, tunel): historyczna proza o 43 nie ma juz obok stalej 43.
+POKRYTYCH_PRZYPISANIEM = 15
 # 54 -> 56 (18.09.2026, 6.D280): dwie liczby wiecej pokryte zbiegiem, obie
-# z ogniw lancucha dopisanych w tym module — patrz komentarz przy
-# `POKRYTYCH_PRZYPISANIEM`.
-POKRYTYCH_ZBIEGIEM_CYFR = 56
+# 56 -> 57 (24.09.2026, tunel): nowa liczba w opisie deklaracji C#.
+# `POKRYTYCH_PRZYPISANIEM` wyjasnia starsza zmiane z ogniw lancucha.
+POKRYTYCH_ZBIEGIEM_CYFR = 57
 
 
 def pozycje_pokrycia(katalog=None, root=None):
@@ -803,7 +803,7 @@ ZBIEGIEM_PER_PLIK = {
     "test_bin_path_framework.py": 1,
     "test_bytecode_staleness.py": 2,
     "test_csharp_assertions.py": 1,
-    "test_dead_constants_csharp.py": 12,
+    "test_dead_constants_csharp.py": 13,
     "test_dotnet_version.py": 1,
     "test_field_paths.py": 1,
     "test_game_needle_specificity.py": 1,
@@ -839,7 +839,8 @@ ZBIEGIEM_PER_PLIK = {
 #: Podzial jest wiec wynikiem przeczytania 49 zdan i tak ma byc czytany.
 # 26 -> 28 (18.09.2026, 6.D280): dwie nowe liczby klasy `zbieg` to wiersze
 # wyliczenia klas pokrycia — twierdza o DZISIEJSZYM drzewie, wiec grupa A.
-ZBIEGIEM_GRUPA_A = 28
+# 28 -> 29 (24.09.2026, tunel): deklaracje C# w obecnym drzewie.
+ZBIEGIEM_GRUPA_A = 29
 ZBIEGIEM_GRUPA_B = 28
 
 #: **Potwierdzone rozjazdy: SIEDEM twierdzen w JEDNYM module.** Wszystkie osiem
@@ -867,7 +868,8 @@ KOTWICE_DEKLARACJI = {
     "static readonly": r"`static readonly` \*\*(\d+)\*\*",
     "razem w rozkladzie": r"razem \*\*(\d+)\*\*;",
     "bez modyfikatora (zdanie 1)": r"stoi \*\*(\d+)\*\* z nich",
-    "bez modyfikatora (zdanie 2)": r"zabiera \*\*(\d+)\*\* deklaracje",
+    # Zdanie w test_dead_constants_csharp mówi teraz „deklaracje”, nie „deklaracji”.
+    "bez modyfikatora (zdanie 2)": r"zabiera \*\*(\d+)\*\* deklaracje, zostaje",
     # Kotwica ZAWEZONA przy 6.D271: dolozenie drugiego zdania o kształcie
     # „(zostaje N)" zrobilo
     # `zostaje \*\*(\d+)\*\*` dwuznacznym, a czytnik zwracal wtedy `None`
@@ -881,7 +883,7 @@ KOTWICE_DEKLARACJI = {
     # sa NIEPOGRUBIONE (census ich nie liczy), a trzech nie obejmowala zadna
     # kotwica. Te szesc jest od dzis objete.
     "stara podloga nizej o": r"stara podloga 200 lezala \*\*(\d+)\*\* nizej",
-    "galaz static readonly zabiera": r"zabiera \*\*(\d+)\*\* deklaracji",
+    "galaz static readonly zabiera": r"`static readonly` zabiera \*\*(\d+)\*\* deklaracji",
     "po wycieciu galezi zostaje": r"\(zostaje \*\*(\d+)\*\*\)",
     "rownosc w nawiasie": r"Rownosci \(`== (\d+)`\)",
     "zapas nad suma": r"Zapas \*\*(\d+)\*\* \(",
@@ -1062,20 +1064,23 @@ def test_ROZJAZDY_nadal_sa_rozjazdami_i_lista_nie_zostala_z_tylu():
 #: okien kosztowalby tyle, co caly czytnik, a 6.D272 zmierzylo, ile taki drugi
 #: skan potrafi kosztowac: 22 s za odpowiedz „zero".
 # 41 -> 43 (18.09.2026, 6.D280): jak wyzej.
-POKRYTYCH_WYLACZNIE_PROZA = 43
+# 43 -> 44 (24.09.2026, tunel): nowy zbieg pochodzi z prozy deklaracji C#.
+POKRYTYCH_WYLACZNIE_PROZA = 44
 # 11 -> 12 i 2 -> 1 (18.09.2026, 6.D280): jedna liczba przeszla z klasy
 # MIESZANEJ do KODU, bo ogniwo lancucha rozkladu modulow stoi odtad w tym
 # samym wierszu co wpis slownika, a nie osobnym wierszem prozy nad nim.
 POKRYTYCH_WYLACZNIE_KODEM = 12
 POKRYTYCH_MIESZANIE = 1
 
-#: Pary wzajemne, przybite ADRESAMI WIERSZY. Numer wiersza rusza sie przy kazdym
-#: dopisanym akapicie powyzej, wiec przybicie po nim bylo by krucheszczyzna —
+#: Liczba par wzajemnych i rozklad po plikach, przeliczone 24.09.2026 po integracji.
+#: Numer wiersza rusza sie przy kazdym dopisanym akapicie powyzej, wiec przybicie po nim byloby kruche —
 #: dlatego przybita jest LICZBA par i rozklad po plikach, a same adresy stoja
 #: w `reports/6d274-proza-pokryta-proza.md`, gdzie starzec sie nie maja.
-PAR_WZAJEMNYCH = 9
+# 12 -> 10 (24.09.2026, tablice stacji): nowe deklaracje rozrozniaja dwie
+# pary, ktore poprzednio pokrywaly sie przypadkowo ta sama liczba.
+PAR_WZAJEMNYCH = 10
 PAR_WZAJEMNYCH_PER_PLIK = {
-    "test_dead_constants_csharp.py": 7,
+    "test_dead_constants_csharp.py": 8,
     "test_report_claims.py": 1,
     "test_suite_runtime_budget.py": 1,
 }
@@ -1103,7 +1108,7 @@ def klasy_pokrycia_zbiegiem():
 
 
 #: Ile liczb klasy `zbieg` ma NAJBLIZSZE pokrycie dalej niz polowa okna, i ile ma
-#: KAZDE pokrycie dokladnie na skraju okna. Zmierzone 19.09.2026 przy 6.D284.
+#: KAZDE pokrycie dokladnie na skraju okna. Przeliczone 24.09.2026 po integracji.
 #: Rownosci, a nie progi, z tego samego powodu co przy rozkladzie klas pokrycia:
 #: populacja jest mala, a kazde przejscie wpisu do klasy kruchych albo z niej jest
 #: zdarzeniem, ktore chce sie zobaczyc. Adresy stoja w raporcie, nie tutaj — numer
@@ -1117,7 +1122,7 @@ POKRYCIE_NA_SKRAJU_OKNA = 1
 #: chwili wciagnela do klasy `zbieg` inna, rowniez na skraju — licznosc zostala ta
 #: sama, a krucha byla juz inna liczba. Zmierzone 19.09.2026 przy 6.D284; numeru
 #: wiersza tu nie ma z tego samego powodu, dla ktorego nie ma go w `ZBIEGIEM_PER_PLIK`.
-KRUCHE_ADRESY = (("test_message_claims.py", "12"),)
+KRUCHE_ADRESY = (("test_message_claims.py", "1"),)
 
 #: Skraj okna prozy: odleglosc wiersza pokrywajacego od bloku, przy ktorej dopisanie
 #: JEDNEGO wiersza pomiedzy wypycha pokrycie poza okno. Rowna szerokosci okna
@@ -1281,7 +1286,7 @@ def test_ile_par_CERTYFIKUJE_SIE_NAWZAJEM():
     Porownanie per plik, a nie sama suma: 6.D267 zmierzylo, ze suma przesuniecia
     miedzy czlonami nie widzi, a tu czlonem jest plik. Rozklad pilnuje takze tego,
     zeby zjawisko nie zostalo odczytane jako wlasnosc JEDNEGO modulu — dwie z
-    dziewieciu par stoja poza tym, w ktorym je zobaczylem.
+    dwunastu par stoja poza tym, w ktorym je zobaczylem.
     """
     pary = pary_wzajemne()
     assert len(pary) == PAR_WZAJEMNYCH, (

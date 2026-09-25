@@ -520,8 +520,27 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 467 -> 468 (21.09.2026, 6.D341): jeden raport dopisany.
 # 468 -> 469 (21.09.2026, 6.D342): jeden raport dopisany.
 # 469 -> 470 (21.09.2026, 6.D343): jeden raport dopisany.
-# 470 -> 471 (23.09.2026, 6.D351): jeden raport dopisany.
-MIN_REPORTS = 471
+# 470 -> 471 (23.09.2026, 6.D367): raport z eksportu i uruchomienia Windows.
+# 471 -> 472 (23.09.2026, 6.D352): jeden raport dopisany.
+# 472 -> 473 (24.09.2026, pomiar przepustowości pakietu A): nowy raport.
+# 473 -> 474 (24.09.2026, luka danych kursów T-113): nowy raport.
+# 474 -> 475 (24.09.2026, źródła wymiarów okien M7).
+# 475 -> 476 (25.09.2026, 6.D360): pomiar pięciu rozszerzeń w raportach.
+# 476 -> 477 (25.09.2026, 6.D348): pomiar dwóch dokładności w narzędziach sceny.
+# 477 -> 478 (25.09.2026, T-400): przegląd obrazów z Parc i Beekkant.
+# 478 -> 479 (25.09.2026, ciągły wjazd Parc/Park): drugi raport; policzono reports/*.md.
+# 479 -> 480 (25.09.2026, #26): baseline wydajności sceny 1080p.
+# 480 -> 481 (25.09.2026, #26): czas kroku tej samej sceny 1080p.
+# 481 -> 482 (25.09.2026, 6.D344): audyt czterech sit adresowych.
+# 482 -> 483 (25.09.2026, #26): rozkład czasu według kolejności kroku w klatce.
+# 483 -> 484 (25.09.2026, 6.D345): świeży census zwrotów stałych.
+# 484 -> 485 (25.09.2026, #26): zgodność przejęcia i drzwi przy 30/60/120 FPS.
+# 485 -> 486 (25.09.2026, 6.D346): census ukrytych przypisań.
+# 486 -> 487 (25.09.2026, #26): wybór kamery a ticki Sim podczas przejęcia.
+# 487 -> 488 (25.09.2026, QA Windows x64 po #810): rzeczywisty eksport i start headless.
+# 488 -> 489 (25.09.2026, T-400): pomiar prymitywów widocznego przebiegu.
+# 489 -> 490 (25.09.2026, T-400): przegląd znacznika celu postoju.
+MIN_REPORTS = 490
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.

@@ -213,15 +213,15 @@ def test_audit_covers_every_station_component_constant():
 def test_audit_covers_every_cab_design_constant():
     """Stała projektowa bez wpisu w audycie jest liczbą, która udaje pomiar.
 
-    6.D119 dokłada dwadzieścia cztery takie stałe naraz — podłoga, ściana, pulpit,
-    fotel, szyby — i żadna nie ma źródła. STIB nie publikuje rzutów kabiny, więc jest
+    Kabina dodaje założenia o podłodze, ścianie, fotelu i szybach; pulpitu obecnie
+    nie modeluje. STIB nie publikuje rzutów kabiny, więc jest
     to dokładnie ta sytuacja, dla której audyt powstał: dużo liczb naraz, wszystkie
     brzmiące rozsądnie, żadna nie pochodząca ze STIB.
     """
     text = _audit_text()
     constants = [n for n in dir(m7_cab)
                  if n.startswith("DESIGN_") and n != "DESIGN_ASSUMPTIONS"]
-    assert len(constants) >= 20, constants
+    assert len(constants) >= 19, constants
     missing = [n for n in constants if f"`{n}`" not in text]
     assert not missing, f"stałe 6.D119 bez wpisu w audycie: {missing}"
 
@@ -258,7 +258,7 @@ NAZWA_W_TABELI = re.compile(r"^\| `([A-Z][A-Z0-9_]*)` \|", re.M)
 #: w dokumencie — bez tego skan brałby tabele z sekcji sąsiednich.
 SEKCJE_WYMIAROW = (
     ("## 4e.", "station_components", 18),
-    ("## 4g.", "m7_cab", 24),
+    ("## 4g.", "m7_cab", 19),
 )
 
 
@@ -336,7 +336,7 @@ def test_odwzorowanie_kluczy_kabiny_na_nazwy_stalych_jest_BIJEKCJA():
         "tylko z kluczy: %s; tylko ze stałych: %s"
         % (sorted(z_kluczy - nazwy_modulu(m7_cab)),
            sorted(nazwy_modulu(m7_cab) - z_kluczy)))
-    assert len(m7_cab.DESIGN_ASSUMPTIONS) == 24, len(m7_cab.DESIGN_ASSUMPTIONS)
+    assert len(m7_cab.DESIGN_ASSUMPTIONS) == 19, len(m7_cab.DESIGN_ASSUMPTIONS)
 
     assert set(station_components.DESIGN_ASSUMPTIONS) == nazwy_modulu(station_components), (
         "klucze `station_components.DESIGN_ASSUMPTIONS` przestały być tymi samymi "

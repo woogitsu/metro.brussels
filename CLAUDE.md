@@ -253,31 +253,16 @@ commitem (MB-00) i pilnuje jej `tools/tests/test_backlog.py` — tak samo jak pr
 
 ## 9. CI / GitHub Actions
 
-**Od 02.09.2026 całe CI chodzi na self-hosted runnerze**, po wyczerpaniu minut
-GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
-`ubuntu-latest`; to już nieprawda i dlatego jest tu przepisana, a nie dopisana obok.
+**Od 24.09.2026 całe CI publicznego repozytorium chodzi na GitHub-hosted
+`ubuntu-latest`**, zgodnie z decyzją właściciela. Wszystkie jedenaście jobów
+w dziesięciu workflowach używa `runs-on: ubuntu-latest`; pilnuje tego
+`REQUIRED_RUNNER_LABELS` w `tools/tests/test_ci_workflows.py`. Wersja obrazu
+może się zmieniać, więc potrzebne narzędzia nadal sprawdza sonda i instaluje
+projekt według przypiętych wersji.
 
-- **`runs-on: self-hosted`** — gołą etykietą, bez ani jednej dodatkowej. Tak stoi
-  w każdym z dziesięciu workflowów i tego samego wymaga `REQUIRED_RUNNER_LABELS`
-  w `tools/tests/test_ci_workflows.py`, gdzie komplet dwóch etykiet jest już
-  odrzucany. **Runnera nie wybiera się po nazwie**: nazwa zwęża pulę do jednej
-  maszyny, a to jest awaria opisana w literze pierwszej niżej — tym razem z własnej
-  ręki. Liczby maszyn ten punkt nie podaje i nigdy nie będzie: dobór idzie wyłącznie
-  po etykiecie, więc liczebność puli jest dla selektora nieistotna, a wpisana tu
-  zestarzałaby się po cichu — dwa razy już to zrobiła.
-
-  **Warunek zmiany.** Wraca komplet etykiet wtedy i tylko wtedy, gdy do puli
-  dołączy maszyna, która etykietę `self-hosted` nosi, a zadań tego projektu wykonać
-  nie może — bo wtedy odsianie znów jest do czegoś potrzebne. Sam wzrost albo spadek
-  liczebności puli nie jest takim powodem.
-
-  **Ten akapit stoi osobno i to jest wybór, nie formatowanie.** `test_docs_ci_claims.py`
-  pomija akapity z markerem przeszłości, a marker działa na cały akapit — deklaracja
-  wtopiona w wywód o dawnych literach reguły była więc **poza bramką**, która istnieje
-  dokładnie po to, żeby jej pilnować. Rozbieżność z 09.09.2026 (§9 opisywało komplet
-  sześciu etykiet, gdy wszystkie joby chodziły już na gołej) znalazło z tego powodu
-  czyjeś oko, a nie test. Deklaracja ma stać w akapicie bez markera, żeby następną
-  taką rozbieżność zapaliła bramka.
+- **Historyczna konfiguracja 02–24.09.2026:** całe CI chodziło na własnych
+  runnerach po wyczerpaniu minut prywatnego repozytorium. Poniższe cztery litery
+  opisują ewolucję selektora `self-hosted` i nie są bieżącą polityką.
 
 - **Cztery litery tej reguły, i wszystkie zostają wymienione**, bo bez nich nie widać,
   czemu dzisiejsza jest taka, jaka jest. Ten punkt jest przepisany, a nie dopisany
@@ -302,19 +287,18 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   Kolejność jest tu treścią: etykiety sprzętowe **nie były** ozdobą i nie zostały
   usunięte jako ozdoba — zniknęły, bo zniknął zbiór, który miały odciąć.
 
-- **Każdy job odrzuca pull requesty z forków.** To warunek bezpieczeństwa, nie higiena:
-  joby wykonują kod ze sprawdzonego refa na maszynie właściciela. `metro.brussels` jest
-  prywatne, ale ma włączone forkowanie, więc „forka nie da się zrobić" tu nie działa.
+- **Każdy job nadal odrzuca pull requesty z forków.** Zmiana runnera nie zmienia
+  polityki wykonywania kodu z obcych gałęzi ani zakresu uprawnień workflowów.
   Warunek nosi **każdy job osobno** — `needs:` nie jest zamiennikiem.
 
-- **Workspace jest współdzielony między przebiegami.** Sprząta `actions/checkout`
+- **Workspace musi być czysty dla każdego przebiegu.** Sprząta `actions/checkout`
   (`clean` domyślnie `true`, czyli `git clean -ffdx`, a `-x` obejmuje pliki ignorowane).
   Każdy workflow ma krok, który to **sprawdza**, bo bramki tego projektu oglądają pliki
   wyjściowe i stary plik przeszedłby je tak samo dobrze jak świeży.
 
 - **Narzędzia instalują się warunkowo.** Krok sondujący sprawdza, czego brakuje;
-  instalacja i cache odpalają się tylko przy braku. Świeży runner nadal działa bez
-  ręcznego przygotowania, a trwały nie wywołuje `sudo apt-get` przy każdym przebiegu.
+  instalacja i cache odpalają się tylko przy braku. Świeży obraz GitHuba działa bez
+  ręcznego przygotowania.
 
 - **Godot i Blender leżą POZA workspace** (`runner.tool_cache`), bo w workspace kasował
   je `git clean -ffdx` z checkoutu przy każdym przebiegu.
@@ -330,12 +314,10 @@ GitHub Actions. Poprzednia wersja tego punktu mówiła, że standardem jest
   `tools/ci/blender_install.sh`, a skrypty wołają `${BLENDER_BIN:-blender}` — tak samo
   jak `GODOT_BIN`. Z apt zostały wyłącznie biblioteki systemowe.
 
-- **Narzędzia instalują się do `RUNNER_TOOL_CACHE`, nie do `/usr`.** Runner właściciela
-  nie jest rootem, więc `actions/setup-dotnet` z domyślnym katalogiem `/usr/share/dotnet`
-  pada serią `mkdir: Permission denied` — na jednorazowej maszynie GitHuba nie padał, bo
-  tam runner jest rootem. `DOTNET_INSTALL_DIR` ustawiany **przed** krokiem `setup-dotnet`
-  załatwia to razem z trwałością: `_tool` jest rodzeństwem workspace'u, więc `git clean`
-  go nie dotyka. Ta sama zasada co dla Godota, z tego samego powodu i o jeden powód więcej.
+- **Narzędzia instalują się do `RUNNER_TOOL_CACHE`, nie do `/usr`.** Zachowujemy
+  spójną ścieżkę dla .NET, Godota i Blendera poza workspace; `DOTNET_INSTALL_DIR`
+  jest ustawiany przed `setup-dotnet`. Poprzedni własny runner wymagał tego również
+  z powodu braku prawa zapisu do `/usr/share/dotnet`.
 
 - **Nie uznawaj `queued` za weryfikację — a zielony job mówi o SCALANCE NAZWANEJ
   W JEGO WŁASNYM LOGU, nie o dzisiejszym `main`.** Od 08.09.2026 ten punkt jest

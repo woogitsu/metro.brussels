@@ -30,14 +30,10 @@ permissions:
 
 jobs:
   prune:
-    # Ten job chodzi na MASZYNIE WŁAŚCICIELA, nie na jednorazowej maszynie GitHuba.
-    # Warunek nosi KAŻDY job osobno; `needs:` nie jest zamiennikiem, bo job dopisany
-    # bez łańcucha zależności nie miałby żadnej ochrony. `metro.brussels` jest
-    # prywatne, ale ma WŁĄCZONE forkowanie, więc „forka nie da się zrobić" tu nie
-    # obowiązuje. Przy `workflow_dispatch` pierwszy człon i tak jest prawdziwy —
-    # warunek stoi tu dla jednolitości i dlatego, że trigger może kiedyś dojść.
+    # Warunek zachowuje politykę odrzucania kodu z forków. Przy samym
+    # `workflow_dispatch` pierwszy człon jest prawdziwy; guard chroni przyszłe triggery.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:

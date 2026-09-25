@@ -150,6 +150,11 @@ MAX_JUSTIFIED_NEEDLES = 7
 #: **33 z 68**. Rośnie tylko przez przepisanie igły na tekst, którego w literałach nie
 #: ma — czyli przez zamianę niejednoznaczności na niewidzialność — i dlatego jest
 #: zapadką, a nie wypisem.
+#: 33 -> 32 (23.09.2026, 6.M1): jedna igla bez dopasowania dostala dopasowanie —
+#: zapadka idzie w dol, bo wolno jej tylko w dol.
+#: 32 -> 33 (24.09.2026): nowy test odpowiedzi CLI sprawdza "stacja Merode";
+#: Program.cs sklada ten tekst z nazwy stacji, wiec statyczne dopasowanie
+#: literalow nie widzi igly, mimo ze test wykonuje rzeczywisty kod.
 MAX_UNMATCHED_NEEDLES = 33
 
 #: Progi KW. Literówka we wzorcu daje zero dopasowań i cały moduł zielony; te dwie

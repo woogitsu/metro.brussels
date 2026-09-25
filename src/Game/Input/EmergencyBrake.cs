@@ -51,9 +51,10 @@ public static class EmergencyBrake
     /// </summary>
     /// <param name="keys">Stan klawiszy w tym kroku.</param>
     /// <param name="command">Polecenie, które z tego stanu wyszło.</param>
+    /// <param name="driverControls">Czy klawisz steruje obserwowanym składem.</param>
     /// <returns>Wiersz do pokazania albo pusty napis.</returns>
-    public static string Notice(DriverKeys keys, DriverCommand command)
-        => keys.Emergency
+    public static string Notice(DriverKeys keys, DriverCommand command, bool driverControls = true)
+        => driverControls && keys.Emergency
             ? UiText.Format(
                 "hud.emergency-brake",
                 KeyName,

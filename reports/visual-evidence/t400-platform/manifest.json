@@ -1,0 +1,32 @@
+{
+    "files":  [
+                  {
+                      "name":  "PARC_platform.png",
+                      "bytes":  150035,
+                      "sha256":  "845ba9d0761f768d27250b532c94243baf7c9fe65d9d6e462c903e6bf7f86c35"
+                  },
+                  {
+                      "name":  "PARC_platform.log",
+                      "bytes":  6064,
+                      "sha256":  "51602d0895fb8cab8dfac88e989dfb26bfcd181c509e137d06928bb442d1f5a3"
+                  },
+                  {
+                      "name":  "BEEKKANT_platform.png",
+                      "bytes":  156497,
+                      "sha256":  "eabf0db796b2e5dc3b198c73468a81e9f08c314da81a06eda77c4aca366ba269"
+                  },
+                  {
+                      "name":  "BEEKKANT_platform.log",
+                      "bytes":  6070,
+                      "sha256":  "e0887315b92d1d72d596b6a3d329ca6846a70b0e65a9600fca28a0bd62500567"
+                  }
+              ],
+    "source":  {
+                   "view":  "platform",
+                   "chainage_m":  [
+                                      4075.66,
+                                      509.73
+                                  ],
+                   "capture":  "local WSL Ubuntu-24.04; Godot 4.7.2 Xvfb/OpenGL3; generated package A; camera candidates 6.0 m from modeled route axis after accounting for 2.1 m track offset; technical side only; commits fa4015d and 007aa93"
+               }
+}

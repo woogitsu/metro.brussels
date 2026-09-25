@@ -173,13 +173,15 @@ public sealed class UiTextTests
     /// </summary>
     // MB-07 dokłada do korpusu bramki `N`, `O` i `T` — nazwy trzech klawiszy obsługi
     // linii. Zbiór, nie liczba, więc wpisane są nazwy, a nie licznik.
-    // MB-08 dokłada `D` i `F` — drzwi na postoju ręcznym. Wniosek akapitu o ryzyku
+    // MB-08 dokłada `D` i `F` — drzwi na postoju ręcznym. W/Z jest teraz jednym
+    // napisem klawiszy dwóch układów i nie jest nazwą członu Godot.Key.
+    // Wniosek akapitu o ryzyku
     // przy `NazwyKlawiszySilnika` zostaje w mocy i to jest sprawdzone, a nie założone:
     // obie są JEDNOLITEROWE, więc `WzorzecSlowa` (dwie litery pod rząd) ich nie zgłasza
     // i kolizja pozostaje nieosiągalna ze względu strukturalnego. Druga połowa tego
     // testu nadal mierzy, że różnicę robi mechanizm, a nie zanik pilnowania.
     private static readonly string[] NazwyKlawiszyWZasieguBramki =
-        { "C", "D", "F", "F1", "F2", "N", "O", "R", "S", "T", "W", "X" };
+        { "C", "D", "F", "F1", "F2", "N", "O", "R", "S", "T", "X" };
 
     /// <summary>
     /// Nazwy klawiszy widoczne dopiero SZERZEJ niż bramka — 6.D153.
@@ -222,7 +224,33 @@ public sealed class UiTextTests
     // 574 -> 579 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int LiteralowWZasieguBramki = 579;
+    // 579 -> 578 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 578 -> 582 (23.09.2026, tory i światła): cztery ścieżki zasobów i lamp w scenie pierwszego przejazdu. PRZELICZONE.
+    // Track-detail asset path and practical-light setup in FirstRun.cs add four
+    // source literals; recounted against the current playable scene.
+    // 582 -> 584 (24.09.2026, braking cue): klucz `hud.station.brake-now` w obu gałęziach dojazdu.
+    // 584 -> 586 (24.09.2026, preparing to brake): second cue key in both approaches.
+    // 586 -> 588 (24.09.2026, oznaczenia stacji): nazwa zasobu i odmowa jego braku.
+    // 588 -> 589 (24.09.2026, HUD 800x600): klucz krótszego kilometrażu.
+    // 589 -> 590 (24.09.2026, interaktywne R): komunikat odmowy przeładowania sceny.
+    // 590 -> 592 (24.09.2026, krótki HUD chase): dystans i próg.
+    // 592 -> 595 (24.09.2026, integracja pomocy linii): trzy literały testów pomocy.
+    // 595 -> 596 (24.09.2026, stan składu po zjeździe): nowy wiersz HUD.
+    // 596 -> 599 (24.09.2026, sceneria za Merode): dwie ścieżki GLB i odmowa niekompletnej pary.
+    // 599 -> 601 (24.09.2026, cel stacji): rozmiar i kolor wyróżnionego celu w HUD.
+    // 601 -> 603 (24.09.2026, koniec osi): nazwa i komunikat zatrzymania w HUD.
+    // 603 -> 604 (24.09.2026, tryb linii): komunikat końca toru przed postojem Merode.
+    // 604 -> 609 (24.09.2026, lampy scenerii): ścieżka osi i odmowy dla uszkodzonego JSON-a.
+    // 609 -> 615 (24.09.2026, osobne metadane wizualnej kontynuacji).
+    // 615 -> 649 (24.09.2026, jawna opcja łącznika i kontrola pochodzenia osi).
+    // 649 -> 656 (24.09.2026, osłonięcie wymaganych pól JSON).
+    // 656 -> 660 (24.09.2026, etykieta prototypu w HUD).
+    // 660 -> 679 (25.09.2026, integracja rozkładu i projektowego podglądu).
+    // 679 -> 680 (25.09.2026, log przejścia aktywnej kamery Cab->Chase).
+    // 680 -> 684 (25.09.2026, T-400): po dwa literały widoków `side` i `platform` w RunPlan.
+    // 684 -> 686 (25.09.2026, T-400 stop target): visible label and missing-board error.
+    // 686 -> 693 (25.09.2026, wynik STOP w scenie i HUD).
+    private const int LiteralowWZasieguBramki = 693;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1267,10 +1295,10 @@ public sealed class UiTextTests
     /// są sprawdzone zrzutem ekranu, bo je widać.</para>
     /// </summary>
     [TestMethod]
-    public void Wiersze_zlozone_z_katalogu_brzmia_co_do_znaku_tak_jak_przed_przenosinami()
+    public void Wiersze_zlozone_z_katalogu_i_mapy_klawiszy_maja_ustalone_brzmienie()
     {
         Assert.AreEqual(
-            "W ciąg  ·  S hamulec  ·  X wybieg  ·  "
+            "W/Z ciąg  ·  S hamulec  ·  X wybieg  ·  "
             + "Spacja hamulec awaryjny (= pełny służbowy)  ·  C widok  ·  R od nowa  ·  "
             + "Esc wyjście",
             DriverActions.Help);
@@ -1283,18 +1311,18 @@ public sealed class UiTextTests
         // obiecuje tu niczego, czego nie ma. Kolejność ta sama: zdanie o klawiszach
         // przejętych przez rdzeń kończy wiersz.
         Assert.AreEqual(
-            "C widok  ·  Esc wyjście  ·  N następny skład  ·  T przejmij  ·  O oddaj"
+            "C widok  ·  R od nowa  ·  Esc wyjście  ·  N następny skład  ·  T przejmij  ·  O oddaj"
             + "  ·  D otwórz drzwi  ·  F zamknij drzwi"
-            + "  ·  prowadzi rdzeń: W, S, X, Spacja, R nie działają",
+            + "  ·  prowadzi rdzeń: W/Z, S, X, Spacja nie działają",
             DriverActions.HelpWhenTheCoreDrives,
             "wiersz pomocy pod autopilotem rozjechał się z katalogiem");
 
-        // Wiersz dla składu PRZEJĘTEGO: prowadzenie znów działa, resetu w przejeździe
-        // linii nie ma, a oddanie sterowania musi być widoczne — inaczej gracz nie ma
+        // Wiersz dla składu PRZEJĘTEGO: prowadzenie znów działa, R restartuje scenę,
+        // a oddanie sterowania musi być widoczne — inaczej gracz nie ma
         // jak wrócić pod autopilota.
         Assert.AreEqual(
-            "W ciąg  ·  S hamulec  ·  X wybieg  ·  "
-            + "Spacja hamulec awaryjny (= pełny służbowy)  ·  C widok  ·  Esc wyjście"
+            "W/Z ciąg  ·  S hamulec  ·  X wybieg  ·  "
+            + "Spacja hamulec awaryjny (= pełny służbowy)  ·  C widok  ·  R od nowa  ·  Esc wyjście"
             + "  ·  N następny skład  ·  T przejmij  ·  O oddaj"
             + "  ·  D otwórz drzwi  ·  F zamknij drzwi",
             DriverActions.HelpWhenTheDriverHasTaken,
@@ -1489,7 +1517,31 @@ public sealed class UiTextTests
     // 615 -> 620 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int PozycjiStaregoCzytnika = 620;
+    // 620 -> 619 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 619 -> 623 (23.09.2026, tory i światła): cztery pozycje źródłowe dodane do sceny. PRZELICZONE.
+    // 623 -> 625 (24.09.2026, braking cue): klucz w obu gałęziach `FirstRun.StationLine`.
+    // 625 -> 627 (24.09.2026, preparing to brake): second cue key in both approaches.
+    // 627 -> 629 (24.09.2026, oznaczenia stacji): dwa nowe literały FirstRun.
+    // 629 -> 630 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
+    // 630 -> 631 (24.09.2026, interaktywne R): ten sam nowy komunikat.
+    // 631 -> 633 (24.09.2026, krótki HUD chase): te same dwa napisy.
+    // 633 -> 636 (24.09.2026, integracja pomocy linii): trzy pozycje źródłowe testów.
+    // 636 -> 637 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
+    // 637 -> 640 (24.09.2026, sceneria za Merode): te same trzy literały.
+    // 640 -> 642 (24.09.2026, cel stacji): dwa wywołania ustawiające wygląd.
+    // 642 -> 644 (24.09.2026, koniec osi): dwa klucze HUD.
+    // 644 -> 645 (24.09.2026, tryb linii): komunikat końca toru w gałęzi LineDrive.
+    // 645 -> 650 (24.09.2026, lampy scenerii): pięć nowych literałów FirstRun.
+    // 650 -> 663 (24.09.2026, pola i wartości osobnych metadanych scenerii).
+    // 663 -> 703 (24.09.2026, opcjonalny podgląd łącznika).
+    // 703 -> 710 (24.09.2026, osłonięcie wymaganych pól JSON).
+    // 710 -> 714 (24.09.2026, etykieta prototypu w HUD).
+    // 714 -> 733 (25.09.2026, integracja rozkładu i projektowego podglądu).
+    // 733 -> 734 (25.09.2026, ten sam log przejścia kamery).
+    // 734 -> 738 (25.09.2026, T-400): po dwa jawne literały widoków `side` i `platform`.
+    // 738 -> 740 (25.09.2026, T-400 stop target): the same two literals.
+    // 740 -> 747 (25.09.2026, wynik STOP w scenie i HUD).
+    private const int PozycjiStaregoCzytnika = 747;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -1742,8 +1794,8 @@ public sealed class UiTextTests
     /// przez pola, właściwości i metody w kilku plikach to analiza przepływu, a ta
     /// wymaga rozbioru składni C# — czyli zależności, przed którą <c>CLAUDE.md</c> §8
     /// każe przerwać. Mapa jest więc wpisana, ale NIE jest gołym twierdzeniem: pilnują
-    /// jej <see cref="Kazde_przypisanie_Text_stoi_w_ciele_Hud_Update"/> (że droga na
-    /// ekran jest JEDNA) i <see cref="Kazdy_argument_napisowy_Hud_Update_ma_zrodlo"/>
+    /// jej <see cref="Kazde_przypisanie_Text_stoi_w_ciele_Hud_lub_StationView_Update"/> (że droga na
+    /// ekran jest jawna) i <see cref="Kazdy_argument_napisowy_Hud_Update_ma_zrodlo"/>
     /// (że argumentów jest dokładnie tyle, ile mapa opisuje). Ósmy argument dopisany
     /// do <c>Update</c> zapala drugą z nich, zamiast po cichu wypaść z pomiaru.</para>
     ///
@@ -1829,7 +1881,13 @@ public sealed class UiTextTests
     // podpowiedzi i pięć powodów odmowy. Weszły do skanu razem z dopisaniem
     // tego pliku do mapy `ZrodlaHud`; bez tego dopisania byłyby dla bramki
     // MARTWE, choć docierają na ekran. Liczba PRZELICZONA przebiegiem.
-    private const int LiteralowNaEkranie = 115;
+    // 115 -> 117 (24.09.2026, braking cue): klucz dociera do `Hud.Update` z obu gałęzi.
+    // 117 -> 119 (24.09.2026, preparing to brake): visible in both station approaches.
+    // 119 -> 115 (24.09.2026, HUD 800x600): format pozycji przeniesiony do PositionLine.
+    // 115 -> 117 (24.09.2026, koniec osi): nazwa i komunikat docierają do Hud.Update.
+    // 117 -> 118 (24.09.2026, tryb linii): komunikat końca toru dociera do HUD.
+    // 118 -> 122 (24.09.2026, etykieta prototypu w istniejącym wierszu widoku).
+    private const int LiteralowNaEkranie = 122;
 
     /// <summary>Ile z nich jest KLUCZEM katalogu, a nie tekstem — 6.D183.</summary>
     // 28 -> 36 (13.09.2026, MB-02): osiem kluczy `summary.*` panelu wyniku.
@@ -1839,7 +1897,13 @@ public sealed class UiTextTests
     // 41 -> 44 (14.09.2026, MB-07): przeliczone przebiegiem.
     // 44 -> 47 (14.09.2026, MB-08): `hud.station.doors-manual`, `input.door-open`,
     // `input.door-close`. Przeliczone przebiegiem.
-    private const int KluczyKatalogunaEkranie = 56;
+    // 47 -> 58 (24.09.2026, integracja): podpowiedź hamowania w obu gałęziach dojazdu.
+    // 58 -> 60 (24.09.2026, preparing to brake): key in both approaches.
+    // 60 -> 59 (24.09.2026, HUD 800x600): klucz pozycji jest wołany w PositionLine.
+    // 59 -> 61 (24.09.2026, koniec osi): nazwa i komunikat katalogu w HUD.
+    // 61 -> 62 (24.09.2026, tryb linii): dodatkowa droga komunikatu końca toru.
+    // 62 -> 63 (24.09.2026, jawna etykieta projektowego łącznika).
+    private const int KluczyKatalogunaEkranie = 63;
 
     /// <summary>
     /// Ile literałów z tej drogi niesie SŁOWO w rozumieniu bramki — 6.D183.
@@ -1857,7 +1921,8 @@ public sealed class UiTextTests
     // na mapie `ZrodlaHud` — czyli jest to trafienie FAŁSZYWE tego sita, dokładnie tej
     // samej rodziny co `FalszyweTrafieniaSkanu` przy 6.D185. Lista niżej je odejmuje,
     // żeby główna liczba pozycji 6.D183 dalej odpowiadała na swoje pytanie.
-    private const int ZeSlowemNaEkranie = 24;
+    // 24 -> 25 (24.09.2026, status podglądu łącznika w HUD).
+    private const int ZeSlowemNaEkranie = 25;
 
     /// <summary>
     /// Literały, które sito liczy jako „tekst ze słowem", a na ekran NIE DOCIERAJĄ —
@@ -1874,7 +1939,7 @@ public sealed class UiTextTests
     };
 
     /// <summary>Ile napisów DLA GRACZA — 6.D183, po odjęciu listy wyżej.</summary>
-    private const int DlaGraczaNaEkranie = 22;
+    private const int DlaGraczaNaEkranie = 23;
 
     /// <summary>
     /// Ile z nich ma polski znak diakrytyczny — liczba PORÓWNAWCZA do 6.D175 — 6.D183.
@@ -1901,37 +1966,50 @@ public sealed class UiTextTests
     /// liczby, a nie sama liczba.</para>
     /// </summary>
     // 8 -> 9 (14.09.2026, MB-03): dziewiąta etykieta to wiersz blokady trakcji.
-    // Droga na ekran zostaje JEDNA — wszystkie dziewięć przypisań stoi w ciele
-    // `Hud.Update`, co pilnuje asercja niżej.
-    private const int PrzypisanText = 9;
+    // 9 -> 10 (25.09.2026, tablica STOP ma własną etykietę w świecie gry).
+    // Dziewięć przypisań pozostaje w Hud.Update; jedno w StationView.UpdateStopTargets.
+    private const int PrzypisanText = 10;
 
     private static string ZrodloGry(string wzgledna) =>
         Zrodlo(new[] { "src", "Game" }.Concat(wzgledna.Split('/')).ToArray());
 
     /// <summary>
-    /// Każde przypisanie <c>.Text =</c> w warstwie gry stoi w ciele <c>Hud.Update</c>
-    /// — 6.D183.
+    /// Każde przypisanie <c>.Text =</c> w warstwie gry stoi w ciele
+    /// <c>Hud.Update</c> albo <c>StationView.UpdateStopTargets</c> — 6.D183.
     ///
     /// <para><b>To jest przesłanka całej pozycji, wykonana, a nie założona.</b> Pole
     /// „Skąd" 6.D183 mówi, że jedynym sprawdzalnym kryterium „tekst dla gracza" jest
-    /// DROGA WYWOŁANIA do <c>_hud.Update</c>. Zdanie to jest prawdziwe tylko wtedy,
-    /// gdy nic innego nie pisze po ekranie — i dopiero ten test to sprawdza. Gdyby
-    /// gdziekolwiek indziej stało <c>Label.Text = …</c>, cała odpowiedź pozycji
-    /// opisywałaby jedną z dwóch dróg i nie mówiła o tym ani słowa.</para>
+    /// DROGA WYWOŁANIA do <c>_hud.Update</c>. Tablica STOP w świecie gry ma osobną,
+    /// jawną drogę wywołania; test pilnuje obu miejsc i ich liczności.</para>
     /// </summary>
     [TestMethod]
-    public void Kazde_przypisanie_Text_stoi_w_ciele_Hud_Update()
+    public void Kazde_przypisanie_Text_stoi_w_ciele_Hud_lub_StationView_Update()
     {
         var cialo = CialoDeklaracji(HudSource(), "public void Update(");
+        var stationView = ZrodlaGry().Single(s => Path.GetFileName(s) == "StationView.cs");
+        var cialoTablicy = CialoDeklaracji(File.ReadAllText(stationView),
+            "public void UpdateStopTargets(");
         var wszystkie = new List<string>();
         var pozaCialem = new List<string>();
+        var wHud = 0;
+        var naTablicy = 0;
         foreach (var sciezka in ZrodlaGry())
         {
             var kod = File.ReadAllText(sciezka);
             foreach (Match trafienie in Regex.Matches(kod, @"\w+\.Text\s*="))
             {
                 wszystkie.Add($"{Path.GetFileName(sciezka)}: {trafienie.Value}");
-                if (!cialo.Contains(trafienie.Value, StringComparison.Ordinal))
+                var plik = Path.GetFileName(sciezka);
+                if (plik == "Hud.cs" && cialo.Contains(trafienie.Value, StringComparison.Ordinal))
+                {
+                    wHud++;
+                }
+                else if (plik == "StationView.cs"
+                    && cialoTablicy.Contains(trafienie.Value, StringComparison.Ordinal))
+                {
+                    naTablicy++;
+                }
+                else
                 {
                     pozaCialem.Add($"{Path.GetFileName(sciezka)}: {trafienie.Value}");
                 }
@@ -1943,9 +2021,10 @@ public sealed class UiTextTests
         Assert.AreEqual(PrzypisanText, wszystkie.Count,
             $"skan widzi {wszystkie.Count} przypisań `.Text =` w `src/Game/` wobec "
             + $"zmierzonych {PrzypisanText}: " + string.Join(" | ", wszystkie));
+        Assert.AreEqual(9, wHud, "dziewięć etykiet HUD ma być aktualizowanych przez Hud.Update");
+        Assert.AreEqual(1, naTablicy, "jedna etykieta STOP ma być aktualizowana przez StationView.UpdateStopTargets");
         Assert.AreEqual(0, pozaCialem.Count,
-            "po ekranie pisze coś spoza `Hud.Update`, więc kryterium „droga wywołania” "
-            + "z 6.D183 opisuje JEDNĄ z dwóch dróg i nie mówi o tym: "
+            "po ekranie pisze coś spoza dwóch opisanych dróg wywołania: "
             + string.Join(" | ", pozaCialem));
     }
 
@@ -2082,7 +2161,19 @@ public sealed class UiTextTests
     // 134 -> 139 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int ZgloszenFirstRunCalymPlikiem = 139;
+    // 139 -> 137 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 137 -> 138 (23.09.2026, tory i światła): nowy literał na drodze całego pliku. PRZELICZONE.
+    // 138 -> 140 (24.09.2026, station-wayfinding): ścieżka tablicy i komunikat odmowy.
+    // 140 -> 141 (24.09.2026, interaktywne R): odmowa przeładowania sceny.
+    // 141 -> 144 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
+    // 144 -> 149 (24.09.2026, lampy scenerii): ścieżka osi i komunikaty odmowy.
+    // 149 -> 153 (24.09.2026, wypisywanie metadanych scenerii).
+    // 153 -> 170 (24.09.2026, opcjonalny podgląd łącznika).
+    // 170 -> 177 (24.09.2026, osłonięcie wymaganych pól JSON).
+    // 177 -> 183 (25.09.2026, dodatkowe komunikaty rozkładu w scenie).
+    // 183 -> 184 (25.09.2026, log przejścia aktywnej kamery).
+    // 184 -> 185 (25.09.2026, T-400 stop target): missing-board error.
+    private const int ZgloszenFirstRunCalymPlikiem = 185;
 
     /// <summary>Ile daje ten sam plik liczony WIERSZ PO WIERSZU — 6.D180.</summary>
     // 122 -> 132 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -2094,7 +2185,19 @@ public sealed class UiTextTests
     // 146 -> 151 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int ZgloszenFirstRunWierszami = 151;
+    // 151 -> 149 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 149 -> 150 (23.09.2026, tory i światła): nowy literał na drodze wierszy. PRZELICZONE.
+    // 150 -> 152 (24.09.2026, station-wayfinding): te same dwa literały tablicy.
+    // 152 -> 153 (24.09.2026, interaktywne R): nowy komunikat błędu.
+    // 153 -> 156 (24.09.2026, sceneria za Merode): te same trzy literały.
+    // 156 -> 161 (24.09.2026, lampy scenerii): ścieżka osi i cztery odmowy dla złych danych.
+    // 161 -> 166 (24.09.2026, metadane wizualnej kontynuacji).
+    // 166 -> 184 (24.09.2026, opcjonalny podgląd łącznika).
+    // 184 -> 191 (24.09.2026, osłonięcie wymaganych pól JSON).
+    // 191 -> 197 (25.09.2026, dodatkowe komunikaty rozkładu w scenie).
+    // 197 -> 198 (25.09.2026, log przejścia aktywnej kamery).
+    // 198 -> 199 (25.09.2026, T-400 stop target): the same FirstRun error on the line reader.
+    private const int ZgloszenFirstRunWierszami = 199;
 
     /// <summary>Ile plików korpusu daje różne liczby obiema drogami — 6.D180.</summary>
     private const int PlikowZRoznicaDrog = 1;
@@ -2286,7 +2389,30 @@ public sealed class UiTextTests
     // 394 -> 399 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int LiteralowDotknietychZdejmowaniem = 399;
+    // 399 -> 400 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 400 -> 402 (24.09.2026, braking cue): dwa użycia klucza po zdjęciu jednostek.
+    // 402 -> 404 (24.09.2026, preparing to brake): two new catalog lookups.
+    // 404 -> 406 (24.09.2026, station-wayfinding): dwa literały ścieżki i odmowy.
+    // 406 -> 407 (24.09.2026, HUD 800x600): nowy klucz krótkiej pozycji.
+    // 407 -> 408 (24.09.2026, interaktywne R): komunikat błędu.
+    // 408 -> 410 (24.09.2026, krótki HUD chase): te same dwa napisy.
+    // 410 -> 411 (24.09.2026, integracja pomocy linii): jeden dodatkowy literał.
+    // 411 -> 412 (24.09.2026, stan składu po zjeździe): ten sam wiersz HUD.
+    // 412 -> 415 (24.09.2026, sceneria za Merode): dwie ścieżki i odmowa.
+    // 415 -> 416 (24.09.2026, cel stacji): nowy kolor w konstruktorze Godota.
+    // 416 -> 418 (24.09.2026, koniec osi): dwa nowe klucze katalogu.
+    // 418 -> 419 (24.09.2026, tryb linii): ten sam komunikat końca toru.
+    // 419 -> 424 (24.09.2026, lampy scenerii): osłona nowego czytnika osi.
+    // 424 -> 425 (24.09.2026, nowy literal osi scenerii).
+    // 425 -> 446 (24.09.2026, opcjonalny podgląd łącznika).
+    // 446 -> 447 (24.09.2026, osłonięcie wymaganych pól JSON).
+    // 447 -> 448 (24.09.2026, etykieta prototypu w HUD).
+    // 448 -> 463 (25.09.2026, zintegrowane literały sceny i rozkładu).
+    // 463 -> 464 (25.09.2026, log przejścia aktywnej kamery).
+    // 464 -> 468 (25.09.2026, T-400): po dwa literały widoków `side` i `platform`.
+    // 468 -> 469 (25.09.2026, T-400 stop target): missing-board error.
+    // 469 -> 472 (25.09.2026, wynik STOP w scenie i HUD).
+    private const int LiteralowDotknietychZdejmowaniem = 472;
 
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
@@ -2542,7 +2668,7 @@ public sealed class UiTextTests
     /// <para>Zapadka RÓWNOŚCIOWA i to jest jej treść: nazwa członu wyliczenia trafia
     /// na ekran przez dziurę, a nie przez literał, więc rodziny z 6.D154…6.D183 —
     /// wszystkie liczone po literałach — zobaczyć jej nie mogą. Dwudziesta pierwsza
-    /// dziura zapala ten test i każe ją zaklasyfikować, zamiast wpaść po cichu.</para>
+    /// nowa dziura zapala ten test i każe ją zaklasyfikować, zamiast wpaść po cichu.</para>
     /// </summary>
     //
     // **20 -> 18 (14.09.2026, MB-03), i ta liczba SPADŁA, a nie urosła.** Wiersz
@@ -2555,7 +2681,9 @@ public sealed class UiTextTests
     // w kodzie, liczba wróciłaby do dwudziestu i ten test by o tym powiedział.
     // 18 -> 20 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
-    private const int DziurNaEkranie = 20;
+    // 20 -> 22 (25.09.2026, T-400): identyfikator składu i koniec autorytetu są
+    // odczytami tej samej decyzji sygnalizacji, którą wiersz HUD już pokazywał.
+    private const int DziurNaEkranie = 22;
 
     /// <summary>
     /// Które z tych dziur wstawiają wartość wyliczenia — WPISANE, nie wyprowadzone.
@@ -3055,7 +3183,7 @@ public sealed class UiTextTests
     /// </summary>
     private static readonly (string Marker, int Ile)[] UdzialMarkerow =
     {
-        ("GetProperty", 18), ("GetString", 8), ("RootElement", 0),
+        ("GetProperty", 18), ("GetString", 10), ("RootElement", 2),
     };
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje CAŁY plik — 6.D173/6.D186.</summary>
@@ -3070,7 +3198,12 @@ public sealed class UiTextTests
     // nazwy argumentów `trains`/`headway-steps` w `RunPlan`, komunikaty odmowy
     // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
-    private const int ZgloszenWaskichCalymPlikiem = 104;
+    // 104 -> 105 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 105 -> 109 (24.09.2026, osobna sekcja metadanych scenerii).
+    // 109 -> 118 (24.09.2026, opcjonalny podgląd łącznika).
+    // 118 -> 121 (25.09.2026, komunikaty rozkładu w scenie).
+    // 121 -> 125 (25.09.2026, T-400): po dwa jawne literały widoków `side` i `platform`.
+    private const int ZgloszenWaskichCalymPlikiem = 125;
 
     /// <summary>Zgłoszeń wąskiej reguły, gdy czytnik dostaje WIERSZ — 6.D173/6.D186.</summary>
     // 108 -> 112 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
@@ -3084,7 +3217,12 @@ public sealed class UiTextTests
     // nazwy argumentów `trains`/`headway-steps` w `RunPlan`, komunikaty odmowy
     // zakresu i nazwy węzłów widoków w `FirstRun`. Liczba jest PRZELICZONA
     // przebiegiem, a nie wyprowadzona z liczby dopisanych wierszy.
-    private const int ZgloszenWaskichWierszami = 116;
+    // 116 -> 117 (23.09.2026, 6.M1): odtworzenie linii — zdarzenia w zapisie wejść, `ExecuteLineEvent` w `FirstRun` i nowa odmowa `--replay --line` bez `--signalling` w `RunPlan`. PRZELICZONE.
+    // 117 -> 122 (24.09.2026, osobna sekcja metadanych scenerii).
+    // 122 -> 132 (24.09.2026, opcjonalny podgląd łącznika).
+    // 132 -> 135 (25.09.2026, komunikaty rozkładu w scenie).
+    // 135 -> 139 (25.09.2026, T-400): po dwa jawne literały widoków `side` i `platform`.
+    private const int ZgloszenWaskichWierszami = 139;
 
     /// <summary>
     /// Ile z nich stoi w kontekście CZYTANIA JSON-a — <b>18 obiema drogami</b>.
@@ -3093,10 +3231,12 @@ public sealed class UiTextTests
     /// z markerem czytania jest wierszem POJEDYNCZYM, więc podział na wiersze nie ma
     /// tam czego rozciąć. Cała różnica 108 − 96 siedzi po stronie WYPISYWANIA.</para>
     /// </summary>
-    private const int WKontekscieCzytaniaJson = 18;
+    private const int WKontekscieCzytaniaJson = 22;
 
     /// <summary>Trafień „klucz JSON-a wypisywanego" drogą WIERSZOWĄ — liczba 6.D181.</summary>
-    private const int KluczyWypisywanychWierszami = 13;
+    // 13 -> 14 (24.09.2026, pole present wypisywane w nowej sekcji).
+    // 14 -> 15 (24.09.2026, pole kind w podglądzie łącznika).
+    private const int KluczyWypisywanychWierszami = 15;
 
     /// <summary>Trafień „klucz JSON-a wypisywanego" drogą CAŁOPLIKOWĄ — 6.D186.</summary>
     private const int KluczyWypisywanychCalymPlikiem = 1;
@@ -3114,10 +3254,14 @@ public sealed class UiTextTests
     private const string JedyneTrafienieCaloplikowe = "platforms";
 
     /// <summary>Kluczy RÓŻNYCH w napisie metadanych zrzutu — 6.D186.</summary>
-    private const int KluczyJsonWypisywanego = 31;
+    // 31 -> 34 (24.09.2026, visual_continuation, present i seam_gap_m).
+    // 34 -> 37 (24.09.2026, rodzaj, profil pionowy i skrót źródła).
+    private const int KluczyJsonWypisywanego = 37;
 
     /// <summary>Wystąpień kluczy w tym samym napisie — 6.D186.</summary>
-    private const int WystapienKluczyJson = 35;
+    // 35 -> 42 (24.09.2026, siedem wystąpień pól scenerii).
+    // 42 -> 45 (24.09.2026, trzy pola podglądu łącznika).
+    private const int WystapienKluczyJson = 45;
 
     /// <summary>
     /// Które z tych 31 nazw w ogóle padają w korpusie zgłoszeń — i skąd — 6.D186.
@@ -3243,13 +3387,11 @@ public sealed class UiTextTests
             + ", a zmierzono "
             + string.Join(", ", UdzialMarkerow.Select(u => $"{u.Marker}={u.Ile}")));
 
-        // Marker o udziale ZEROWYM musi tu być wskazany po nazwie, a nie tylko
-        // policzony: liczba `0` w tabeli czyta się jako pomiar, nazwa — jako wniosek.
+        // Podgląd łącznika czyta teraz RootElement razem z polami źródła, więc
+        // wszystkie trzy markery mają udział dodatni; pusty zbiór jest mierzoną kontrolą.
         var bezczynne = UdzialMarkerow.Where(u => u.Ile == 0).Select(u => u.Marker).ToList();
-        CollectionAssert.AreEqual(new[] { "RootElement" }, bezczynne,
-            "bezczynne markery to dziś " + string.Join(", ", bezczynne)
-            + " — jeśli `RootElement` przestał być bezczynny, KN-2 z 6.D186 zapali się "
-            + "i akapit o zielonej kontroli opisuje inny stan drzewa");
+        CollectionAssert.AreEqual(Array.Empty<string>(), bezczynne,
+            "nieoczekiwanie bezczynny marker: " + string.Join(", ", bezczynne));
     }
 
     /// <summary>
@@ -3309,14 +3451,15 @@ public sealed class UiTextTests
         StringAssert.Contains(dawna, 108.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "odpowiedź nie niesie liczby, o którą pytano");
 
-        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 116, SciezkaTegoPliku),
-            "dzisiejsza wartość zgłoszona jako DAWNA — a 116 stoi wyłącznie po prawej "
+        // Dzisiejsza wartość stoi wyłącznie po PRAWEJ stronie ostatniego ogniwa.
+        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), ZgloszenWaskichWierszami, SciezkaTegoPliku),
+            "dzisiejsza wartość zgłoszona jako DAWNA — stoi wyłącznie po prawej "
             + "stronie ostatniego ogniwa, więc nigdy tu nie „stała do\u201d");
         Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichWierszami), 4242, SciezkaTegoPliku),
             "liczba spoza łańcucha zgłoszona jako dawna wartość — czytnik odpowiada "
             + "na wszystko i komunikat odmowy stałby się szumem");
-        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichCalymPlikiem), 108, SciezkaTegoPliku),
-            "108 z łańcucha JEDNEJ stałej przypisane DRUGIEJ — czytnik nie rozdziela "
+        Assert.IsNull(MetroBxl.Tests.Shared.LancuchZmian.SkadTaLiczba(nameof(ZgloszenWaskichCalymPlikiem), 117, SciezkaTegoPliku),
+            "117 z łańcucha JEDNEJ stałej przypisane DRUGIEJ — czytnik nie rozdziela "
             + "łańcuchów i mówiłby o cudzej historii");
     }
 
@@ -3515,7 +3658,17 @@ public sealed class UiTextTests
     // 144 -> 149 (22.09.2026, 6.D235): PIĘĆ literałów — komunikaty `Abort` dla pliku ZŁEGO
     // w `FirstRun`: po dwa przy osi i przy manifeście chunków, jeden przy planie
     // sygnalizacji. Liczba PRZELICZONA przebiegiem.
-    private const int LiteralowZKlamra = 149;
+    // 149 -> 148 (23.09.2026, 6.M1): odtworzenie linii w `FirstRun` i `RunPlan`. PRZELICZONE.
+    // 148 -> 149 (24.09.2026, station-wayfinding): odmowa przy braku GLB tablicy ma interpolowaną ścieżkę.
+    // 149 -> 150 (24.09.2026, interaktywne R): interpolowany błąd restartu.
+    // 150 -> 152 (24.09.2026, krótki HUD chase): dystans i próg.
+    // 152 -> 153 (24.09.2026, integracja pomocy linii): jeden literał z klamrą.
+    // 153 -> 156 (24.09.2026, lampy scenerii): trzy komunikaty `Abort` z interpolacją.
+    // 156 -> 158 (24.09.2026, osobne pola metadanych ogona).
+    // 158 -> 163 (24.09.2026, komunikaty rozkładu).
+    // 163 -> 164 (25.09.2026, interpolowany log aktywnej kamery).
+    // 164 -> 165 (25.09.2026, T-400 stop target): interpolated missing-board error.
+    private const int LiteralowZKlamra = 165;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
@@ -3530,7 +3683,9 @@ public sealed class UiTextTests
     // `BezDziur` zabierało mu ostatnie słowo. Po przeniesieniu do katalogu wiersz
     // niesie `sufit`, czyli słowo, którego żadna z tych dwóch mechanik nie zabiera.
     // 13 -> 14 (14.09.2026, MB-07): przeliczone przebiegiem.
-    private const int ZabranychWszystkieSlowa = 14;
+    // 14 -> 15 (24.09.2026, integracja pomocy linii): nowy wzorzec pomocy.
+    // 15 -> 17 (24.09.2026, formatowanie dwóch obwiedni scenerii).
+    private const int ZabranychWszystkieSlowa = 17;
 
     /// <summary>
     /// Ile z nich stoi na drodze <c>Hud.Update</c>, czyli dociera na ekran — 6.D188.
@@ -3847,7 +4002,8 @@ public sealed class UiTextTests
     // DOMYŚLNE, nie liczba — a to ramię jest ciche świadomie i stoi z nazwy na liście
     // milczków wyżej. Trzeci switch nie zakłada więc trzeciej rodziny: dołącza do tej,
     // którą 6.D185 przybiło ręcznie.
-    private const int SwitchyPoWyliczeniuWGame = 3;
+    // 3 -> 5 (25.09.2026, kolor i napis wyniku STOP mają jawne ramię domyślne).
+    private const int SwitchyPoWyliczeniuWGame = 5;
 
     // Switche po wyliczeniu, których ramię domyślne MILCZY zamiast rzucić — lista,
     // a nie liczba, bo to nazwy rozstrzygają, czy milczenie jest świadome.
@@ -3861,7 +4017,8 @@ public sealed class UiTextTests
     // klatkę zamiast pokazać graczowi, czego nie umie nazwać. Ramię domyślne oddaje
     // angielską nazwę członu — widoczną i zgłaszalną, tak samo jak w `Faza`.
     private static readonly string[] SwitcheZCichymRamieniem =
-        { "DoorPrompt.cs:refusal", "FirstRun.cs:phase" };
+        { "DoorPrompt.cs:refusal", "FirstRun.cs:phase",
+          "StationView.cs:outcome", "StationView.cs:outcome" };
 
     // Wszystkie konstrukty `switch` w `src/Game/`, z rozstrzygnięciem. Liczba jest tu
     // DRUGA, bo „jeden po wyliczeniu" nie mówi nic o tym, ile ich jest w ogóle — a to
@@ -3871,7 +4028,8 @@ public sealed class UiTextTests
     // `FirstRun.Faza`. Switchy jest CZTERY, a nie pięć, bo `DoorPrompt.For`
     // świadomie nim NIE jest: gotowość do odjazdu pyta o `DoorCycle.TractionAllowed`,
     // czyli o ten sam predykat, którym rdzeń zwalnia trakcję — powód przy tej metodzie.
-    private const int SwitchyWGameRazem = 4;
+    // 4 -> 6 (25.09.2026, barwa i napis wyniku tablicy STOP).
+    private const int SwitchyWGameRazem = 6;
 
     // Postać instrukcyjna (`switch (x) { case …: default: }`) NIE WYSTĘPUJE w src/Game/
     // ani razu. Zero jest tu wypisane, bo skan, który tej postaci nie widzi, odpowiada
@@ -4075,7 +4233,10 @@ public sealed class UiTextTests
     // 18 -> 20 (14.09.2026, MB-08): `DoorControl` i `DoorRefusal`, oba w `src/Sim`.
     // TRZECI ruch w trzy dni, więc zdanie o nieruchomości tej liczby zostaje
     // skreślone tak samo, jak zostało po drugim.
-    private const int WyliczenWSrc = 20;
+    // 20 -> 21 (23.09.2026, 6.M1): `LineEventKind` w `src/Sim/Train/InputLog.cs`. CZWARTY ruch.
+    // 21 -> 22 (24.09.2026, wskazówka hamowania): `BrakingCueStage` zatrzaskuje fazę wskazówki hamowania.
+    // 22 -> 23 (25.09.2026, StopTargetOutcome).
+    private const int WyliczenWSrc = 23;
 
     // 22 -> 24 (13.09.2026, MB-02): `Ending` i `ending` z `TrainingEnding`.
     // 24 -> 25 (14.09.2026, MB-06): `Owner` z `ControlOwner`. JEDNA nazwa, a nie dwie
@@ -4096,7 +4257,9 @@ public sealed class UiTextTests
     // konstruktorem i polem, a powód odmowy wraca z metody i ląduje w polu widoku.
     // Typ, który podróżuje, dostaje nazwę w każdym miejscu, przez które przechodzi.
     // …plus `powodOdmowy` z `DoorPrompt.For` — razem DZIESIĘĆ, nie dziewięć.
-    private const int NazwPodWyliczeniem = 35;
+    // 35 -> 36 (23.09.2026, 6.M1): `LineEventKind rodzajZdarzenia` w `InputLog` i `InputLogRecorder`. PRZELICZONE.
+    // 36 -> 37 (24.09.2026, wskazówka hamowania): dodatkowa nazwa związana z `BrakingCueStage`.
+    private const int NazwPodWyliczeniem = 37;
 
     // Nazwy, pod którymi w `src/` stoi i wartość wyliczenia, i wartość innego typu.
     // Lista, a nie liczba, bo to nazwy rozstrzygają, czy skan po nazwie wolno puścić
@@ -5234,14 +5397,18 @@ public sealed class UiTextTests
     // przyrzadem tego testu.
     // 29 -> 30 (14.09.2026, MB-07): trzy klawisze obsługi linii (N/T/O), wiersz
     // `[TUNEL koniec]` i komunikaty zakresu `--trains`. Liczba PRZELICZONA przebiegiem.
-    private const int WierszyLoguWGame = 30;
+    // 30 -> 32 (24.09.2026, log dwóch wejść rozkładowych).
+    // 32 -> 33 (25.09.2026, log aktywnej kamery po zmianie widoku).
+    private const int WierszyLoguWGame = 33;
 
     // 21 -> 23 (13.09.2026, MB-02): dwa wiersze `[SESJA]`. `WierszyLoguPoAngielsku`
     // zostaje ZEREM i to ono jest tu zdaniem.
     // 23 -> 24 (14.09.2026, MB-04): `FirstRun.AssetsRoot`, `DomyslnyZapisWejsc`
     // i wiersz `[ZAPISY]`. Liczba ZMIERZONA przyrzadem tego testu.
     // 24 -> 25 (14.09.2026, MB-07): wiersz `[TUNEL koniec]` — własne słowa, polskie.
-    private const int WierszyLoguPoPolsku = 25;
+    // 25 -> 27 (24.09.2026, dwa wiersze logu wejść rozkładowych).
+    // 27 -> 28 (25.09.2026, polski log aktywnej kamery).
+    private const int WierszyLoguPoPolsku = 28;
 
     // Wiersze, których szablon NIE MA WŁASNYCH SŁÓW — cała treść przychodzi z wywołania.
     // Wszystkie w `FirstRun.cs`, i każdy z nich prowadzi do wytwórcy, który własne
@@ -5388,8 +5555,14 @@ public sealed class UiTextTests
     //: WEWNĄTRZ `Abort`, które niosą jego argument, a nie własny literał.
     //: 21 -> 26 (22.09.2026, 6.D235): pięciu wołających — osłony pliku ZŁEGO, po dwie
     //: klauzule przy osi i przy manifeście chunków, jedna nowa przy planie sygnalizacji.
-    private const int WolajacychAbort = 26;
-    private const int WypisowBleduPozaAbort = 5;
+    // 26 -> 27 (24.09.2026): brak generowanej tablicy zatrzymuje uruchomienie.
+    // 27 -> 28 (24.09.2026): niekompletna para GLB za Merode zatrzymuje uruchomienie.
+    // 28 -> 31 (24.09.2026): trzy odmowy przy pliku osi scenerii.
+    // 33 -> 36 (25.09.2026, odmowy błędnego rozkładu).
+    // 36 -> 37 (25.09.2026, T-400 stop target): reject a missing training board.
+    private const int WolajacychAbort = 37;
+    // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
+    private const int WypisowBleduPozaAbort = 6;
 
     /// <summary>
     /// Dziury drogi błędu niosące tekst <b>obcy</b>, każda z wytwórcą. Zbiór, nie liczba
@@ -5501,13 +5674,13 @@ public sealed class UiTextTests
         var obce = dziury
             .Where(d => ZrodlaTekstuObcego.Any(z => z.Plik == d.Plik && z.Wyrazenie == d.Dziura))
             .ToList();
-        Assert.AreEqual(9, obce.Count,
-            $"dziur z tekstem OBCYM jest {obce.Count}, a zmierzono 9 (siedem "
+        Assert.AreEqual(10, obce.Count,
+            $"dziur z tekstem OBCYM jest {obce.Count}, a zmierzono 10 (osiem "
             + "`FileAccess.GetOpenError()`, jedna z `MakeDir`, jedna z `AppendFromFile`): "
             + string.Join(", ", obce.Select(d => $"{d.Plik}:{d.Wiersz} {d.Dziura}")));
 
         // ZBIÓR, nie liczba (6.D131): gdyby doszedł czwarty wytwórca tekstu obcego,
-        // liczba 9 podniesiona o jeden nie powiedziałaby, KTÓRY.
+        // liczba 10 podniesiona o jeden nie powiedziałaby, KTÓRY.
         CollectionAssert.AreEqual(
             new[] { "Error Godota — wynik DirAccess.MakeDir",
                     "Error Godota — wynik GltfDocument.AppendFromFile",
@@ -5538,8 +5711,8 @@ public sealed class UiTextTests
             MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "RunPlan.cs"));
         var czysty = KodLeksykalnie(refusal);
         var wolan = Regex.Matches(czysty, @"return Refusal\s*\(").Count;
-        Assert.AreEqual(26, wolan,
-            $"wołających `RunPlan.Refusal` jest {wolan}, a zmierzono 26 — to ONE są "
+        Assert.AreEqual(30, wolan,
+            $"wołających `RunPlan.Refusal` jest {wolan}, a zmierzono 30 — to ONE są "
             + "treścią jedynego wywołania `Abort` bez własnego literału "
             + "(`FirstRun.cs:533`), więc ich liczba jest zdaniem o drodze błędu");
 

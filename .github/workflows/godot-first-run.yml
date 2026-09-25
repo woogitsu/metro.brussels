@@ -25,6 +25,7 @@ on:
       # apt_install.sh, listy pakietów i (w tunnel-alignment) vehicle_clearance.sh.
       # Przy wąskim wzorcu zmiana takiego pliku nie odpalała własnego CI.
       - 'tools/ci/**'
+      - 'tools/release/**'
       # Ten workflow URUCHAMIA `tests/Game.Tests` (krok „Engine layer unit tests"),
       # więc musi się odpalać, gdy tamte testy się zmieniają. Bez tego wpisu PR
       # dotykający wyłącznie `tests/Game.Tests/**` dostawał `sim` i `tools`, a job,
@@ -66,15 +67,9 @@ permissions:
 
 jobs:
   first-run:
-    # Ten job chodzi na MASZYNIE WŁAŚCICIELA, nie na jednorazowej maszynie GitHuba.
-    # Kroki wykonują kod ze sprawdzonego refa — `tools/**`, `doctor.sh`, skrypty CI —
-    # więc bez tego warunku wystarczyłby pull request z forka, żeby uruchomić tam
-    # dowolny kod. `metro.brussels` jest prywatne, ale ma WŁĄCZONE forkowanie
-    # (`allow_forking: true`), więc uzasadnienie „forka nie da się zrobić" tu nie
-    # obowiązuje. Warunek nosi KAŻDY job; `needs:` nie jest zamiennikiem, bo job
-    # dopisany bez łańcucha zależności nie miałby żadnej ochrony.
+    # Zgodnie z polityką repo job nie uruchamia kodu z pull requestów forków.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
@@ -338,6 +333,10 @@ jobs:
       - name: Engine layer unit tests
         shell: bash
         run: dotnet test tests/Game.Tests/Game.Tests.csproj --configuration Release
+
+      - name: Missing resource is readable without a console
+        shell: bash
+        run: bash tools/ci/assert_startup_resource_error.sh
 
       # Sonda narzędzi: JEDNA implementacja w `.github/actions/probe-tools`.
       # Wyjście `libs` ma tę samą umowę co przed wydzieleniem, więc warunki
@@ -685,6 +684,44 @@ jobs:
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
             compare build/t400/reczny/scene-spf120.csv build/t400/reczny/scene-spf7.csv \
             --tolerance 0
+          # Logiczny rytm 30/60/120 FPS przy 120 Hz Sim: 4/2/1 tick na klatkę.
+          # Headless nie mierzy fizycznego odświeżania monitora.
+          # Każdy przebieg idzie przez rzeczywistą scenę i żąda kamery chase.
+          # Na starcie (94 m) jest niedostępna, więc scena wybiera kabinę;
+          # po minięciu progu odsłonięcia przełącza na chase w PlaceEverything.
+          # Porównanie z rdzeniem obejmuje stan zapisany w telemetrii po 8880 tickach.
+          for spf in 4 2 1; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --replay="$PWD/tests/data/manual-keys.log" \
+              --telemetry="$PWD/build/t400/reczny/scene-chase-spf$spf.csv" \
+              --steps-per-frame="$spf" --view=chase \
+              2>&1 | tee "build/t400/reczny/scene-chase-spf$spf.log"
+            python3 tools/ci/assert_no_godot_warnings.py "build/t400/reczny/scene-chase-spf$spf.log"
+            grep -q "^\[ODTWORZENIE\] koniec: kroków=8880 " \
+              "build/t400/reczny/scene-chase-spf$spf.log" \
+              || { echo "BŁĄD: chase przy $spf krokach na klatkę nie ukończył replay" >&2; exit 1; }
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/reczny/core.csv \
+              "build/t400/reczny/scene-chase-spf$spf.csv" --tolerance 0
+          done
+          python3 - <<'WIDOK'
+          import csv
+          from pathlib import Path
+
+          for spf in (4, 2, 1):
+              path = Path(f"build/t400/reczny/scene-chase-spf{spf}.csv")
+              with path.open(encoding="utf-8") as handle:
+                  rows = list(csv.DictReader(handle))
+              chainages = [float(row["chainage_m"]) for row in rows]
+              assert chainages[0] == 94.0, f"{path}: start nie jest w kabinie"
+              assert max(chainages) > 110.0, f"{path}: nie minieto progu chase"
+              log_path = Path(f"build/t400/reczny/scene-chase-spf{spf}.log")
+              log = log_path.read_text(encoding="utf-8")
+              transitions = [line for line in log.splitlines() if line.startswith("[WIDOK] ")]
+              assert len(transitions) == 1, f"{log_path}: oczekiwano jednego przejscia, jest {transitions}"
+              assert transitions[0].startswith("[WIDOK] Cab->Chase kabina=False chase=True krok="), (
+                  f"{log_path}: kamera nie przeszla z kabiny do chase: {transitions[0]}")
+          WIDOK
           # ŚLAD CYKLU DRZWI W SAMEJ TELEMETRII. Maszynista trzyma W od 45,0 s, więc
           # nastawnik dobija do 1,0 — a `throttle` w telemetrii zostaje ZERO do 57,975 s,
           # bo `StationService` trzyma blokadę trakcji. Jedenaście próbek stoi przy tym
@@ -770,7 +807,7 @@ jobs:
           grep -q "^\[ODTWORZENIE\] koniec: kroków=20000 " build/t400/reczny/sesja.log \
             || { echo "BŁĄD: koniec sesji połknął koniec odtworzenia" >&2
                  grep "^\[ODTWORZENIE\]" build/t400/reczny/sesja.log >&2; exit 1; }
-          oczekiwany='[SESJA] zaliczone (AllTargetsServed): 2/2 celów, 156.842 s, 1357.513 m, ATP 0/0/0 | 8742 obsłużony błąd -0.023 m | 8292 obsłużony błąd -0.387 m'
+          oczekiwany='[SESJA] zaliczone (AllTargetsServed): 2/2 celów, 156.850 s, 1357.532 m, ATP 0/0/0 | 8742 obsłużony błąd +0.123 m | 8292 obsłużony błąd -0.368 m'
           grep -qxF "$oczekiwany" build/t400/reczny/sesja.log \
             || { echo "BŁĄD: sesja treningowa dała inny wynik niż zmierzony" >&2
                  echo "oczekiwano: $oczekiwany" >&2
@@ -782,6 +819,40 @@ jobs:
           ile="$(grep -c "^\[SESJA\]" build/t400/reczny/sesja.log)"
           test "$ile" -eq 1 \
             || { echo "BŁĄD: wiersz [SESJA] wyszedł $ile razy zamiast raz" >&2; exit 1; }
+
+      - name: Exported player package must replay the same two-stop session
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$PWD"
+          out='build/t400/paczka kontrolna'
+          bash tools/release/package-playable.sh "$out" build/t400
+          package="$root/$out/MetroBXL"
+          mkdir -p build/t400/paczka-replay
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/mb02-dwa-postoje.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json --atp \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/paczka-replay/core.csv 2>&1 | tee build/t400/paczka-replay/core.log
+          grep -q "stacji obsłużonych=2 przejechanych=0" build/t400/paczka-replay/core.log \
+            || { echo "BŁĄD: pakietowy wzorzec nie obsługuje obu celów w rdzeniu" >&2
+                 grep "^\[ODTWORZENIE\]" build/t400/paczka-replay/core.log >&2; exit 1; }
+          (
+            cd "$package"
+            ./MetroBXL.x86_64 --headless -- \
+              --signalling="$package/zasoby/data/design/signalling/classic-2026.json" \
+              --replay="$root/tests/data/mb02-dwa-postoje.log" \
+              --telemetry="$root/build/t400/paczka-replay/scene.csv" \
+              --steps-per-frame=600
+          ) 2>&1 | tee build/t400/paczka-replay/scene.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/paczka-replay/scene.log
+          grep '^\[SESJA\]' build/t400/reczny/sesja.log > build/t400/paczka-replay/expected-session.txt
+          grep '^\[SESJA\]' build/t400/paczka-replay/scene.log > build/t400/paczka-replay/actual-session.txt
+          cmp build/t400/paczka-replay/expected-session.txt build/t400/paczka-replay/actual-session.txt
+          grep -q '^\[ODTWORZENIE\] koniec: kroków=20000 ' build/t400/paczka-replay/scene.log
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/paczka-replay/core.csv build/t400/paczka-replay/scene.csv \
+            --tolerance 0
 
       - name: Negative control of the training session gate
         shell: bash
@@ -1334,6 +1405,194 @@ jobs:
             build/t400/linia/core-calls.csv \
             build/t400/linia/scene-signalling-calls.csv --expect-calls 11
 
+      - name: Line replay — driver commands from the input log replay to the same bytes
+        shell: bash
+        # 6.M1. Przejazd LINII z maszynistą: przejęcie składu, hamowanie do Beekkant,
+        # otwarcie i zamknięcie drzwi, oddanie autopilotowi. Zapis wejść jest w
+        # repozytorium (`tests/data/m1-linia-drzwi.log`), a nie nagrywany tu — z tego
+        # samego powodu, co `manual-keys.log`: zapis nagrany w locie zgadzałby się sam
+        # ze sobą także wtedy, gdyby nagrywanie było zepsute.
+        #
+        # PORÓWNANIE IDZIE Z RDZENIEM. `Sim.Runner replay --line` i scena idą tą samą
+        # klasą `LineSession`, więc zgodność co do bitu przy dwóch rytmach klatek mówi,
+        # że polecenia wykonują się po NUMERZE KROKU, a nie po klatce.
+        #
+        # ZAPIS Z ODTWORZENIA ma wyjść CO DO BAJTU taki jak wzorzec: to jedyny sposób,
+        # żeby w CI sprawdzić pisarza zdarzeń (`ExecuteLineEvent` → `RecordEvent`)
+        # bez człowieka przy klawiaturze.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/linia-odtworzenie
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/m1-linia-drzwi.log --line --atp --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --trains 2 --headway-steps 120 \
+            --limit-kmh 70 --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/linia-odtworzenie/core.csv 2>&1 | tee build/t400/linia-odtworzenie/core.log
+          grep -q "zdarzeń linii=4 odmów drzwi=0" build/t400/linia-odtworzenie/core.log \
+            || { echo "BŁĄD: rdzeń nie wykonał czterech poleceń wzorca bez odmowy drzwi" >&2
+                 cat build/t400/linia-odtworzenie/core.log >&2; exit 1; }
+          core_state=$(grep -E '^\[LINE-STATE\] końcowy odcisk sha256=[0-9a-f]{64}$' build/t400/linia-odtworzenie/core.log | cut -d= -f2)
+          test "$(printf '%s\n' "$core_state" | wc -l)" -eq 1
+          for spf in 120 7; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --line --limit-kmh=70 \
+              --trains=2 --headway-steps=120 \
+              --signalling="$PWD/data/design/signalling/classic-2026.json" \
+              --replay="$PWD/tests/data/m1-linia-drzwi.log" \
+              --telemetry="$PWD/build/t400/linia-odtworzenie/scene-spf$spf.csv" \
+              --input-log="$PWD/build/t400/linia-odtworzenie/zapis-spf$spf.log" \
+              --steps-per-frame="$spf" \
+              2>&1 | tee "build/t400/linia-odtworzenie/scene-spf$spf.log"
+            python3 tools/ci/assert_no_godot_warnings.py "build/t400/linia-odtworzenie/scene-spf$spf.log"
+            grep -q "^\[ODTWORZENIE\] koniec: kroków=16000 " "build/t400/linia-odtworzenie/scene-spf$spf.log" \
+              || { echo "BŁĄD: odtworzenie linii przy $spf krokach na klatkę nie doszło do końca zapisu" >&2
+                   grep "^\[ODTWORZENIE\]" "build/t400/linia-odtworzenie/scene-spf$spf.log" >&2; exit 1; }
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/linia-odtworzenie/core.csv \
+              "build/t400/linia-odtworzenie/scene-spf$spf.csv" --tolerance 0
+            scene_state=$(grep -Eo 'odcisk-linii-sha256=[0-9a-f]{64}$' "build/t400/linia-odtworzenie/scene-spf$spf.log" | cut -d= -f2)
+            test "$scene_state" = "$core_state" \
+              || { echo "BŁĄD: stan linii po odtworzeniu różni się od rdzenia ($spf kroków/klatkę)" >&2
+                   printf 'rdzeń: %s\nscena: %s\n' "$core_state" "$scene_state" >&2; exit 1; }
+            cmp tests/data/m1-linia-drzwi.log "build/t400/linia-odtworzenie/zapis-spf$spf.log" \
+              || { echo "BŁĄD: zapis wejść z odtworzenia linii różni się od wzorca" >&2; exit 1; }
+          done
+          # KONTROLA NEGATYWNA w tym samym kroku: ten sam zapis BEZ wiersza przejęcia.
+          # Autopilot prowadzi wtedy skład sam, więc porównanie z rdzeniem liczonym na
+          # pełnym zapisie MUSI paść. Gdyby przeszło, zdarzenia linii byłyby czytane
+          # i pomijane.
+          grep -v "przejmij:" tests/data/m1-linia-drzwi.log > build/t400/linia-odtworzenie/bez-przejecia.log
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --line --limit-kmh=70 \
+            --trains=2 --headway-steps=120 \
+            --signalling="$PWD/data/design/signalling/classic-2026.json" \
+            --replay="$PWD/build/t400/linia-odtworzenie/bez-przejecia.log" \
+            --telemetry="$PWD/build/t400/linia-odtworzenie/scene-bez-przejecia.csv" \
+            --steps-per-frame=120 2>&1 | tee build/t400/linia-odtworzenie/negatyw.log
+          python3 tools/ci/assert_no_godot_warnings.py build/t400/linia-odtworzenie/negatyw.log
+          bad_state=$(grep -Eo 'odcisk-linii-sha256=[0-9a-f]{64}$' build/t400/linia-odtworzenie/negatyw.log | cut -d= -f2)
+          test "$bad_state" != "$core_state" \
+            || { echo "BŁĄD: odcisk stanu nie zauważył usuniętego przejęcia" >&2; exit 1; }
+          set +e
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/linia-odtworzenie/core.csv \
+            build/t400/linia-odtworzenie/scene-bez-przejecia.csv --tolerance 0
+          rc=$?
+          set -e
+          test "$rc" -ne 0 || { echo "BŁĄD: odtworzenie bez przejęcia przeszło porównanie" >&2; exit 1; }
+          echo "[NEGATYW] odtworzenie linii bez przejęcia odrzucone, tak jak ma być"
+
+      - name: Line takeover and doors preserve state at 30, 60, and 120 FPS
+        shell: bash
+        # Issue #26: ten sam zapis przejęcia, ręcznych drzwi i oddania składu
+        # przez rzeczywistą scenę przy logicznych 4/2/1 krokach na klatkę.
+        # Ucinamy dopiero PO oddaniu (krok 8040), aby 120 FPS nie musiało
+        # odtwarzać dalszych 7959 kroków autopilota bez nowego pokrycia.
+        # Headless mierzy podział kroków, nie fizyczny monitor 30/60/120 Hz.
+        run: |
+          set -euo pipefail
+          mkdir -p build/t400/linia-fps
+          python3 - <<'KEYS'
+          from pathlib import Path
+
+          source = Path("tests/data/m1-linia-drzwi.log").read_text(encoding="utf-8")
+          assert source.count("kroki=16000") == 1
+          assert "8040;oddaj:KABINA" in source
+          Path("build/t400/linia-fps/keys.log").write_text(
+              source.replace("kroki=16000", "kroki=8041", 1), encoding="utf-8")
+          KEYS
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys build/t400/linia-fps/keys.log --line --atp \
+            --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --limit-kmh 70 --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/linia-fps/core.csv \
+            > build/t400/linia-fps/core.log 2>&1
+          grep -q 'sesja=8041 kroków, zdarzeń linii=4 odmów drzwi=0' \
+            build/t400/linia-fps/core.log
+          grep -q 'zatrzymań=1' build/t400/linia-fps/core.log
+          for spf in 4 2 1; do
+            "$GODOT_BIN" --headless --path src/Game -- \
+              --line --limit-kmh=70 \
+              --signalling="$PWD/data/design/signalling/classic-2026.json" \
+              --replay="$PWD/build/t400/linia-fps/keys.log" \
+              --telemetry="$PWD/build/t400/linia-fps/scene-spf$spf.csv" \
+              --steps-per-frame="$spf" \
+              2>&1 | tee "build/t400/linia-fps/scene-spf$spf.log"
+            python3 tools/ci/assert_no_godot_warnings.py \
+              "build/t400/linia-fps/scene-spf$spf.log"
+            grep -q '^\[ODTWORZENIE\] koniec: kroków=8041 ' \
+              "build/t400/linia-fps/scene-spf$spf.log"
+            dotnet run --project src/Sim.Runner -c Release --no-build -- \
+              compare build/t400/linia-fps/core.csv \
+              "build/t400/linia-fps/scene-spf$spf.csv" --tolerance 0
+          done
+          python3 - <<'FRAMES'
+          import re
+          from pathlib import Path
+
+          for spf, expected_frames in ((4, 2011), (2, 4021), (1, 8041)):
+              path = Path(f"build/t400/linia-fps/scene-spf{spf}.log")
+              text = path.read_text(encoding="utf-8")
+              match = re.search(r"^\[ODTWORZENIE\] koniec: kroków=8041 .* klatek=(\d+) ",
+                                text, re.MULTILINE)
+              assert match and int(match.group(1)) == expected_frames, (
+                  f"{path}: expected {expected_frames} frames for {spf} steps/frame")
+          FRAMES
+
+      - name: Camera choice does not advance Sim during line takeover
+        shell: bash
+        # Ta sama rzeczywista scena, zapis przejęcia/drzwi/oddania i liczba
+        # ticków co wyżej. Żądanie chase przełącza aktywną Camera3D w ruchu.
+        run: |
+          set -euo pipefail
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys build/t400/linia-fps/keys.log --line --atp \
+            --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --limit-kmh 70 --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/linia-fps/core-camera.csv \
+            > build/t400/linia-fps/core-camera.log 2>&1
+          cmp build/t400/linia-fps/core.csv \
+            build/t400/linia-fps/core-camera.csv
+          "$GODOT_BIN" --headless --path src/Game -- \
+            --line --limit-kmh=70 --view=chase \
+            --signalling="$PWD/data/design/signalling/classic-2026.json" \
+            --replay="$PWD/build/t400/linia-fps/keys.log" \
+            --telemetry="$PWD/build/t400/linia-fps/scene-chase-spf4.csv" \
+            --steps-per-frame=4 \
+            2>&1 | tee build/t400/linia-fps/scene-chase-spf4.log
+          python3 tools/ci/assert_no_godot_warnings.py \
+            build/t400/linia-fps/scene-chase-spf4.log
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            compare build/t400/linia-fps/core-camera.csv \
+            build/t400/linia-fps/scene-chase-spf4.csv --tolerance 0
+          cmp build/t400/linia-fps/scene-spf4.csv \
+            build/t400/linia-fps/scene-chase-spf4.csv
+          python3 - <<'CAMERA'
+          import re
+          from pathlib import Path
+
+          base = Path("build/t400/linia-fps")
+          cab = (base / "scene-spf4.log").read_text(encoding="utf-8")
+          chase = (base / "scene-chase-spf4.log").read_text(encoding="utf-8")
+          transition = re.findall(
+              r"^\[WIDOK\] Cab->Chase kabina=False chase=True krok=(\d+)$",
+              chase, re.MULTILINE)
+          assert len(transition) == 1 and 0 < int(transition[0]) < 2880, (
+              f"{base / 'scene-chase-spf4.log'}: expected one active-camera "
+              "transition before takeover at tick 2880")
+          assert "[WIDOK] Cab->Chase" not in cab, (
+              f"{base / 'scene-spf4.log'}: unexpected Cab->Chase transition")
+          for name, log in (("cab", cab), ("chase", chase)):
+              match = re.search(
+                  r"^\[ODTWORZENIE\] koniec: kroków=(\d+) .* klatek=(\d+) ",
+                  log, re.MULTILINE)
+              assert match and match.groups() == ("8041", "2011"), (
+                  f"{name}: camera selection changed tick or frame count")
+          CAMERA
+
       - name: ATP must really brake above the plan limit
         shell: bash
         # DOWÓD, ŻE OCHRONA POCIĄGU DZIAŁA, A NIE TYLKO LICZY.
@@ -1443,6 +1702,7 @@ jobs:
             --metadata build/t400/linia/renders/LINIA_metadata.json \
             --axis data/track/L1_A.json \
             --manifest build/t400/chunks/L1_A-chunks.json \
+            --visual-tail-assets build/t400 --require-visual-tail \
             --resolution 1280x720 --view outside --at-chainage 509.73 \
             --platform-layout build/t400/L1_A-platforms.json \
             --platform-metrics build/t400/L1_A-platforms-metrics.json \
@@ -1493,6 +1753,7 @@ jobs:
               --metadata build/t400/linia/LINIA_metadata_bad.json \
               --axis data/track/L1_A.json \
               --manifest build/t400/chunks/L1_A-chunks.json \
+              --visual-tail-assets build/t400 --require-visual-tail \
               --resolution 1280x720 --view outside --at-chainage 509.73 \
               --platform-layout build/t400/L1_A-platforms.json \
               --platform-metrics build/t400/L1_A-platforms-metrics.json || rc=$?
@@ -1583,6 +1844,7 @@ jobs:
             --metadata build/t400/visual/GODOT_metadata.json \
             --axis data/track/L1_A.json \
             --manifest build/t400/chunks/L1_A-chunks.json \
+            --visual-tail-assets build/t400 --require-visual-tail \
             --resolution 1280x720 \
             --view cab --at-chainage 976 \
             --platform-layout build/t400/L1_A-platforms.json \
@@ -1671,6 +1933,9 @@ jobs:
             build/t400/reset/*.csv
             build/t400/reset/*.log
             build/t400/reset/*.txt
+            build/t400/paczka-replay/*.log
+            build/t400/paczka-replay/*.txt
+            build/t400/paczka-replay/*.csv
             # Bramka kabiny pod sygnalizacją: bez `core-atp.txt` i `scene-atp-spf*.txt`
             # nie da się sprawdzić, czy obie strony policzyły ochronę tak samo.
             build/t400/atp-kabina/*.csv

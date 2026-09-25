@@ -198,11 +198,11 @@ public sealed class InputLogTests
     {
         try
         {
-            InputLog.Parse("wersja=3\nkroki=5\nkrok;klawisze\n0;W\n");
+            InputLog.Parse("wersja=4\nkroki=5\nkrok;klawisze\n0;W\n");
         }
         catch (FormatException error)
         {
-            StringAssert.Contains(error.Message, "wersji 3");
+            StringAssert.Contains(error.Message, "wersji 4");
             return;
         }
 

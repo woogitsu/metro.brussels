@@ -37,16 +37,19 @@ public sealed class FileReadGuardTests
         @"\.GetAsText\s*\(|\bFile\.ReadAll(?:Text|Lines|Bytes)\s*\(|\bFileAccess\.GetFileAs(?:String|Bytes)\s*\(";
 
     /// <summary>
-    /// Czytniki zmierzone 22.09.2026, jako wywołanie, które dostaje treść. Zbiór, nie
+    /// Czytniki zmierzone 24.09.2026, jako wywołanie, które dostaje treść. Zbiór, nie
     /// liczba (6.D131): liczba przeszłaby po zamianie jednego czytnika na inny.
     /// </summary>
     private static readonly string[] CzytnikiZmierzone =
     {
         "ChunkManifest.FromJson",
         "InputLog.Parse",
+        "JsonDocument.Parse",
+        "LineEntrySchedule.FromJson",
         "SignallingPlan.FromJson",
         "TelemetryTrack.TryParse",
         "TrackAxis.FromJson",
+        "tailAxisFile.GetAsText",
     };
 
     private static List<string> PlikiCsWarstwyGry() =>
@@ -138,8 +141,8 @@ public sealed class FileReadGuardTests
             + string.Join(", ", bezOslony.Select(c => $"{c.Plik}:{c.Wiersz} {c.Wywolanie}"))
             + " — uszkodzony plik kończy się tam zrzutem środowiska, a nie wierszem `Abort`");
 
-        Assert.AreEqual(4, czytniki.Count(c => c.Oslona == "try"),
-            "osłoniętych blokiem try ma być cztery, a jest: "
+        Assert.AreEqual(7, czytniki.Count(c => c.Oslona == "try"),
+            "osłoniętych blokiem try ma być siedem, a jest: "
             + string.Join(", ", czytniki.Select(c => $"{c.Wywolanie}={c.Oslona}")));
         Assert.AreEqual(1, czytniki.Count(c => c.Oslona == "TryParse"),
             "osłonięty przez TryParse ma być jeden (telemetria), a jest: "
@@ -155,10 +158,11 @@ public sealed class FileReadGuardTests
         // ile czytników JSON, bo każdy z nich ma własny wiersz odmowy.
         var zrodlo = File.ReadAllText(Path.Combine(
             MetroBxl.Tests.Shared.KorzenRepozytorium.Sciezka, "src", "Game", "FirstRun.cs"));
-        var czytnikiJson = Czytniki().Count(c => c.Wywolanie.EndsWith(".FromJson", StringComparison.Ordinal));
+        var czytnikiJson = Czytniki().Count(c => c.Wywolanie.EndsWith(".FromJson", StringComparison.Ordinal)
+            || c.Wywolanie == "JsonDocument.Parse");
         var klauzule = Regex.Matches(zrodlo, @"catch \(Exception error\) when \(BadFile\.IsWrongJsonShape\(error\)\)").Count;
 
-        Assert.AreEqual(3, czytnikiJson, $"czytników JSON w src/Game/ jest {czytnikiJson}, a zmierzono trzy");
+        Assert.AreEqual(5, czytnikiJson, $"czytników JSON w src/Game/ jest {czytnikiJson}, a zmierzono pięć");
         Assert.AreEqual(czytnikiJson, klauzule,
             $"klauzul na zły kształt dokumentu jest {klauzule} przy {czytnikiJson} czytnikach JSON");
     }

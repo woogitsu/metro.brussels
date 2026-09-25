@@ -41,6 +41,8 @@ public sealed class RunPlanTests
         Assert.IsNull(plan.TelemetryPath);
         Assert.IsNull(plan.ShotPath);
         Assert.AreEqual(ViewKind.Cab, plan.View);
+        Assert.IsTrue(plan.ShouldShowStartupErrorDialog(false));
+        Assert.IsFalse(plan.ShouldShowStartupErrorDialog(true));
     }
 
     [TestMethod]
@@ -103,6 +105,7 @@ public sealed class RunPlanTests
             ["line"] = new[] { "--limit-kmh=70" },
             ["limit-kmh"] = new[] { "--line" },
             ["calls"] = new[] { "--line", "--limit-kmh=70" },
+            ["scheduled-entries"] = new[] { "--line", "--limit-kmh=70", "--signalling=x" },
         };
 
         // `--signalling` ZESZŁO z tej listy 05.09.2026 i to jest treść G-5, a nie
@@ -125,6 +128,7 @@ public sealed class RunPlanTests
                 "trains" => "2",
                 "jitter" or "at-chainage" => "1.5",
                 "view" => "cab",
+                "visual-continuation" => "tail",
                 "limit-kmh" => "70",
                 _ => "x",
             };
@@ -169,14 +173,29 @@ public sealed class RunPlanTests
         // i oba LICZBOWE, więc na liście `PathArguments` ich nie ma i być nie powinno —
         // tamta mówi o kształcie WARTOŚCI, a pusta wartość liczbowa odpada już na
         // `TryLong`. Zakres `--trains` sprawdza osobna asercja przy `MaxTrains`.
-        Assert.AreEqual(20, samotnych, "argumentów bez zależności");
-        Assert.AreEqual(3, zZaleznoscia, "argumentów z zależnością");
+        Assert.AreEqual(21, samotnych, "argumentów bez zależności");
+        Assert.AreEqual(4, zZaleznoscia, "argumentów z zależnością");
         Assert.AreEqual(
             RunPlan.KnownArguments.Length, samotnych + zZaleznoscia,
             "pętla nie odwiedziła każdego znanego argumentu");
     }
 
     // --- USTERKA 2: nieznany widok -------------------------------------------------
+
+    [TestMethod]
+    public void Connector_preview_is_explicit_and_requires_geometry()
+    {
+        Assert.IsTrue(Parse("--visual-continuation=tail").IsValid,
+            "Domyślna sceneria pozostaje dostępna jawnie.");
+        Assert.IsTrue(Parse("--visual-continuation=connector-preview").IsValid,
+            "Projektowy podgląd można wybrać bez zmiany osi jazdy.");
+        Assert.AreEqual(BadArgumentValue,
+            Parse("--visual-continuation=connector-preview", "--no-geometry").ExitCode,
+            "Podgląd bez geometrii nie może kończyć się pustą sceną.");
+        Assert.AreEqual(BadArgumentValue,
+            Parse("--visual-continuation=unknown").ExitCode,
+            "Nieznana kontynuacja nie może po cichu wracać do 300 m ogona.");
+    }
 
     /// <summary>
     /// Zmierzone: <c>--view=zmyslony</c> CICHO spadało do widoku z kabiny. Zrzut
@@ -200,6 +219,8 @@ public sealed class RunPlanTests
         Assert.AreEqual(ViewKind.Chase, Parse("--view=chase").View);
         Assert.AreEqual(ViewKind.Outside, Parse("--view=outside").View);
         Assert.AreEqual(ViewKind.Inspect, Parse("--view=inspect").View);
+        Assert.AreEqual(ViewKind.Platform, Parse("--view=platform").View,
+            "widok z płyty peronu musi używać własnej kamery");
     }
 
     /// <summary>
@@ -207,7 +228,7 @@ public sealed class RunPlanTests
     /// z <see cref="RunPlan.KnownViews"/>, nie wypisane.
     ///
     /// <para><b>Skąd ten test.</b> Test wyżej wymienia widoki z ręki, więc dopisanie
-    /// piątego do <c>KnownViews</c> bez gałęzi w <c>switch</c> przeszłoby go: nowa
+    /// kolejnego do <c>KnownViews</c> bez gałęzi w <c>switch</c> przeszłoby go: nowa
     /// nazwa spadłaby na <c>_ => ViewKind.Cab</c> i scena CICHO dałaby kabinę.
     /// Dokładnie ta usterka jest opisana przy 6.C4 dla <c>--view=zmyslony</c>, tylko
     /// tam nazwa była nieznana, a tu byłaby znana i milcząca. Liczba widoków
@@ -238,7 +259,7 @@ public sealed class RunPlanTests
     public void Widok_inspekcyjny_dochodzi_do_trzech_a_nie_zamiast()
     {
         CollectionAssert.AreEqual(
-            new[] { "cab", "chase", "outside", "inspect" },
+            new[] { "cab", "chase", "outside", "inspect", "side", "platform" },
             RunPlan.KnownViews,
             "kolejność i skład KnownViews: " + string.Join(", ", RunPlan.KnownViews));
     }
@@ -365,6 +386,7 @@ public sealed class RunPlanTests
         Assert.AreEqual("telemetry", plan.Mode);
         Assert.IsTrue(plan.ScriptedMode);
         Assert.AreEqual("build/t400/run.csv", plan.TelemetryPath);
+        Assert.IsFalse(plan.ShouldShowStartupErrorDialog(false));
     }
 
     [TestMethod]
@@ -940,11 +962,8 @@ public sealed class RunPlanTests
     [TestMethod]
     public void ReplayRefusesASecondSourceOfCommand()
     {
-        var zLinia = Parse("--replay=/tmp/keys.log", "--line", "--limit-kmh=70");
-        Assert.IsFalse(zLinia.IsValid, "--replay przeszło razem z --line");
-        Assert.IsTrue(zLinia.Error!.Contains("--replay nie łączy się z --line"), zLinia.Error);
-        Assert.AreEqual(BadArgumentValue, zLinia.ExitCode);
-
+        // `--replay` z `--line` jest od 6.M1 POPRAWNE (test niżej); odmową zostaje zrzut,
+        // bo to drugi warunek końca tego samego przebiegu.
         var zeZrzutem = Parse("--replay=/tmp/keys.log", "--shot=/tmp/a.png", "--at-chainage=2000");
         Assert.IsFalse(zeZrzutem.IsValid, "--replay przeszło razem z --shot");
         Assert.AreEqual(BadArgumentValue, zeZrzutem.ExitCode);
@@ -955,7 +974,10 @@ public sealed class RunPlanTests
     {
         // Plik nazwany „zapisem wejść", powstały z przebiegu, którego nikt nie prowadził,
         // wyglądałby po odtworzeniu jak dowód determinizmu wejścia gracza — i nim nie był.
-        foreach (var tryb in new[] { "--line --limit-kmh=70", "--shot=/tmp/a.png", "--telemetry=/tmp/o.csv" })
+        //
+        // `--line` wyszło z tej listy przy 6.M1: przejazd linii ma maszynistę przy jednym
+        // ze składów, a jego polecenia trafiają do zapisu (test niżej).
+        foreach (var tryb in new[] { "--shot=/tmp/a.png", "--telemetry=/tmp/o.csv" })
         {
             var arguments = new List<string> { "--input-log=/tmp/keys.log" };
             arguments.AddRange(tryb.Split(' '));
@@ -965,6 +987,39 @@ public sealed class RunPlanTests
             Assert.IsTrue(plan.Error!.Contains("--input-log ma sens tylko"), plan.Error);
             Assert.AreEqual(BadArgumentValue, plan.ExitCode, tryb);
         }
+    }
+
+    [TestMethod]
+    public void Linia_przyjmuje_odtworzenie_z_telemetria_i_zapis_wejsc_6M1()
+    {
+        // Odtworzenie linii: telemetria jest wtedy WYJŚCIEM, więc tryb zostaje liniowy,
+        // a nie skryptowy — inaczej scena zbudowałaby `ScenarioDrive` zamiast linii.
+        var odtworzenie = Parse(
+            "--replay=/tmp/keys.log", "--line", "--limit-kmh=70", "--signalling=/tmp/p.json",
+            "--telemetry=/tmp/o.csv");
+        Assert.IsTrue(odtworzenie.IsValid, odtworzenie.Error);
+        Assert.IsTrue(odtworzenie.LineMode, "odtworzenie z --telemetry przestało być trybem linii");
+        Assert.IsFalse(odtworzenie.ScriptedMode, "odtworzenie linii wpadło w przebieg skryptowy");
+        Assert.IsTrue(odtworzenie.ReplayMode, "--replay przestało być odtworzeniem");
+        Assert.IsFalse(odtworzenie.ReadsKeyboard, "odtworzenie linii czyta klawiaturę");
+
+        // Przejazd linii z klawiatury ZAPISUJE wejścia.
+        var zapis = Parse("--input-log=/tmp/keys.log", "--line", "--limit-kmh=70");
+        Assert.IsTrue(zapis.IsValid, zapis.Error);
+        Assert.IsTrue(zapis.LineMode, "--line z --input-log przestało być trybem linii");
+        Assert.IsTrue(zapis.ReadsKeyboard, "przejazd linii z zapisem wejść nie czyta klawiatury");
+
+        // Kontrola w drugą stronę: bez `--replay` para `--line --telemetry` zostaje ODMOWĄ,
+        // bo wtedy telemetria byłaby drugim źródłem polecenia.
+        var bezOdtworzenia = Parse("--line", "--limit-kmh=70", "--telemetry=/tmp/o.csv");
+        Assert.IsFalse(bezOdtworzenia.IsValid, "--line --telemetry przeszło bez --replay");
+        Assert.AreEqual(BadArgumentValue, bezOdtworzenia.ExitCode, "odmowa --line --telemetry bez --replay ma zły kod wyjścia");
+
+        // Bez planu sygnalizacji linia nie ma maszynisty — odtworzenie jest ODMOWĄ.
+        var bezPlanu = Parse("--replay=/tmp/keys.log", "--line", "--limit-kmh=70");
+        Assert.IsFalse(bezPlanu.IsValid, "--replay --line przeszło bez --signalling");
+        Assert.IsTrue(bezPlanu.Error!.Contains("--replay z --line wymaga --signalling"), bezPlanu.Error);
+        Assert.AreEqual(BadArgumentValue, bezPlanu.ExitCode, "odmowa --replay --line bez --signalling ma zły kod wyjścia");
     }
 
     [TestMethod]
@@ -1188,7 +1243,7 @@ public sealed class RunPlanTests
     {
         foreach (var nazwa in RunPlan.PathArguments)
         {
-            if (nazwa == "calls")
+            if (nazwa is "calls" or "scheduled-entries")
             {
                 // `--calls` wymaga `--line`, a `--line` wymaga `--limit-kmh`.
                 continue;
@@ -1207,16 +1262,30 @@ public sealed class RunPlanTests
     /// a petla wyzej nadal bylaby zielona — na mniejszym zbiorze.
     /// </summary>
     [TestMethod]
-    public void Lista_opcji_sciezkowych_jest_podzbiorem_znanych_i_ma_dziesiec_pozycji()
+    public void Lista_opcji_sciezkowych_jest_podzbiorem_znanych_i_ma_jedenascie_pozycji()
     {
-        Assert.AreEqual(10, RunPlan.PathArguments.Length,
-            "opcji sciezkowych bylo 10 przy 6.A28: " + string.Join(" ", RunPlan.PathArguments));
+        Assert.AreEqual(11, RunPlan.PathArguments.Length,
+            "opcji sciezkowych jest 11: " + string.Join(" ", RunPlan.PathArguments));
         foreach (var nazwa in RunPlan.PathArguments)
         {
             Assert.IsTrue(Array.IndexOf(RunPlan.KnownArguments, nazwa) >= 0,
                 nazwa + " jest na liscie sciezkowych, a nie ma go w KnownArguments");
         }
         CollectionAssert.AllItemsAreUnique(RunPlan.PathArguments);
+    }
+
+    [TestMethod]
+    public void Rozklad_dwoch_wejsc_wymaga_linii_i_sygnalizacji_oraz_pozwala_na_replay()
+    {
+        var baseArgs = new[] { "--line", "--limit-kmh=70", "--signalling=plan.json",
+            "--scheduled-entries=entries.json" };
+        Assert.IsTrue(Parse(baseArgs).IsValid, "plan dwóch wejść ma jawny tryb linii i sygnalizację");
+        Assert.IsFalse(Parse("--scheduled-entries=entries.json").IsValid,
+            "plan bez linii nie może być cicho ignorowany");
+        Assert.IsTrue(Parse(baseArgs.Append("--replay=inputs.csv").ToArray()).IsValid,
+            "odtwarzanie rozkładu używa tego samego dyspozytora co scena");
+        Assert.IsTrue(Parse(baseArgs.Append("--input-log=inputs.csv").ToArray()).IsValid,
+            "wejścia maszynisty w rozkładzie można zapisać i odtworzyć");
     }
 
     /// <summary>

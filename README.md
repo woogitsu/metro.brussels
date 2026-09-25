@@ -20,7 +20,7 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 
 ## Stan: co działa, a czego nie ma
 
-**Rdzeń symulacji — `src/Sim/`, 59 plików `.cs`, kompiluje się i testuje bez silnika:**
+**Rdzeń symulacji — `src/Sim/`, 65 plików `.cs`, kompiluje się i testuje bez silnika:**
 
 - fizyka: model trakcji M7, opór Davisa, hamowanie służbowe i granica przyczepności,
   krok stały 1/120 s liczony **licznikiem kroków**, nigdy `t += dt`;
@@ -28,6 +28,8 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
   nastawnia automatyczna ryglująca trasę na następny odcinek międzystacyjny;
 - prowadzenie: scenariusz jazdy, przejazd linią, cykl drzwi, postój na stacji,
   obsługa stacji dla składu prowadzonego ręcznie (okno zatrzymania, blokada trakcji);
+- dyspozytor zgłasza odrębne kursy na osi w ich krokach rozkładowych; ponowny kurs
+  tego samego `block_id` wymaga jeszcze modelu transferu pojazdu poza osią;
 - **sesja treningowa**: warunek końca przejazdu gracza, cele wskazywane identyfikatorami
   przystanków z osi, wynik powstający dokładnie raz i zerowany przez ten sam reset,
   co reszta stanu — liczniki ochrony liczą ZDARZENIA (zbocza), nie kroki;
@@ -45,6 +47,16 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
   w liczniku miniętych; błąd zatrzymania jest mierzony i pokazywany;
 - **tryb `--line`**: scena przejeżdża całą linię z 11 zatrzymaniami, prowadzona rdzeniem;
   zatrzymania sceny i rdzenia są identyczne co do wszystkich kolumn (próg **zerowy**);
+- **wariant dwóch wejść rozkładowych**: jawne `--line --signalling=PLAN
+  --limit-kmh=70 --scheduled-entries=PLIK` czyta zewnętrzny plik projekcji dwóch
+  kursów na osi `L1_A`. Zegar zaczyna o północy dnia służby i czeka na każdy
+  `release_s`; zajęty blok może opóźnić rzeczywisty wjazd. Plik musi mieć unikalne
+  `block_id`. Projekcja pełnych 357 kursów nie jest jeszcze obsługiwana, ponieważ
+  ponowne użycie obiegu wymaga osobnej polityki transferu pojazdu. Testy korzystają
+  z wyraźnie syntetycznych identyfikatorów kursów i obiegów; repozytorium nie zawiera
+  gotowego pliku dwóch rzeczywistych kursów GTFS. Odtwarzanie zapisu wejść działa
+  w scenie (`--replay=ZAPIS`) i w `Sim.Runner replay --line --scheduled-entries PLIK`;
+  obie drogi wykonują te same wejścia i dają identyczną telemetrię.
 - **sygnalizacja w kabinie** (`--signalling`, działa też BEZ `--line`): skład wchodzi
   na bloki, nastawnia rygluje mu trasy, a ATP **naprawdę hamuje za maszynistę** —
   ostrzeżenie, potem hamulec służbowy. HUD pokazuje prędkość dopuszczalną, autorytet
@@ -87,9 +99,9 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
   nie wjeżdża w blok zajęty przez inny. Scena pokazuje **jeden**: `FirstRun` ma jeden
   węzeł `TrainView`. To jest ograniczenie WIDOKU, nie rdzenia — T-320 ma etap 2
   zrobiony, a otwarty zostaje takt i obiegi z T-113;
-- **wnętrza kabiny w scenie.** Geometria kabiny jest od 6.D119 —
-  `tools/blender/m7_cab.py` buduje ją ze skryptu — ale **24** jej wymiary to
-  `design_assumption` i ani jeden nie pochodzi ze STIB, a scena nie ma węzła wnętrza;
+- **wiernego wnętrza kabiny.** Scena ma kanoniczny model z podłogą, tylną grodzią
+  i fotelem, obecnie bez pulpitu. `tools/blender/m7_cab.py` buduje go ze skryptu;
+  **19** wymiarów ma status `design_assumption` i żaden nie pochodzi ze STIB;
 - **ciągłego kilometrażu linii.** `data/track/` pokrywa pakiety, nie linie; między
   pakietami zostaje 4034 m bez geometrii — ta druga liczba jest z kształtów GTFS,
   których w repozytorium nie ma, więc **żadna bramka jej nie sprawdza** (6.D104 §5).
@@ -134,11 +146,9 @@ Wszystkie oprócz ostatniego są bramkami, po jednej na zadanie weryfikacyjne;
 `prune-merged-branches` jest utrzymaniowy i odpala się wyłącznie ręcznie
 (`workflow_dispatch`).
 
-**Wszystkie chodzą na self-hosted runnerze**, na gołej etykiecie — bez ani jednej
-dodatkowej. Tego samego wymaga `tools/tests/test_ci_workflows.py`, gdzie komplet dwóch
-etykiet jest już odrzucany. Nazw ani liczby maszyn README nie podaje: dobór idzie po
-etykiecie, a liczebności puli nie da się sprawdzić z repozytorium. Runnera nie wybiera
-się po nazwie — to zwężałoby pulę do jednej maszyny.
+**Wszystkie chodzą na GitHub-hosted `ubuntu-latest`**. Tego samego wymaga
+`tools/tests/test_ci_workflows.py`; wcześniejszy selektor `self-hosted` nie jest
+już używany po upublicznieniu repozytorium 24.09.2026.
 
 Ten akapit stoi osobno i bez ani jednego markera przeszłości, żeby `test_docs_ci_claims.py`
 faktycznie go czytał; powód rozpisany w `CLAUDE.md` §9 i zmierzony

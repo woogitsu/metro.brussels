@@ -17,8 +17,8 @@ Zasada nadrzędna, z `CLAUDE.md` §5:
 | `tools/visual/capture_blender.py` | render wg manifestu, zapis `*_metadata.json` |
 | `tools/visual/compare.py` | sanity, metryki, porównanie z baseline, raport JSON/MD |
 | `tools/visual/pngio.py` | czytanie i zapis PNG bez Pillow i bez numpy |
-| `tools/ci/visual_smoke.sh` | pięć testów pipeline'u na runnerze self-hosted |
-| `.github/workflows/visual-regression.yml` | job na gołym `self-hosted`, artefakty także przy fail |
+| `tools/ci/visual_smoke.sh` | pięć testów pipeline'u na runnerze GitHuba |
+| `.github/workflows/visual-regression.yml` | job na `ubuntu-latest`, artefakty także przy fail |
 
 ## Użycie
 
@@ -268,7 +268,7 @@ pozostają twarde.
 
 ## Co sprawdza CI
 
-`tools/ci/visual_smoke.sh` na gołej etykiecie `self-hosted`:
+`tools/ci/visual_smoke.sh` na `ubuntu-latest`:
 
 1. brak baseline → `new-baseline`, kod wyjścia != 0, żaden baseline nie powstaje;
 2. dwa niezależne przebiegi renderu → `pass`, MAE 0;
@@ -280,11 +280,9 @@ pozostają twarde.
 Hak `--test-shift` służy wyłącznie do punktu 5. Przesunięcie stosuje się po
 rozwiązaniu kamer, bo przed nim byłoby niewidoczne (patrz sekcja wyżej).
 
-Poprzednia wersja tego rozdziału mówiła, że job chodzi na `ubuntu-latest`, i tak
-samo mówiła tabela elementów wyżej („GitHub-hosted runner"); to już nieprawda,
-dlatego jest tu przepisana, a nie dopisana obok. Od 02.09.2026, po wyczerpaniu
-minut GitHub Actions, całe CI chodzi na gołej etykiecie `self-hosted`
-(`CLAUDE.md` §9). Bramką przeciw powrotowi tego zapisu jest
+Od 24.09.2026, po upublicznieniu repozytorium, CI wróciło na `ubuntu-latest`
+(`CLAUDE.md` §9). Wcześniej, od 02.09.2026, używało `self-hosted` po
+wyczerpaniu minut prywatnego repozytorium. Bramką przeciw dryfowi opisu jest
 `tools/tests/test_docs_ci_claims.py`, która czyta etykiety ze sparsowanych
 workflowów, a nie z drugiej listy w teście.
 

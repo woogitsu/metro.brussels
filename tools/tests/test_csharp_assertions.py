@@ -300,7 +300,9 @@ BEZ_KOMUNIKATU = {
     # tylko maleć i to jest jej cała treść — wpis podniesiony byłby cichym przyzwoleniem
     # na asercję, która nie mówi, co jest nie tak.
     "LineCoreTests.cs": 43,
-    "LineDriveTests.cs": 21,
+    # 21 -> 29 (24.09.2026): końcowy postój Merode i ślad po ograniczeniu osi.
+    # 29 -> 23 (24.09.2026): sze?? nowych asercji postoju dosta?o opisy.
+    "LineDriveTests.cs": 23,
     "LineRouteTests.cs": 14,
     "LineRunTests.cs": 28,
     "MovementAuthorityTests.cs": 30,
@@ -310,19 +312,22 @@ BEZ_KOMUNIKATU = {
     "ReferenceParityTests.cs": 8,
     "RouteDispatcherTests.cs": 24,
     "RunHeaderTests.cs": 11,
-    "RunPlanTests.cs": 107,
+    "RunPlanTests.cs": 109,
     "RunResetTests.cs": 40,
     "RunnerCommandTests.cs": 126,
     "ScenarioDriveTests.cs": 35,
-    "SceneAxisTests.cs": 10,
+    # 10 -> 11 (24.09.2026): oprawa nie wykracza za zmierzoną scenerię.
+    "SceneAxisTests.cs": 11,
     "ServiceDayTests.cs": 31,
-    "SignallingHudTests.cs": 15,
+    "SignallingHudTests.cs": 21,
     "SignallingPlanTests.cs": 23,
     "SpeedProfileTests.cs": 29,
     "StationServiceTests.cs": 53,
     "StepAccumulatorTests.cs": 17,
     "StreamingPlanTests.cs": 30,
     "TelemetryTrackTests.cs": 33,
+    # Koniec osi: sześć dokładnych porównań stanu bez opisów w nowym teście.
+    "TrackEndStopTests.cs": 6,
     "TrackAxisTests.cs": 41,
     "TractionAndResistanceTests.cs": 16,
     "TrainControllerTests.cs": 23,
@@ -440,8 +445,76 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 1750 -> 1770 (22.09.2026, 6.M2): DWADZIESCIA asercji `StopWindowParityTests.cs`,
 # wszystkie z komunikatem — obie zapadki rosna o tyle samo.
 # 1770 -> 1787 (22.09.2026, 6.D235): SIEDEMNASCIE asercji, wszystkie z komunikatem.
-Z_KOMUNIKATEM_RAZEM = 1787
-NIEROZSTRZYGNIETYCH = 68
+# 1787 -> 1792 (23.09.2026, 6.D365): te same PIEC asercji, wszystkie z komunikatem; ZMIERZONE.
+# 1792 -> 1829 (23.09.2026, 6.M1): TRZYDZIESCI SIEDEM asercji z komunikatem —
+# `LineReplayTests.cs` i nowy test `RunPlanTests.cs` oraz dwie asercje, ktore
+# dostaly komunikat. Przeliczone z drzewa.
+# 1829 -> 1842 (23.09.2026, 6.M3): TRZYNASCIE asercji, wszystkie z komunikatem.
+# 1842 -> 1850 (23.09.2026, 6.D357): OSIEM asercji `BrokenJsonRefusalTests.cs`,
+# wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
+# 1850 -> 1865 (23.09.2026, 6.D356): PIETNASCIE asercji `BrokenJsonRefusalTests.cs`,
+# wszystkie z komunikatem — obie zapadki rosna o tyle samo; ZMIERZONE.
+# 1865 -> 1874 (23.09.2026, tunel): dziewiec nowych asercji z komunikatem.
+# 1874 -> 1886 (24.09.2026, door-prompt-service): dwanascie asercji w
+# `DoorPromptTests.cs` i `HudLayoutTests.cs`, kazda z komunikatem; ZMIERZONE.
+# 1886 -> 1896 (24.09.2026, braking cue): dziesiec asercji wskazowki hamowania.
+# 1896 -> 1901 (24.09.2026, PR #771): piec asercji krawedzi peronu z komunikatem.
+# 1901 -> 1903 (24.09.2026, kamera): dwie kontrole koncow osi.
+# 1903 -> 1915 (24.09.2026, dwustopniowe cue): dwanascie asercji z komunikatem.
+# 1915 -> 1920 (24.09.2026, S): piec kontroli natychmiastowego wygaszenia.
+# 1920 -> 1925 (24.09.2026, oznaczenia stacji): piec asercji pelnej nazwy
+# i polozenia znacznikow, wszystkie z komunikatem; zmierzone z drzewa.
+# 1925 -> 1939 (24.09.2026, pamiec cue): czternascie asercji testow fazy.
+# 1939 -> 1947 (24.09.2026, autopilot E): osiem asercji z komunikatem.
+# 1947 -> 1950 (24.09.2026, HUD 800x600): trzy asercje zachowania pozycji.
+# 1950 -> 1966 (24.09.2026, wybór składu i HUD): 17 nowych kontroli N/T,
+# jedna mniej po scaleniu dwóch sprawdzeń pełnego wiersza pozycji.
+# 1966 -> 1973 (24.09.2026, interaktywne R): siedem kontroli zakończenia,
+# wszystkie z komunikatem.
+# 1973 -> 1977 (24.09.2026, automat bez sygnalizacji): cztery asercje
+# strażnika BrakingCue, każda z komunikatem.
+# 1977 -> 1978 (24.09.2026, widok chase 800x600): jedna asercja zawijania View.
+# 1978 -> 1982 (24.09.2026, krótki HUD chase): cztery granice z opisem.
+# 1982 -> 1995 (24.09.2026, tablice na dojeździe i pomoc linii):
+# trzynaście kontroli z komunikatami; trzy nowe komunikaty dopisano przy scaleniu.
+# 1995 -> 1997 (24.09.2026, mocowania tablic): obie asercje opisują sens błędu.
+# 1997 -> 2010 (24.09.2026, wejście składu od wskazanej stacji):
+# trzynaście nowych asercji opisuje także blokadę drugiego składu i dojazd.
+# 2010 -> 2025 (24.09.2026, T-320): osiem asercji planu wejść i siedem
+# kontroli ciągłości obiegów ma komunikaty.
+# 2025 -> 2035 (24.09.2026, T-320): dziesięć kontroli bramki wjazdu.
+# 2035 -> 2040 (24.09.2026, T-320): pięć kontroli chronologii obiegu.
+# 2040 -> 2049 (24.09.2026, T-320): dziewięć asercji wykrywania pominiętych kursów.
+# 2049 -> 2054 (24.09.2026, T-320): walidacja dnia służby i godziny po północy.
+# 2054 -> 2063 (24.09.2026, koniec osi linii): dziewięć opisanych kontroli
+# postoju Merode i opraw scenerii.
+# 2063 -> 2077 (24.09.2026, dwa wjazdy rozkładowe): czternaście kontroli
+# ma teraz jawne komunikaty, także sześć porównań początkowo bez opisu.
+# Po integracji dyspozytora i hamowania: 2133 opisane asercje, zmierzone w drzewie.
+# 2077 -> 2144 (24.09.2026, integracja dyspozytora, test granicy, hamowanie i metadane).
+# Równoległy pomiar gałęzi obserwacji:
+# 2144 -> 2173 (24.09.2026, nowe testy sceny i adaptera rozkladu).
+# 2173 -> 2179 (24.09.2026, krok wjazdu i pozycja kabiny).
+# 2179 -> 2198 (25.09.2026, obserwacja czynnych składów): dziewiętnaście
+# asercji w dwóch testach ma jawne komunikaty; klasy bez opisu nie rosną.
+# Równoległy pomiar gałęzi podglądu łącznika:
+# Równoległa gałąź miała pomiary 2144 → 2148 i 2148 → 2183.
+# 2198 -> 2202 (25.09.2026, integracja obserwacji i podglądu łącznika).
+# 2202 -> 2206 (25.09.2026, nastawnik): cztery asercje przejścia przez neutral.
+# 2206 -> 2209 (25.09.2026, tablice stacyjne): trzy kontrole z komunikatami.
+# 2209 -> 2216 (25.09.2026, asercje odcisku i drugiego składu z komunikatami).
+# 2216 -> 2220 (25.09.2026, odcisk taktu pytań nastawni).
+# 2220 -> 2223 (25.09.2026, AZERTY): trzy asercje pary W/Z mają komunikaty.
+# 2223 -> 2232 (25.09.2026, T-400 ATP): wszystkie dziewięć nowych asercji ma komunikat.
+# 2232 -> 2233 (25.09.2026, T-400 platform): mapowanie widoku z komunikatem.
+# 2233 -> 2240 (25.09.2026, T-400 platform): siedem kontroli obrysu z komunikatem.
+# 2240 -> 2247 (25.09.2026, T-400 stop target): all seven new assertions explain the failure.
+# 2247 -> 2250 (25.09.2026, T-400 stop target): three active-track placement checks.
+# 2250 -> 2258 (25.09.2026, T-400 outcome): lifecycle assertions explain each transition.
+# 2258 -> 2263 (25.09.2026, T-400 outcome): cab cue lifecycle assertions.
+# 2263 -> 2265 (25.09.2026, liczność przypisań HUD i tablicy STOP).
+Z_KOMUNIKATEM_RAZEM = 2265
+NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
 #: switchy `src/Sim/`. Wszystkie z komunikatem, więc `Z_KOMUNIKATEM_RAZEM` rośnie
@@ -531,7 +604,78 @@ NIEROZSTRZYGNIETYCH = 68
 # kazda z komunikatem. Przeliczone z drzewa.
 # 3217 -> 3234 (22.09.2026, 6.D235): SIEDEMNASCIE asercji `FileReadGuardTests.cs`
 # i `BadFileTests.cs`. Przeliczone z drzewa.
-ASERCJI_RAZEM = 3234
+# 3234 -> 3239 (23.09.2026, 6.D365): PIEC asercji testow kultury — jedna w
+# `TrainingSessionTests.cs` (przecinek pl-PL) i cztery w `DoorCycleTests.cs`; ZMIERZONE.
+# 3239 -> 3275 (23.09.2026, 6.M1): TRZYDZIESCI SZESC asercji — `LineReplayTests.cs`
+# i nowy test `RunPlanTests.cs`, minus jedna zdjeta z `ReplayRefusesASecondSourceOfCommand`.
+# Przeliczone z drzewa.
+# 3275 -> 3288 (23.09.2026, 6.M3): TRZYNASCIE asercji trzech testow okna drzwi
+# w `StopWindowParityTests.cs`. Przeliczone z drzewa.
+# 3288 -> 3296 (23.09.2026, 6.D357): OSIEM asercji `BrokenJsonRefusalTests.cs` —
+# szesc w petli po 10 parach loader x ksztalt (wyjatek, zero slow parsera, obecnosc
+# pozycji, wiersz, bajt, podloga na liczbe par) i dwie w kontroli pozycji z edytora;
+# ZMIERZONE.
+# 3296 -> 3311 (23.09.2026, 6.D356): PIETNASCIE asercji `BrokenJsonRefusalTests.cs`
+# na odmowie CLI przy dokumencie innego KSZTALTU — trzy ksztalty przez
+# `Program.Main`, kontrola w druga strone na wlasnych wyjatkach rdzenia i wiersz
+# wspolnego handlera. Kazda z komunikatem; ZMIERZONE.
+# 3311 -> 3320 (23.09.2026, tunel): dziewiec asercji testow nowej sceny tunelu.
+# 3320 -> 3332 (24.09.2026, door-prompt-service): te same dwanascie asercji
+# nowych testow komunikatu postoju i ukladu HUD; ZMIERZONE.
+# 3332 -> 3342 (24.09.2026, braking cue): dziesiec asercji `BrakingCueTests`.
+# 3342 -> 3347 (24.09.2026, PR #771): piec asercji `StationEdgeVisibilityTests`.
+# 3347 -> 3349 (24.09.2026, kamera): dwie asercje ciaglosci i kierunku.
+# 3349 -> 3361 (24.09.2026, dwustopniowe cue): te same dwanascie asercji.
+# 3361 -> 3366 (24.09.2026, S): piec kontroli natychmiastowego wygaszenia.
+# 3366 -> 3371 (24.09.2026, oznaczenia stacji): piec asercji nowych testow.
+# 3371 -> 3385 (24.09.2026, pamiec cue): te same czternascie asercji.
+# 3385 -> 3393 (24.09.2026, autopilot E): te same osiem asercji.
+# 3393 -> 3396 (24.09.2026, HUD 800x600): te same trzy asercje.
+# 3396 -> 3412 (24.09.2026, wybór składu i HUD): te same 16 netto.
+# 3412 -> 3419 (24.09.2026, interaktywne R): te same siedem kontroli.
+# 3419 -> 3423 (24.09.2026, automat bez sygnalizacji): te same cztery.
+# 3423 -> 3424 (24.09.2026, widok chase 800x600): ta sama asercja.
+# 3424 -> 3428 (24.09.2026, krótki HUD chase): cztery stany granicy.
+# 3428 -> 3441 (24.09.2026, integracja tablic i pomocy linii):
+# te same trzynaście kontroli z komunikatami.
+# 3441 -> 3447 (24.09.2026, stan składu po zjeździe): sześć asercji.
+# 3447 -> 3449 (24.09.2026, mocowania tablic): dwie asercje długości wsporników.
+# 3449 -> 3462 (24.09.2026, wejście składu od wskazanej stacji).
+# 3462 -> 3477 (24.09.2026, T-320): plan wejść i ciągłość obiegów.
+# 3477 -> 3487 (24.09.2026, T-320): dziesięć kontroli bramki wjazdu.
+# 3487 -> 3492 (24.09.2026, T-320): pięć kontroli chronologii obiegu.
+# 3492 -> 3501 (24.09.2026, T-320): dziewięć kontroli bramki z planem.
+# 3501 -> 3506 (24.09.2026, T-320): dzień służby i zapis 25:00.
+# 3506 -> 3512 (24.09.2026, koniec osi): sześć kontroli stanu granicznego.
+# 3512 -> 3530 (24.09.2026, koniec osi linii): końcowy postój i oprawy scenerii;
+# po dziewięć asercji z komunikatem i bez komunikatu.
+# 3530 -> 3544 (24.09.2026, dwa wjazdy rozkładowe): czternaście kontroli
+# integracji LineEntrySchedule/LineEntryGate z planem blokowym L1_A. Wszystkie
+# mają komunikat; zapadka BEZ_KOMUNIKATU pozostaje surowa.
+# Po integracji dyspozytora i hamowania: 3595 wywolan, zmierzone w drzewie.
+# 3544 -> 3606 (24.09.2026, testy dyspozytora, hamowania i scenerii).
+# Równoległy pomiar gałęzi obserwacji:
+# 3606 -> 3635 (24.09.2026, scena i adapter odtwarzania rozkladu).
+# 3635 -> 3641 (24.09.2026, te same testy).
+# 3641 -> 3660 (25.09.2026, obserwacja czynnych składów): zmierzone w drzewie.
+# Równoległy pomiar gałęzi podglądu łącznika:
+# Równoległa gałąź miała pomiary 3606 → 3610 i 3610 → 3645.
+# 3660 -> 3664 (25.09.2026, integracja obserwacji i podglądu łącznika).
+# 3664 -> 3668 (25.09.2026, nastawnik): cztery asercje przejścia przez neutral.
+# 3668 -> 3671 (25.09.2026, tablice stacyjne): trzy kontrole skrajni i stropu.
+# 3671 -> 3678 (25.09.2026, powtarzalność odcisku i drugi skład).
+# 3678 -> 3682 (25.09.2026, stan nastawni o różnych terminach pytań).
+# 3682 -> 3685 (25.09.2026, AZERTY): trzy asercje nowego testu mapy.
+# 3685 -> 3694 (25.09.2026, T-400 ATP): dziewięć asercji testu trzech składów.
+# 3694 -> 3695 (25.09.2026, T-400 platform): jawna kontrola mapowania widoku.
+# 3695 -> 3702 (25.09.2026, T-400 platform): siedem kontroli rzeczywistego obrysu peronu.
+# 3702 -> 3709 (25.09.2026, T-400 stop target): seven clearance and endpoint assertions.
+# 3709 -> 3712 (25.09.2026, T-400 stop target): three active-track placement assertions.
+# 3712 -> 3720 (25.09.2026, T-400 outcome): eight lifecycle assertions.
+# 3720 -> 3725 (25.09.2026, T-400 outcome): five in-cab cue assertions.
+# 3725 -> 3727 (25.09.2026, jawne granice aktualizacji etykiet HUD i STOP).
+# 3727 -> 3730 (25.09.2026, trzy asercje planu r?cznego po integracji T-400).
+ASERCJI_RAZEM = 3730
 
 
 def _rozklad():
@@ -688,9 +832,9 @@ if __name__ == "__main__":
 ZAWEZONYCH_PIERWSZYM_NAPISEM = 4
 
 #: Ilu zawezenie po literale CALKOWITYM dotyczyloby, gdyby je przyjac — 6.D156.
-#: Stoi tu, bo liczba odrzuconego zawezenia jest TRESCIA rozstrzygniecia: 25 to nie
+#: Stoi tu, bo liczba odrzuconego zawezenia jest TRESCIA rozstrzygniecia: 26 to nie
 #: „kilka", tylko szesciokrotnosc tego, co przyjeto, i mimo to nie wchodzi.
-ODRZUCONYCH_PIERWSZYM_CALKOWITYM = 25
+ODRZUCONYCH_PIERWSZYM_CALKOWITYM = 26
 
 
 def _pierwsze_argumenty_nierozstrzygnietych():

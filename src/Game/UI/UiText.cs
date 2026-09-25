@@ -72,6 +72,7 @@ public static class UiText
             // „chainage" jest tu angielskie i takie zostaje: napis przeniesiony
             // co do znaku, bo ta pozycja robi miejsce, nie treść.
             ["hud.position"] = "chainage {0} m / {1} m     {2} za {3} m",
+            ["hud.position.with-station"] = "chainage {0} m / {1} m",
 
             // Wiersz prędkości — MB-03. Do 13.09.2026 składał się WPROST w ciele
             // `Hud.Update` i nie niósł sufitu; sufit stał wyłącznie w wierszu
@@ -110,8 +111,16 @@ public static class UiText
             ["hud.station.next"] = "{0} za {1} m   obsłużone {2}",
             ["hud.station.counter"] = "obsłużone {0}  minięte {1}",
             ["hud.station.no-more"] = "brak dalszych stacji   {0}",
+            ["hud.station.track-end"] = "KONIEC TORU — skład zatrzymany",
+            ["hud.station.track-end-name"] = "koniec toru",
+            ["hud.station.target-confirmed"] = "\nOSTATNI CEL: POSTÓJ POTWIERDZONY",
+            ["hud.station.target-served"] = "\nOSTATNI CEL: OBSŁUŻONY",
+            ["hud.station.target-missed"] = "\nOSTATNI CEL: MINIĘTY",
+            ["hud.connector-preview"] = "PROJEKT ŁĄCZNIKA — tory za Merode nieprzejezdne",
             ["hud.station.approach"] = "{0} za {1} m (okno ±{2} m){3}   {4}",
             ["hud.station.in-window"] = "  W OKNIE — zatrzymaj się",
+            ["hud.station.brake-now"] = "  HAMUJ TERAZ (S)",
+            ["hud.station.brake-prepare"] = "  PRZYGOTUJ HAMOWANIE",
             // --- drzwi RĘCZNE (`FirstRun.StationLine`, `FirstRun.PodpowiedzDrzwi`) — MB-08 ---
             // Trzeci wariant wiersza stacji, a nie czwarta dziura w dwóch istniejących.
             // Postój ręczny nie ma pola „jeszcze N s" — długość fazy otwartej podaje
@@ -119,14 +128,12 @@ public static class UiText
             // wypisać w niej albo zero (nieprawda), albo `NaN` (napis dla programisty).
             // Ta sama decyzja i ten sam powód, co przy dwóch wariantach wyżej (6.D99).
             ["hud.station.doors-manual"] =
-                "DRZWI {0} (ręcznie)  {1}  błąd zatrzymania {2} m   obsłużone {3}",
+                "DRZWI {0} (ręcznie)\n{1}\nbłąd zatrzymania {2} m   obsłużone {3}",
 
-            // SYGNAŁ GOTOWOŚCI DO ODJAZDU z pola „Wyjście" MB-08 to pierwszy z tych
-            // trzech wpisów. Nie jest osobnym napisem obok fazy drzwi, bo byłby wtedy
-            // drugim źródłem prawdy o tej samej rzeczy: trakcja jest wolna DOKŁADNIE
-            // w fazie zamkniętej (`DoorCycle.TractionAllowed`), więc gotowość do odjazdu
-            // jest zdaniem o fazie, a nie dodatkowym stanem.
-            ["hud.doors.ready"] = "D otwiera drzwi   trakcja WOLNA — można odjechać",
+            // Przed obsługą peronu zamknięte drzwi pozwalają ruszyć, ale odjazd
+            // pozostawiłby stację bez obsługi. HUD podaje właściwy następny krok
+            // i osobno zachowuje prawdziwą informację o stanie trakcji.
+            ["hud.doors.open-to-serve"] = "D: otwórz drzwi   trakcja WOLNA",
             ["hud.doors.prompt-close"] = "F zamyka drzwi",
             ["hud.doors.working"] = "skrzydła w ruchu — trakcja ZABLOKOWANA",
             ["hud.doors.refused"] = "ODMOWA: {0}",

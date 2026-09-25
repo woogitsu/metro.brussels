@@ -40,6 +40,22 @@ cd "$ROOT"
 OUT="${1:-build/paczka}"
 ZASOBY_SRC="${2:-build/t400}"
 NAZWA="MetroBXL"
+case "${PACZKA_SYSTEM:-linux}" in
+    linux)
+        PRESET="Linux"
+        BINARKA="$NAZWA.x86_64"
+        URUCHOMIENIE="./$BINARKA"
+        ;;
+    windows)
+        PRESET="Windows Desktop"
+        BINARKA="$NAZWA.exe"
+        URUCHOMIENIE="$BINARKA"
+        ;;
+    *)
+        echo "[PACZKA] BŁĄD: PACZKA_SYSTEM musi mieć wartość linux albo windows." >&2
+        exit 2
+        ;;
+esac
 
 GODOT_EXE="${GODOT_BIN:-godot}"
 if ! command -v "$GODOT_EXE" >/dev/null 2>&1 && [ ! -x "$GODOT_EXE" ]; then
@@ -93,9 +109,9 @@ mkdir -p "$OUT/$NAZWA/zasoby/chunks"
 DOCELOWY="$OUT/$NAZWA"
 ZASOBY="$DOCELOWY/zasoby"
 
-echo "[PACZKA] eksport binarki -> $DOCELOWY/$NAZWA.x86_64"
+echo "[PACZKA] eksport binarki -> $DOCELOWY/$BINARKA"
 "$GODOT_EXE" --headless --path src/Game \
-    --export-release "Linux" "$ROOT/$DOCELOWY/$NAZWA.x86_64" 2>&1 | tee "$OUT/eksport.log"
+    --export-release "$PRESET" "$ROOT/$DOCELOWY/$BINARKA" 2>&1 | tee "$OUT/eksport.log"
 
 # **KOD WYJŚCIA ZERA TU NIE WYSTARCZA i to jest zmierzone.** Bez `MetroBxl.Game.sln`
 # eksport kończy się ZEREM, wypisując przy tym ostrzeżenie — i pakuje PEŁNE ŹRÓDŁA C#
@@ -108,26 +124,43 @@ if grep -q "no solution file was found" "$OUT/eksport.log"; then
     exit 6
 fi
 
-test -x "$DOCELOWY/$NAZWA.x86_64" || {
+test -f "$DOCELOWY/$BINARKA" || {
     echo "[PACZKA] BŁĄD: eksport nie zostawił binarki." >&2; exit 6; }
 
 echo "[PACZKA] zasoby runtime -> $ZASOBY"
 cp "$ZASOBY_SRC/M7_shell.glb"        "$ZASOBY/"
 cp "$ZASOBY_SRC/M7_cab.glb"          "$ZASOBY/"
 cp "$ZASOBY_SRC/L1_A-platforms.glb"  "$ZASOBY/"
+cp "$ZASOBY_SRC/L1_A-station-board.glb" "$ZASOBY/"
+cp "$ZASOBY_SRC/L1_A-visual-tail.glb" "$ZASOBY/"
+cp "$ZASOBY_SRC/L1_A-visual-tail-detail.glb" "$ZASOBY/"
+cp "$ZASOBY_SRC/L1_A-visual-tail-axis.json" "$ZASOBY/"
 cp "$ZASOBY_SRC/chunks/L1_A-chunks.json" "$ZASOBY/chunks/"
 # Chunki i ich LOD-y — po nazwie, bo manifest wymienia je po nazwie.
 cp "$ZASOBY_SRC"/chunks/L1_A_*.glb "$ZASOBY/chunks/"
+
+python3 - "$ZASOBY_SRC/chunks/L1_A-chunks.json" "$ZASOBY_SRC/chunks" <<'PY'
+import json
+import os
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    chunks = json.load(handle)["chunks"]
+missing = [entry["id"] + "_detail.glb" for entry in chunks
+           if not os.path.isfile(os.path.join(sys.argv[2], entry["id"] + "_detail.glb"))]
+if missing:
+    raise SystemExit("[PACZKA] BŁĄD: brak detali dla chunków: " + ", ".join(missing))
+PY
 mkdir -p "$ZASOBY/data/track" "$ZASOBY/data/design/signalling"
 cp data/track/L1_A.json "$ZASOBY/data/track/"
 cp data/design/signalling/classic-2026.json "$ZASOBY/data/design/signalling/"
 
-cat > "$DOCELOWY/CZYTAJ-TO-NAJPIERW.txt" <<'CZYTAJ'
+cat <<'CZYTAJ' | sed "s|@URUCHOMIENIE@|$URUCHOMIENIE|" > "$DOCELOWY/CZYTAJ-TO-NAJPIERW.txt"
 METRO BXL — trening: pierwsze dwa postoje
 =========================================
 
 URUCHOMIENIE
-    ./MetroBXL.x86_64
+    @URUCHOMIENIE@
 
     Nie trzeba podawać żadnych argumentów. Nie trzeba mieć Godota ani Blendera.
     Katalog `zasoby/` musi zostać obok binarki — gra czyta go po ścieżce liczonej
@@ -161,8 +194,9 @@ ZADANIE
     na każdym, czas, droga i liczniki ochrony. `R` zaczyna od nowa.
 
 CZEGO W TEJ PACZCE NIE MA
-    Dźwięku, kabiny jako modelu wnętrza, innych linii niż pakiet A, rozkładu jazdy
-    i punktacji. Wynik to fakty, nie punkty.
+    Dźwięku, wiernego modelu kabiny M7, innych linii niż pakiet A, rozkładu jazdy
+    i punktacji. Widoczna kabina i wystrój tunelu są projektową wizualizacją;
+    wynik to fakty, nie punkty.
 
 ZAPIS WEJŚĆ
     Każdy przejazd prowadzony z klawiatury zapisuje naciśnięcia klawiszy do pliku
@@ -181,4 +215,4 @@ CZYTAJ
 echo "[PACZKA] rozmiar:"
 du -sh "$DOCELOWY" | sed 's/^/[PACZKA]   /'
 find "$ZASOBY" -type f | wc -l | sed 's/^/[PACZKA]   plików w zasobach: /'
-echo "[PACZKA] gotowe: $DOCELOWY/$NAZWA.x86_64"
+echo "[PACZKA] gotowe: $DOCELOWY/$BINARKA"

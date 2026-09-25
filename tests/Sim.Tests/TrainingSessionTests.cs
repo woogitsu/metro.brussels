@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using MetroBxl.Sim.Line;
 using MetroBxl.Sim.Physics;
@@ -408,11 +409,31 @@ public sealed class TrainingSessionTests
         // Ta linia jest wspólnym językiem bramki scena–rdzeń: porównanie przez `==`
         // rekordu poszłoby po REFERENCJI listy celów i powiedziałoby „różne" o wynikach
         // identycznych.
+        //
+        // **Kultura jest przełączana TUTAJ, a nie zostawiona maszynie** (23.09.2026, 6.D365).
+        // Do tego dnia test nazywał się „CultureInvariant", ale czytał linię w kulturze
+        // procesu — na maszynie z `LANG=pl_PL.UTF-8` padał, na każdej z `C` przechodził,
+        // bo zagnieżdżony literał interpolowany błędu zatrzymania formatował się
+        // w kulturze bieżącej, zanim trafił do zewnętrznego `string.Create(Invariant…)`.
+        // Zmierzone: bez przełączenia kontrola negatywna była ZIELONA w kontenerze z `C`.
         var service = Service();
         var session = Session("s1");
         ObsluzPostoj(service, session, 499.0, 0);
 
-        var linia = session.Result!.Value.ToString();
+        var previous = CultureInfo.CurrentCulture;
+        string linia;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("pl-PL");
+        try
+        {
+            Assert.AreEqual(",", CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator,
+                "kultura pl-PL nie ma przecinka dziesiętnego — test nie sprawdza tego, co obiecuje");
+            linia = session.Result!.Value.ToString();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
+
         StringAssert.Contains(linia, "zaliczone",
             "linia wyniku nie mówi, czy sesja jest zaliczona");
         StringAssert.Contains(linia, "1/1 celów",

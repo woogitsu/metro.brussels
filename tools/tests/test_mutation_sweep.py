@@ -2996,14 +2996,16 @@ def test_only_z_trafieniami_nadal_konczy_sie_zerem():
     zostalyby wtedy zielone. Trzy ksztalty zawezenia: katalog, podciag lapiacy dwa
     moduly (6.D18) i jeden plik.
     """
-    # `tools/track/` ma 23 cele od 11.09.2026 (bylo 22 od 10.09.2026, 21 od 09.09.2026,
+    # `tools/track/` ma 25 celów od 24.09.2026 (generator próby łącznika),
+    # wcześniej 24 od 24.09.2026 (generator wizualnego ogona);
+    # było 23 od 11.09.2026 (22 od 10.09.2026, 21 od 09.09.2026,
     # 20 od 07.09.2026, a wczesniej 19): doszly `tools/track/vertical_profile.py`
     # z 6.B44, `tools/track/osm_tile_cache.py` z 6.D62, `tools/track/stop_names.py`
     # z 6.D111 i `tools/track/apply_vertical.py` z 6.D120.
     # Ta liczba MIERZY drzewo, wiec rosnie razem z nim — nie jest progiem
     # i nie wolno jej zamienic na nierownosc, bo wtedy przestalaby odroznic
     # "zawezenie trafilo w katalog" od "zawezenie trafilo w cokolwiek".
-    for wzorzec, ile_celow in (("tools/track/", 23), ("sweep.py", 2),
+    for wzorzec, ile_celow in (("tools/track/", 25), ("sweep.py", 2),
                                ("tools/blender/lod_paths.py", 1)):
         done = _sweep_6b39("--only", wzorzec, "--list")
 

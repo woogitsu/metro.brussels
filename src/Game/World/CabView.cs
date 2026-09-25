@@ -36,7 +36,8 @@ namespace MetroBxl.Game.World;
 /// <para><b>Układ jest KANONICZNY i nie jest kabiną M7.</b> Zdanie to jedzie
 /// w raporcie generatora obok geometrii i powtarza się tutaj, bo klasa sceny jest
 /// miejscem, w którym ktoś zobaczy tę geometrię po raz pierwszy. Decyzja właściciela
-/// z 10.09.2026 dotyczy układu neutralnego, nie odwzorowania prawdziwego pulpitu.</para>
+/// z 10.09.2026 dotyczy układu neutralnego. Obecny model nie zawiera pulpitu:
+/// zostają podłoga, tylna grodź i fotel, aby nie zasłaniać toru.</para>
 /// </summary>
 public sealed partial class CabView : Node3D
 {
@@ -132,15 +133,16 @@ public sealed partial class CabView : Node3D
     /// <see cref="DesignAssumptions.CabEyeSetbackM"/> = 1,80 m, więc przy czole
     /// na 2000,000 m stoi na 1998,200 m w OBU przypadkach. Oko jest po TEJ SAMEJ stronie
     /// płaszczyzny szyby przed poprawką i po niej — zmienia się odległość: −1,450 m
-    /// poprawnie, −2,150 m z usterką. Ramy szyby nie ma zaś w kadrze nigdy, bo nie
-    /// niesie jej żadna z szesnastu brył (podłoga, trzy części grodzi, pudło pulpitu,
-    /// blat, siedzisko, oparcie — po osiem na koniec).</para>
+    /// poprawnie, −2,150 m z usterką. Ramy szyby nie ma zaś w kadrze: obecny
+    /// model ma dwanaście brył (podłoga, trzy części grodzi, siedzisko i oparcie
+    /// na każdym końcu), a żadna z nich nie tworzy ramy.</para>
     ///
-    /// <para>Co usterka NAPRAWDĘ robiła, widać na fotelu i na pulpicie: oko wypadało
+    /// <para>W historycznym modelu z pulpitem usterkę widać było na fotelu i na
+    /// pulpicie: oko wypadało
     /// ZA OPARCIEM zamiast nad siedziskiem — poprawnie siedzisko zajmuje
     /// 1998,100–1998,550 m i obejmuje oko, z usterką stoi na 1998,800–1999,250 m,
     /// a oparcie na 1998,700–1998,800 m — a pulpit odsuwał się z 0,70 m na 1,40 m przed
-    /// okiem. Żadna z tych dwóch klatek nie wygląda na błędną i to jest powód, dla
+    /// okiem. Żadna z tamtych dwóch klatek nie wyglądała na błędną i to jest powód, dla
     /// którego pomyłkę znalazł RACHUNEK z raportu generatora, a nie obejrzenie
     /// kadru.</para>
     /// </summary>

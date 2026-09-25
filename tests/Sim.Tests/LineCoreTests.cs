@@ -46,6 +46,142 @@ public sealed class LineCoreTests
             Settings());
     }
 
+    [TestMethod]
+    public void Bramka_kursu_czeka_na_dokladny_krok_i_zachowuje_stacje_wejscia()
+    {
+        var line = Line();
+        var gate = new LineEntryGate(line);
+        Assert.ThrowsException<ArgumentOutOfRangeException>(
+            () => gate.QueueDue(new ScheduledLineEntry("early", "block-a", 1, 2)),
+            "Kurs nie może zostać zarejestrowany przed releaseStep.");
+        line.Step();
+        line.Step();
+
+        var train = gate.QueueDue(new ScheduledLineEntry("beek", "block-a", 1, 2));
+        line.Step();
+
+        Assert.AreEqual(2L, train.EnteredAtStep,
+            "Wolny peron wpuszcza skład w rozkładowym kroku.");
+        Assert.AreEqual(1, train.EntryStationIndex,
+            "Bramka przekazuje indeks stacji do LineCore.");
+        Assert.IsTrue(train.Drive!.ChainageM >= 600.0,
+            "Skład startuje z drugiej stacji osi.");
+    }
+
+    [TestMethod]
+    public void Bramka_rejestruje_kurs_ale_zajety_blok_odklada_fizyczny_wjazd()
+    {
+        var line = Line();
+        var gate = new LineEntryGate(line);
+        var first = gate.QueueDue(new ScheduledLineEntry("first", "block-a", 0, 0));
+        var waiting = gate.QueueDue(new ScheduledLineEntry("waiting", "block-b", 0, 0));
+
+        line.Step();
+
+        Assert.AreEqual(0L, first.EnteredAtStep,
+            "Pierwszy skład wchodzi w swoim releaseStep.");
+        Assert.IsNull(waiting.EnteredAtStep,
+            "Zajęty blok przy peronie odkłada drugi wjazd.");
+        while (waiting.EnteredAtStep is null && line.Steps < LineRun.DefaultStepBudget)
+        {
+            line.Step();
+        }
+        Assert.IsNotNull(waiting.EnteredAtStep,
+            "Drugi skład wchodzi po zwolnieniu bloków.");
+        Assert.IsTrue(waiting.EnteredAtStep > waiting.ReleaseStep,
+            "Rzeczywisty wjazd może nastąpić później niż releaseStep.");
+    }
+
+    [TestMethod]
+    public void Bramka_odmawia_ponownego_kursu_tego_samego_obiegu()
+    {
+        var line = Line();
+        var gate = new LineEntryGate(line);
+        gate.QueueDue(new ScheduledLineEntry("one", "same-block", 0, 0));
+
+        Assert.ThrowsException<InvalidOperationException>(
+            () => gate.QueueDue(new ScheduledLineEntry("two", "same-block", 0, 0)),
+            "Drugi trip_id jednego block_id wymaga polityki użycia tego samego pojazdu.");
+        Assert.AreEqual(1, line.Trains.Count,
+            "Odmowa nie może pozostawić dodatkowego składu na linii.");
+    }
+
+    [TestMethod]
+    public void Bramka_z_planem_odmawia_kroku_z_pominietym_kursem()
+    {
+        var axis = SignallingPlanTests.SyntheticAxis(0.0, 600.0, 1400.0, 2000.0);
+        var schedule = LineEntrySchedule.FromJson(
+            """
+            {"axis_id":"T","date":"20260902","source_gtfs_sha256":"test","runs":[
+              {"trip_id":"first","block_id":"A","first_stop_id":"P0","release_s":0},
+              {"trip_id":"second","block_id":"B","first_stop_id":"P1","release_s":1}
+            ]}
+            """, axis, FixedStep.Simulation);
+        var line = Line();
+        var gate = new LineEntryGate(line, schedule, new DateOnly(2026, 9, 2));
+
+        var firstError = Assert.ThrowsException<InvalidOperationException>(() => gate.Step(),
+            "Bramka musi zgłosić brak kursu przed pierwszym krokiem.");
+        StringAssert.Contains(firstError.Message, "first", "Odmowa wskazuje pominięty kurs.");
+        Assert.AreEqual(0L, line.Steps, "Odmowa nie przesuwa zegara.");
+        gate.QueueDue(schedule.Entries[0]);
+        while (line.Steps < schedule.Entries[1].ReleaseStep)
+        {
+            gate.Step();
+        }
+
+        var secondError = Assert.ThrowsException<InvalidOperationException>(() => gate.Step(),
+            "Pominięcie późniejszego releaseStep również zatrzymuje zegar.");
+        StringAssert.Contains(secondError.Message, "second", "Odmowa wskazuje drugi kurs.");
+        Assert.AreEqual(schedule.Entries[1].ReleaseStep, line.Steps,
+            "Odmowa nie przechodzi przez pominięty krok.");
+        gate.QueueDue(schedule.Entries[1]);
+        gate.Step();
+        Assert.AreEqual(2, line.Trains.Count, "Po zgłoszeniu obu kursów zegar może ruszyć.");
+    }
+
+    [TestMethod]
+    public void Bramka_z_planem_wymaga_porządku_trip_id_przy_remisie()
+    {
+        var axis = SignallingPlanTests.SyntheticAxis(0.0, 600.0, 1400.0, 2000.0);
+        var schedule = LineEntrySchedule.FromJson(
+            """
+            {"axis_id":"T","date":"20260902","source_gtfs_sha256":"test","runs":[
+              {"trip_id":"z","block_id":"B","first_stop_id":"P0","release_s":0},
+              {"trip_id":"a","block_id":"A","first_stop_id":"P0","release_s":0}
+            ]}
+            """, axis, FixedStep.Simulation);
+        var line = Line();
+        var gate = new LineEntryGate(line, schedule, new DateOnly(2026, 9, 2));
+
+        Assert.ThrowsException<InvalidOperationException>(
+            () => gate.QueueDue(schedule.Entries[1]),
+            "Przy remisie kolejność musi pochodzić z typowanego planu.");
+        gate.QueueDue(schedule.Entries[0]);
+        gate.QueueDue(schedule.Entries[1]);
+        gate.Step();
+        Assert.AreEqual("a", line.Trains[0].Id,
+            "Pierwsza próba wjazdu należy do pierwszego kursu planu.");
+    }
+
+    [TestMethod]
+    public void Bramka_odmawia_planu_z_innego_dnia_sluzby()
+    {
+        var axis = SignallingPlanTests.SyntheticAxis(0.0, 600.0, 1400.0, 2000.0);
+        var schedule = LineEntrySchedule.FromJson(
+            """
+            {"axis_id":"T","date":"20260902","source_gtfs_sha256":"test","runs":[
+              {"trip_id":"after-midnight","block_id":"A","first_stop_id":"P0","release_s":90000}
+            ]}
+            """, axis, FixedStep.Simulation);
+
+        Assert.ThrowsException<ArgumentException>(
+            () => new LineEntryGate(Line(), schedule, new DateOnly(2026, 9, 3)),
+            "Kurs o 25:00 nie może być przypisany do służby kolejnego dnia.");
+        var gate = new LineEntryGate(Line(), schedule, new DateOnly(2026, 9, 2));
+        Assert.IsNotNull(gate, "Dzień służby z projekcji przyjmuje późny kurs.");
+    }
+
     private static List<LineRun.TracePoint> TraceOf(LineCore line, string trainId, long stepBudget)
     {
         var trace = new List<LineRun.TracePoint>();
@@ -71,6 +207,76 @@ public sealed class LineCoreTests
     }
 
     // --- tożsamość: sygnalizacja bez ruchu niczego nie zmienia ---------------
+
+    [TestMethod]
+    public void Wejscie_na_drugiej_stacji_zaczyna_jazde_tam_i_widzi_nastepny_peron()
+    {
+        var line = Line();
+        var train = line.AddAtStation("B", 0L, 1);
+        line.Step();
+
+        Assert.AreEqual(1, train.EntryStationIndex,
+            "entry index must retain the chosen station");
+        Assert.AreEqual(0L, train.EnteredAtStep,
+            "the train should enter at its release step");
+        Assert.IsNotNull(train.Drive,
+            "entry should create an active drive");
+        Assert.IsTrue(train.Drive.ChainageM >= 600.0 && train.Drive.ChainageM < 601.0,
+            $"skład powinien wejść przy 600 m, jest przy {train.Drive.ChainageM} m");
+        Assert.AreEqual(1400.0, train.Drive.NextStation!.Value.ChainageM, 0.0,
+            "pierwszym celem po wejściu na drugiej stacji jest trzecia");
+        Assert.IsTrue(line.Signalling.BlocksOccupiedBy("B").Count > 0,
+            "wejście w środku osi musi zarejestrować zajętość bloków");
+
+        while (!train.Finished && line.Steps < LineRun.DefaultStepBudget)
+        {
+            line.Step();
+        }
+
+        Assert.IsTrue(train.Finished, "skład od Beekkant powinien dojechać do końca osi");
+        CollectionAssert.AreEqual(new[] { 1400.0, 2000.0 },
+            train.Drive!.Calls.Select(call => call.ChainageM).ToArray(),
+            "przejazd nie może zaliczyć stacji sprzed miejsca wejścia");
+    }
+
+    [TestMethod]
+    public void Dwa_wejscia_na_ten_sam_peron_nie_nakladaja_skladow()
+    {
+        var line = Line();
+        var first = line.AddAtStation("A", 0L, 1);
+        var second = line.AddAtStation("B", 0L, 1);
+        line.Step();
+
+        Assert.AreEqual(0L, first.EnteredAtStep,
+            "the first train should enter at its release step");
+        Assert.IsNull(second.EnteredAtStep,
+            "drugi skład musi czekać, gdy pierwszy zajmuje peron wejścia");
+        Assert.IsNull(second.Drive, "oczekujący skład nie może pojawić się w prowadzeniu");
+    }
+
+    [TestMethod]
+    public void Stare_Add_i_jawne_wejscie_na_pierwszej_stacji_daja_identyczny_slad()
+    {
+        var oldApi = Line();
+        var explicitOrigin = Line();
+        oldApi.Add("A", 0L);
+        explicitOrigin.AddAtStation("A", 0L, 0);
+        var before = TraceOf(oldApi, "A", LineRun.DefaultStepBudget);
+        var after = TraceOf(explicitOrigin, "A", LineRun.DefaultStepBudget);
+        CollectionAssert.AreEqual(before, after,
+            "domyślne wejście nie może zmienić istniejącego przejazdu");
+    }
+
+    [TestMethod]
+    public void Wejscie_w_srodku_osi_odmawia_nawrotu_bez_rozkładu_kolejnego_kursu()
+    {
+        var axis = SignallingPlanTests.SyntheticAxis(Stations);
+        var plan = SignallingPlanTests.SyntheticPlan(requireRoute: false, Stations);
+        var line = LineCore.M7(plan, axis, Level(), Settings(), turnbackSeconds: 240.0);
+        Assert.ThrowsException<InvalidOperationException>(
+            () => line.AddAtStation("B", 0L, 1),
+            "mid-axis entry cannot inherit an unspecified turnback trip");
+    }
 
     [TestMethod]
     public void Jeden_sklad_na_pustej_linii_jedzie_tak_samo_jak_bez_sygnalizacji()
