@@ -55,6 +55,7 @@ generatora i wszystkie są wypisane w `DESIGN_ASSUMPTIONS`.
 | `DESIGN_SHELL_THICKNESS_M` | 0,08 m | grubość skorupy, żeby podłoga wypadła dokładnie na 1,03 m |
 | `DESIGN_WINDOW_BAND_BOTTOM_M` | 2,05 m | dolna granica neutralnego ciemnego pasa na ścianie bocznej; nie jest pomiarem okien M7 |
 | `DESIGN_WINDOW_BAND_TOP_M` | 2,78 m | górna granica tego pasa, poniżej projektowej fazy dachu |
+| `DESIGN_WINDOW_DIVIDER_WIDTH_M` | 0,20 m | szerokość neutralnego słupka pośrodku odstępu między drzwiami; nie jest odwzorowaniem wzoru M7 |
 | `DESIGN_ARTICULATION_LENGTH_M` | 1,10 m | długość mieszka przegubu |
 | `DESIGN_ARTICULATION_INSET_M` | 0,18 m | wcięcie mieszka względem pudła |
 | `DESIGN_NOSE_LENGTH_M` | 2,40 m | długość strefy czołowej |

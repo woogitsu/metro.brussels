@@ -34,6 +34,8 @@ DESIGN_SHELL_THICKNESS_M = 0.08
 # odwzorowanie konkretnego wzoru M7. Otwory drzwiowe przecinają ją naturalnie.
 DESIGN_WINDOW_BAND_BOTTOM_M = 2.05
 DESIGN_WINDOW_BAND_TOP_M = 2.78
+# Rozdzielacz jest częścią jasnego poszycia, a nie kopiowanym wzorem okien.
+DESIGN_WINDOW_DIVIDER_WIDTH_M = 0.20
 # Przegub między członami: długość przewężenia i wcięcie na stronę.
 DESIGN_ARTICULATION_LENGTH_M = 1.10
 DESIGN_ARTICULATION_INSET_M = 0.18
@@ -61,6 +63,8 @@ DESIGN_ASSUMPTIONS = {
                              "dolna krawędź neutralnego pasa okiennego na bocznej ścianie"),
     "window_band_top_m": (DESIGN_WINDOW_BAND_TOP_M,
                           "górna krawędź neutralnego pasa okiennego poniżej fazy dachu"),
+    "window_divider_width_m": (DESIGN_WINDOW_DIVIDER_WIDTH_M,
+                               "wąski jasny słupek pośrodku odstępu między drzwiami"),
     "articulation_length_m": (DESIGN_ARTICULATION_LENGTH_M, "długość przewężenia przegubowego między członami"),
     "articulation_inset_m": (DESIGN_ARTICULATION_INSET_M, "wcięcie przegubu na stronę"),
     "nose_length_m": (DESIGN_NOSE_LENGTH_M, "długość ścięcia czoła; ścięcie liniowe zamiast zgadywanych promieni"),
@@ -191,6 +195,24 @@ class Layout:
 
     def all_doors(self):
         return self.double_doors() + self.cab_doors_list()
+
+    def window_divider_spans(self, index):
+        """Słupki pośrodku odstępów między drzwiami, symetryczne po obu stronach."""
+        if index >= self.cars // 2:
+            # Druga połowa jest dokładnym odbiciem pierwszej. Niezależne
+            # zaokrąglenie midpointów rozsuwało końcowe słupki o 1 µm.
+            opposite = self.window_divider_spans(self.cars - 1 - index)
+            return [(round(self.length - end, 6), round(self.length - start, 6))
+                    for start, end in reversed(opposite)]
+        doors = sorted((d for d in self.double_doors()
+                        if d["car"] == index and d["side"] == 1),
+                       key=lambda d: d["center_x"])
+        spans = []
+        for before, after in zip(doors, doors[1:]):
+            midpoint = (before["x1"] + after["x0"]) / 2.0
+            half = DESIGN_WINDOW_DIVIDER_WIDTH_M / 2.0
+            spans.append((round(midpoint - half, 6), round(midpoint + half, 6)))
+        return spans
 
     # --- przekrój -------------------------------------------------------------
 
