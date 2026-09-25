@@ -641,7 +641,9 @@ MINIMUM_DOCUMENTED_ITEMS = 6
 # odsyłacze raportów poza grawisami, ujawnione porównaniem czterech sit.
 # 431 -> 432 (25.09.2026, 6.D345): blok 6.D373 zapisuje brak
 # historycznego klasyfikatora jako osobną, sprawdzalną pozycję.
-MINIMUM_DETAIL_BLOCKS = 432
+# 432 -> 433 (25.09.2026, 6.D346): blok 6.D374 bada cele `+=`
+# przez atrybut i indeks, poza populacją prostych nazw.
+MINIMUM_DETAIL_BLOCKS = 433
 
 #: Zdanie, które musi stać w `docs/TASKS.md`, dopóki zapadka nie dojdzie do progu.
 #: Gdy ktoś podniesie `MINIMUM_DOCUMENTED_ITEMS` do `MINIMUM_READY_ITEMS`, ma je

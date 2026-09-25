@@ -535,7 +535,8 @@ COMMIT = re.compile(r'`([0-9a-f]{40}|[0-9a-f]{7})`')
 # 482 -> 483 (25.09.2026, #26): rozkład czasu według kolejności kroku w klatce.
 # 483 -> 484 (25.09.2026, 6.D345): świeży census zwrotów stałych.
 # 484 -> 485 (25.09.2026, #26): zgodność przejęcia i drzwi przy 30/60/120 FPS.
-MIN_REPORTS = 485
+# 485 -> 486 (25.09.2026, 6.D346): census ukrytych przypisań.
+MIN_REPORTS = 486
 
 #: Ile raportów trzyma SHA w nagłówku, ale **nie na wierszu pola** — czyli poza
 #: wierszem zaczynającym się od `**`, z którego `_header_shapes` czyta kształt.
