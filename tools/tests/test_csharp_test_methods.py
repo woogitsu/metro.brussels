@@ -670,8 +670,9 @@ ROZKLAD_POSTACI = {
         # 5553 -> 5560 (25.09.2026, komunikaty asercji odcisku i drugiego składu).
         # 5566 -> 5569 i 858 -> 859 (25.09.2026, AZERTY): mapa, pomoc i test.
         # 5569 -> 5570 (25.09.2026, T-400 HUD): identyfikator składu w teście.
-        # 5570 -> 5581 i 859 -> 863 (25.09.2026, T-400 ATP): test trzech składów.
-        "zwykly": 5581,
+        # 5570 -> 5571 (25.09.2026, T-400 side): publiczna nazwa --view=side.
+        # 5571 -> 5582 i 859 -> 863 (25.09.2026, T-400 ATP): test trzech składów.
+        "zwykly": 5582,
         "interpolowany ($)": 863,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -758,7 +759,8 @@ ROZKLAD_POSTACI = {
         # Połączone drzewo jest mierzone poniższą zapadką.
         # 1614 -> 1619 (25.09.2026, odcisk sesji): znacznik wersji i jednoznaczne
         # znaczniki typów w kodowaniu stanu. Przeliczone przez ten sam czytnik.
-        "zwykly": 1619,
+        # 1619 -> 1621 (25.09.2026, T-400 side): widok w KnownViews i parserze.
+        "zwykly": 1621,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen

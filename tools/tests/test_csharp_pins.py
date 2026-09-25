@@ -173,12 +173,13 @@ KATEGORIE = {
         # 25.09.2026: komentarz z pomiarem połączonego korpusu przesuwa kotwice o wiersz.
         # 25.09.2026: komentarz o logu kamery przesuwa pięć kotwic o wiersz; treść bez zmian.
         # AZERTY (25.09.2026): dwa komentarze przesuwają kotwice, a W/Z wydłuża pomoc.
-        ("UiTextTests.cs", 1297), ("UiTextTests.cs", 1310), ("UiTextTests.cs", 1328),
+        # T-400 side dodaje kolejny komentarz, przesuwając kotwice o wiersz.
+        ("UiTextTests.cs", 1298), ("UiTextTests.cs", 1311), ("UiTextTests.cs", 1329),
         # HUD domenowy dodaje trainId; pin przesuwa się i obejmuje koniec autorytetu.
         ("SignallingHudTests.cs", 40),
     },
     "B": {
-        ("UiTextTests.cs", 1397), ("UiTextTests.cs", 1398),
+        ("UiTextTests.cs", 1398), ("UiTextTests.cs", 1399),
     },
 }
 
@@ -279,10 +280,10 @@ def test_regula_po_ksztalcie_literalu_myli_sie_i_dlatego_jej_nie_ma():
                      if not regula.search(tresci[p])]
     zlapane_z_b = [p for p in sorted(KATEGORIE["B"]) if regula.search(tresci[p])]
 
-    assert przepuszczone == [("UiTextTests.cs", 1328)], (
+    assert przepuszczone == [("UiTextTests.cs", 1329)], (
         "reguła po kształcie przestała przepuszczać wiersz o hamulcu awaryjnym — "
         "rozstrzygnięcie 6.D131 wymaga przeliczenia: %s" % przepuszczone)
-    assert zlapane_z_b == [("UiTextTests.cs", 1398)], (
+    assert zlapane_z_b == [("UiTextTests.cs", 1399)], (
         "reguła po kształcie przestała łapić wejście syntetyczne: %s" % zlapane_z_b)
 
 
@@ -296,11 +297,11 @@ def test_czytnik_widzi_pin_takze_wtedy_gdy_literal_jest_sklejony():
     tresci = {(plik, wiersz): tresc
               for plik, wiersz, _r, tresc in CP.piny("tests/Game.Tests")}
 
-    assert len(tresci[("UiTextTests.cs", 1297)]) == 124, (
+    assert len(tresci[("UiTextTests.cs", 1298)]) == 124, (
         "sklejanie literałów przestało działać: %d znaków"
-        % len(tresci[("UiTextTests.cs", 1297)]))
-    assert len(tresci[("UiTextTests.cs", 1328)]) == 98, (
-        len(tresci[("UiTextTests.cs", 1328)]))
+        % len(tresci[("UiTextTests.cs", 1298)]))
+    assert len(tresci[("UiTextTests.cs", 1329)]) == 98, (
+        len(tresci[("UiTextTests.cs", 1329)]))
     assert len(tresci[("SignallingHudTests.cs", 40)]) == 106, (
         len(tresci[("SignallingHudTests.cs", 40)]))
 

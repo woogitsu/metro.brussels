@@ -1,0 +1,20 @@
+{
+    "files":  [
+                  {
+                      "sha256":  "b7f6cae53041995d9e0238203cafd3eaf6bd98a0567f9b42f513cf10967362b5",
+                      "name":  "PARC_side.png",
+                      "bytes":  210552
+                  },
+                  {
+                      "sha256":  "90264d97b5c3c0b28a6b2b7c8f57d1b88a36a35119584a9a003fb75ba42f5a15",
+                      "name":  "PARC_side.log",
+                      "bytes":  6300
+                  }
+              ],
+    "source":  {
+                   "base_commit":  "435876c",
+                   "view":  "side",
+                   "chainage_m":  4075.4,
+                   "capture":  "local WSL Ubuntu-24.04; Godot 4.7.2 Xvfb/OpenGL3, generated package A"
+               }
+}

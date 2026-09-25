@@ -224,7 +224,7 @@ public sealed class RunPlanTests
     /// z <see cref="RunPlan.KnownViews"/>, nie wypisane.
     ///
     /// <para><b>Skąd ten test.</b> Test wyżej wymienia widoki z ręki, więc dopisanie
-    /// piątego do <c>KnownViews</c> bez gałęzi w <c>switch</c> przeszłoby go: nowa
+    /// kolejnego do <c>KnownViews</c> bez gałęzi w <c>switch</c> przeszłoby go: nowa
     /// nazwa spadłaby na <c>_ => ViewKind.Cab</c> i scena CICHO dałaby kabinę.
     /// Dokładnie ta usterka jest opisana przy 6.C4 dla <c>--view=zmyslony</c>, tylko
     /// tam nazwa była nieznana, a tu byłaby znana i milcząca. Liczba widoków
@@ -255,7 +255,7 @@ public sealed class RunPlanTests
     public void Widok_inspekcyjny_dochodzi_do_trzech_a_nie_zamiast()
     {
         CollectionAssert.AreEqual(
-            new[] { "cab", "chase", "outside", "inspect" },
+            new[] { "cab", "chase", "outside", "inspect", "side" },
             RunPlan.KnownViews,
             "kolejność i skład KnownViews: " + string.Join(", ", RunPlan.KnownViews));
     }
