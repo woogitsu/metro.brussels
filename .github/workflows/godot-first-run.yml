@@ -1496,6 +1496,15 @@ jobs:
         # ticków co wyżej. Żądanie chase przełącza aktywną Camera3D w ruchu.
         run: |
           set -euo pipefail
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys build/t400/linia-fps/keys.log --line --atp \
+            --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json \
+            --limit-kmh 70 --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/linia-fps/core-camera.csv \
+            > build/t400/linia-fps/core-camera.log 2>&1
+          cmp build/t400/linia-fps/core.csv \
+            build/t400/linia-fps/core-camera.csv
           "$GODOT_BIN" --headless --path src/Game -- \
             --line --limit-kmh=70 --view=chase \
             --signalling="$PWD/data/design/signalling/classic-2026.json" \
@@ -1506,7 +1515,7 @@ jobs:
           python3 tools/ci/assert_no_godot_warnings.py \
             build/t400/linia-fps/scene-chase-spf4.log
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
-            compare build/t400/linia-fps/core.csv \
+            compare build/t400/linia-fps/core-camera.csv \
             build/t400/linia-fps/scene-chase-spf4.csv --tolerance 0
           cmp build/t400/linia-fps/scene-spf4.csv \
             build/t400/linia-fps/scene-chase-spf4.csv
