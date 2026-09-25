@@ -829,6 +829,14 @@ jobs:
           bash tools/release/package-playable.sh "$out" build/t400
           package="$root/$out/MetroBXL"
           mkdir -p build/t400/paczka-replay
+          dotnet run --project src/Sim.Runner -c Release --no-build -- \
+            replay --keys tests/data/mb02-dwa-postoje.log --axis data/track/L1_A.json \
+            --signalling data/design/signalling/classic-2026.json --atp \
+            --notch-rate 0.80 --exchange-s 8 --stop-window-m 5 \
+            --out build/t400/paczka-replay/core.csv 2>&1 | tee build/t400/paczka-replay/core.log
+          grep -q "stacji obsłużonych=2 przejechanych=0" build/t400/paczka-replay/core.log \
+            || { echo "BŁĄD: pakietowy wzorzec nie obsługuje obu celów w rdzeniu" >&2
+                 grep "^\[ODTWORZENIE\]" build/t400/paczka-replay/core.log >&2; exit 1; }
           (
             cd "$package"
             ./MetroBXL.x86_64 --headless -- \
@@ -843,7 +851,7 @@ jobs:
           cmp build/t400/paczka-replay/expected-session.txt build/t400/paczka-replay/actual-session.txt
           grep -q '^\[ODTWORZENIE\] koniec: kroków=20000 ' build/t400/paczka-replay/scene.log
           dotnet run --project src/Sim.Runner -c Release --no-build -- \
-            compare build/t400/sesja/core.csv build/t400/paczka-replay/scene.csv \
+            compare build/t400/paczka-replay/core.csv build/t400/paczka-replay/scene.csv \
             --tolerance 0
 
       - name: Negative control of the training session gate
