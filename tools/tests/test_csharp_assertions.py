@@ -501,7 +501,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # Równoległa gałąź miała pomiary 2144 → 2148 i 2148 → 2183.
 # 2198 -> 2202 (25.09.2026, integracja obserwacji i podglądu łącznika).
 # 2202 -> 2206 (25.09.2026, nastawnik): cztery asercje przejścia przez neutral.
-Z_KOMUNIKATEM_RAZEM = 2206
+# 2206 -> 2209 (25.09.2026, tablice stacyjne): trzy kontrole z komunikatami.
+Z_KOMUNIKATEM_RAZEM = 2209
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
