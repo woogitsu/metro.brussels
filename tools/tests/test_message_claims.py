@@ -1614,7 +1614,10 @@ def test_sito_prozy_pomiarowej_NIE_liczy_cyfr_spoza_twierdzenia():
 #: w ktorej skrocenie JEST trescia (asercja obok mowi wprost „wsrod pierwszych
 #: pieciu"). To jest wzorzec poprawny i on wlasnie stanowi tresc bramki nizej:
 #: probka wolno, ale obok ma stac licznik z calosci.
-WYCINKOW_W_CZYTNIKACH = 19
+# 19 -> 21 (25.09.2026, #790): czytnik manifestu obrazów sprawdza sygnatury
+# PNG `data[:8]` i GIF `data[:6]`. Oba wycinki skracają bajtowy podpis,
+# nie kolekcję dowodów; 12 plików i 6 wycinków wychodzących pozostają bez zmian.
+WYCINKOW_W_CZYTNIKACH = 21
 PLIKOW_Z_WYCINKAMI = 12
 WYCHODZACYCH_Z_CZYTNIKA = 6
 
