@@ -104,11 +104,13 @@ public sealed class TrainingWiringTests
             "nie znaleziono granic obsługi zdarzeń linii w FirstRun");
         var observe = source[start..end];
         var selection = observe.IndexOf("_observed = _lineSession.ObservedIndex;", StringComparison.Ordinal);
-        var drive = observe.IndexOf("_line = _lineCore!.Trains[_observed].Drive;", StringComparison.Ordinal);
+        var drive = observe.IndexOf("_line = _lineSession.ActiveObservedIndex is null", StringComparison.Ordinal);
+        var activeDrive = observe.IndexOf("? null : _lineCore!.Trains[_observed].Drive;", StringComparison.Ordinal);
         var state = observe.IndexOf("_state = _line?.State ?? DriveState.AtRest;", StringComparison.Ordinal);
         var command = observe.IndexOf("_command = _lineSession.Command;", StringComparison.Ordinal);
-        Assert.IsTrue(selection >= 0 && drive > selection && state > drive && command > state,
-            "N musi przełączyć nazwę stacji, położenie i komendę w tej samej klatce, "
+        Assert.IsTrue(selection >= 0 && drive > selection && activeDrive > drive &&
+            state > activeDrive && command > state,
+            "N musi przełączyć aktywny skład albo ukryć zjechany, oraz odświeżyć HUD w tej samej klatce, "
             + "także gdy akumulator nie wykona kroku 120 Hz");
     }
 

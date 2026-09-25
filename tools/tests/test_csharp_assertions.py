@@ -492,10 +492,16 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # ma teraz jawne komunikaty, także sześć porównań początkowo bez opisu.
 # Po integracji dyspozytora i hamowania: 2133 opisane asercje, zmierzone w drzewie.
 # 2077 -> 2144 (24.09.2026, integracja dyspozytora, test granicy, hamowanie i metadane).
-# 2144 -> 2148 (24.09.2026, testy jawnej opcji łącznika i metadanych podglądu).
-# 2148 -> 2183 (25.09.2026, dwa wejścia rozkładowe): 35 asercji z komunikatem.
-# 2183 -> 2187 (25.09.2026, nastawnik): cztery asercje przejścia przez neutral.
-Z_KOMUNIKATEM_RAZEM = 2187
+# Równoległy pomiar gałęzi obserwacji:
+# 2144 -> 2173 (24.09.2026, nowe testy sceny i adaptera rozkladu).
+# 2173 -> 2179 (24.09.2026, krok wjazdu i pozycja kabiny).
+# 2179 -> 2198 (25.09.2026, obserwacja czynnych składów): dziewiętnaście
+# asercji w dwóch testach ma jawne komunikaty; klasy bez opisu nie rosną.
+# Równoległy pomiar gałęzi podglądu łącznika:
+# Równoległa gałąź miała pomiary 2144 → 2148 i 2148 → 2183.
+# 2198 -> 2202 (25.09.2026, integracja obserwacji i podglądu łącznika).
+# 2202 -> 2206 (25.09.2026, nastawnik): cztery asercje przejścia przez neutral.
+Z_KOMUNIKATEM_RAZEM = 2206
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -636,10 +642,15 @@ NIEROZSTRZYGNIETYCH = 69
 # mają komunikat; zapadka BEZ_KOMUNIKATU pozostaje surowa.
 # Po integracji dyspozytora i hamowania: 3595 wywolan, zmierzone w drzewie.
 # 3544 -> 3606 (24.09.2026, testy dyspozytora, hamowania i scenerii).
-# 3606 -> 3610 (24.09.2026, cztery asercje podglądu łącznika).
-# 3610 -> 3645 (25.09.2026, dwa wejścia rozkładowe): 35 nowych asercji.
-# 3645 -> 3649 (25.09.2026, nastawnik): cztery asercje przejścia przez neutral.
-ASERCJI_RAZEM = 3649
+# Równoległy pomiar gałęzi obserwacji:
+# 3606 -> 3635 (24.09.2026, scena i adapter odtwarzania rozkladu).
+# 3635 -> 3641 (24.09.2026, te same testy).
+# 3641 -> 3660 (25.09.2026, obserwacja czynnych składów): zmierzone w drzewie.
+# Równoległy pomiar gałęzi podglądu łącznika:
+# Równoległa gałąź miała pomiary 3606 → 3610 i 3610 → 3645.
+# 3660 -> 3664 (25.09.2026, integracja obserwacji i podglądu łącznika).
+# 3664 -> 3668 (25.09.2026, nastawnik): cztery asercje przejścia przez neutral.
+ASERCJI_RAZEM = 3668
 
 
 def _rozklad():

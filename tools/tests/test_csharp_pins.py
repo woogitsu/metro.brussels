@@ -93,7 +93,8 @@ PINY_GRY = {
 # 86 -> 87 (24.09.2026, koniec osi linii): nazwa postoju Merode w LineDriveTests.
 # 87 -> 89 (24.09.2026, dwa wjazdy rozkładowe): oba składy muszą dojechać do Merode.
 # 89 -> 97 (24.09.2026, dispatcher, service brake i metadane).
-PINY_RDZENIA = 97
+# 97 -> 99 (25.09.2026, obserwacja czynnych składów): dwa piny id "beek".
+PINY_RDZENIA = 99
 
 #: Kategorie, po jednej pozycji na pin — zamknięte i sumujące się do liczby wyżej.
 #:
@@ -498,9 +499,11 @@ ROZKLAD_LICZBOWYCH = {
         # 551 -> 560 (24.09.2026, adapter odtwarzania rozkladu): dziewiec
         # calkowitych pinow bez tolerancji, zmierzonych na polaczonym drzewie.
         # 560 -> 562 (25.09.2026, nastawnik): dwa piny przejścia przez neutral.
-        "razem": 562, "z_tolerancja": 193, "bez_tolerancji": 369,
-        "zmiennoprzecinkowe": 214, "zmiennoprzecinkowe_bez_tolerancji": 21,
-        "calkowite": 348, "calkowite_z_tolerancja": 0, "tolerancja_zero": 123,
+        # 562 -> 566 (25.09.2026, obserwacja czynnych składów): dwie dokładne
+        # wartości przyspieszenia 0.0 i dwa całkowite indeksy obserwacji.
+        "razem": 566, "z_tolerancja": 195, "bez_tolerancji": 371,
+        "zmiennoprzecinkowe": 216, "zmiennoprzecinkowe_bez_tolerancji": 21,
+        "calkowite": 350, "calkowite_z_tolerancja": 0, "tolerancja_zero": 125,
     },
 }
 
@@ -511,8 +514,8 @@ ROZKLAD_LICZBOWYCH = {
 #: int, double)` nie ma przeciążenia, więc pin całkowity z tolerancją nie skompilowałby
 #: się. Zapadka z obu stron na tej zerowej liczbie pilnuje, żeby zdanie zostało prawdziwe.
 #:
-#: **Porównań DOKŁADNYCH na liczbie zmiennoprzecinkowej jest 160, nie 21.** Dwadzieścia
-#: jeden nie ma trzeciego argumentu wcale, a **139 podaje tolerancję `0.0`** — czyli deklaruje
+#: **Porównań DOKŁADNYCH na liczbie zmiennoprzecinkowej jest 168, nie 27.** Dwadzieścia
+#: siedem nie ma trzeciego argumentu wcale, a **141 podaje tolerancję `0.0`** — czyli deklaruje
 #: dokładność jawnie. Sama liczba „21" byłaby znacznie zaniżona i to jest
 #: dokładnie ten kształt, który projekt tropi od 6.D27: licznik mówiący o czymś węższym,
 #: niż sugeruje jego nazwa.
@@ -526,7 +529,8 @@ ROZKLAD_LICZBOWYCH = {
 # 155 -> 160 (24.09.2026, LineDrive): pięć dokładnych porównań bez tolerancji.
 # 160 -> 166 (24.09.2026, dok?adne stany hamowania terminalowego).
 # 166 -> 168 (25.09.2026, nastawnik): dwa dokładne zera przeciwnego kierunku.
-DOKLADNE_ZMIENNOPRZECINKOWE = 168
+# 168 -> 170 (25.09.2026, obserwacja czynnych składów): dwa zerowe przyspieszenia.
+DOKLADNE_ZMIENNOPRZECINKOWE = 170
 
 
 def test_ile_pinow_liczbowych_i_jak_sie_dziela():
@@ -553,11 +557,11 @@ def test_pin_calkowity_NIGDY_nie_ma_tolerancji_i_to_nie_jest_zwyczaj():
         % razem)
 
 
-def test_dokladnych_porownan_zmiennoprzecinkowych_jest_168_a_nie_27():
+def test_dokladnych_porownan_zmiennoprzecinkowych_jest_170_a_nie_27():
     """**Sedno 6.D141: tolerancja `0.0` JEST porównaniem dokładnym.**
 
     Licznik „bez tolerancji" mówi o dwudziestu siedmiu asercjach, a dokładnych porównań na
-    liczbie zmiennoprzecinkowej jest znacznie więcej — bo 141 podaje tolerancję
+    liczbie zmiennoprzecinkowej jest znacznie więcej — bo 143 podają tolerancję
     zapisaną jako `0.0`. Test liczy jedno i drugie, żeby ta różnica stała w kodzie,
     a nie tylko w raporcie.
     """
@@ -572,7 +576,9 @@ def test_dokladnych_porownan_zmiennoprzecinkowych_jest_168_a_nie_27():
     # nietknięty hamulec i nieruszony kilometraż przy otwierających się drzwiach.
     # 137 -> 138 (23.09.2026, 6.M1): jedno porównanie z tolerancją 0.0 w
     # `LineReplayTests.cs` — skład ma STAĆ przed otwarciem drzwi, ani jednego bitu ruchu.
-    assert zero == 141, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 141" % zero)
+    # 139 -> 141 (25.09.2026, nastawnik): przejścia przez neutral.
+    # 141 -> 143 (25.09.2026, obserwacja): brak fałszywego przyspieszenia.
+    assert zero == 143, ("tolerancji zapisanych jako 0.0: %d, pomiar mówił 143" % zero)
     assert bez + zero == DOKLADNE_ZMIENNOPRZECINKOWE, (
         "porównań dokładnych jest %d, a stała mówi %d" % (bez + zero,
                                                           DOKLADNE_ZMIENNOPRZECINKOWE))

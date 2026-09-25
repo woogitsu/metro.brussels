@@ -1729,11 +1729,14 @@ public sealed partial class FirstRun : Node3D
             _logStep++;
             _command = _lineSession.Command;
 
-            if (_lineCore.Trains.Count == 0)
+            if (_lineSession.ActiveObservedIndex is null)
             {
-                // A dated plan may start after midnight. Until the first release
-                // there is no observed train; keep advancing the shared clock.
+                // No active train: the camera waits at the line entrance rather
+                // than following a vehicle that has left the plan.
                 _line = null;
+                _state = DriveState.AtRest;
+                _acceleration = 0.0;
+                _doorRefusal = null;
                 return _replay is null || _logStep < _replay.Steps;
             }
 
@@ -2353,7 +2356,8 @@ public sealed partial class FirstRun : Node3D
             _observed = _lineSession.ObservedIndex;
             // Zmiana obserwacji może przypaść na klatkę bez kroku 120 Hz.
             // HUD i kamera muszą w tej klatce czytać już wybrany skład.
-            _line = _lineCore!.Trains[_observed].Drive;
+            _line = _lineSession.ActiveObservedIndex is null
+                ? null : _lineCore!.Trains[_observed].Drive;
             _state = _line?.State ?? DriveState.AtRest;
             _command = _lineSession.Command;
             _acceleration = _lineSession.AccelerationMps2;
@@ -2401,10 +2405,9 @@ public sealed partial class FirstRun : Node3D
         // KAŻDE POLECENIE IDZIE PRZEZ `ExecuteLineEvent` — 6.M1. Ta sama metoda wykonuje
         // polecenia odtwarzane z zapisu, więc to, co gracz zrobił klawiszem, i to, co
         // odtworzenie zrobi z pliku, przechodzi jedną drogą: zapis, rdzeń, widok.
-        if (nextKey && !_trainNextKeyHeld)
+        if (nextKey && !_trainNextKeyHeld && _lineSession!.NextActiveTrainId() is { } nextId)
         {
-            var next = _lineCore.Trains[(_lineSession!.ObservedIndex + 1) % _lineCore.Trains.Count];
-            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.Observe, next.Id));
+            ExecuteLineEvent(new InputLogEvent(_logStep, LineEventKind.Observe, nextId));
         }
 
         var observed = _lineCore.Trains[Math.Clamp(_observed, 0, _lineCore.Trains.Count - 1)];

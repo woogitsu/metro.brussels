@@ -657,10 +657,16 @@ ROZKLAD_POSTACI = {
         # 5236 -> 5244 (24.09.2026, test skrętu osi scenerii i odmowy brakującego JSON).
         # 5244 -> 5268 i 852 -> 853 (24.09.2026, dwa wjazdy rozkładowe):
         # identyfikatory kursów, komunikaty wszystkich asercji i interpolowany krok diagnostyki.
+        # Równoległy pomiar gałęzi obserwacji:
+        # 5400 -> 5491 i 856 -> 858 po polaczeniu testow sceny i Runnera.
+        # 5491 -> 5500: test pierwszego kroku i dostosowanie kontroli kabiny.
+        # 5500 -> 5536 (25.09.2026, obserwacja czynnych składów): wejścia,
+        # identyfikatory i komunikaty nowych asercji; zmierzone czytnikiem.
+        # Równoległy pomiar gałęzi podglądu łącznika:
         # 5410 -> 5510, 856 -> 858, 101 -> 102 (25.09.2026, integracja rozkładu
         # i podglądu łącznika wraz z pomiarami w UiTextTests).
-        # 25.09.2026: cztery komunikaty asercji przej?cia przez neutral.
-        "zwykly": 5514,
+        # 5546 -> 5550 (25.09.2026, nastawnik): cztery komunikaty przejścia przez neutral.
+        "zwykly": 5550,
         "interpolowany ($)": 858,
         "werbatim (@)": 102,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -738,8 +744,14 @@ ROZKLAD_POSTACI = {
         # 1525 -> 1526 (24.09.2026, ścieżka JSON tej osi w FirstRun).
         # 1526 -> 1530: komunikaty odmowy, status przebiegu i zgodności osi.
         # 1530 -> 1531 (24.09.2026, świeża linia): komunikat odmowy konstruktora.
+        # Równoległy pomiar gałęzi obserwacji:
+        # 1535 -> 1566 (24.09.2026, scena i Runner z rozkladem).
+        # 1566 -> 1567 (25.09.2026, obserwacja): odmowa przełączenia,
+        # gdy na planie nie ma czynnego składu.
+        # Równoległy pomiar gałęzi podglądu łącznika:
         # 1582 -> 1613 (25.09.2026, dwa wejścia rozkładowe w scenie i Runnerze).
-        "zwykly": 1613,
+        # Połączone drzewo jest mierzone poniższą zapadką.
+        "zwykly": 1614,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
