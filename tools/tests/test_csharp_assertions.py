@@ -312,7 +312,7 @@ BEZ_KOMUNIKATU = {
     "ReferenceParityTests.cs": 8,
     "RouteDispatcherTests.cs": 24,
     "RunHeaderTests.cs": 11,
-    "RunPlanTests.cs": 106,
+    "RunPlanTests.cs": 109,
     "RunResetTests.cs": 40,
     "RunnerCommandTests.cs": 126,
     "ScenarioDriveTests.cs": 35,
@@ -674,7 +674,8 @@ NIEROZSTRZYGNIETYCH = 69
 # 3712 -> 3720 (25.09.2026, T-400 outcome): eight lifecycle assertions.
 # 3720 -> 3725 (25.09.2026, T-400 outcome): five in-cab cue assertions.
 # 3725 -> 3727 (25.09.2026, jawne granice aktualizacji etykiet HUD i STOP).
-ASERCJI_RAZEM = 3727
+# 3727 -> 3730 (25.09.2026, trzy asercje planu r?cznego po integracji T-400).
+ASERCJI_RAZEM = 3730
 
 
 def _rozklad():
