@@ -210,3 +210,8 @@ Następnie rzeczywiście obejrzeć:
 - `renders/material-style_close.png` — czy metallic/roughness/glass zachowują się plausibly i bez clippingu/overexposure.
 
 Automatyczne przejście procesu nie zastępuje tych oględzin.
+
+## Issue #32 implementation gate
+
+The neutral realistic baseline is encoded in data/design/visual-style.json with aseline_status: approved-neutral-baseline. This gate keeps the technical and neutral layers independent from any branded STIB/MIVB pass.
+
