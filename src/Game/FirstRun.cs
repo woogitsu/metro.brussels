@@ -30,6 +30,9 @@ public enum ViewKind
     /// <summary>Z boku i z góry, przez odrzucone tyłem ściany tunelu — tylko kontrola geometrii.</summary>
     Outside,
 
+    /// <summary>Kontrolne ujęcie boku składu z sąsiedniego toru.</summary>
+    Side,
+
     /// <summary>
     /// Kamera inspekcyjna: stoi na osi tunelu przy zadanym kilometrażu i patrzy
     /// wzdłuż niego, <b>nie czekając na skład</b>. Trzy pozostałe widoki są widokami
@@ -2274,6 +2277,16 @@ public sealed partial class FirstRun : Node3D
                 DesignAssumptions.InspectLateralM).Position;
             _ = wzdluz;
             _chase.LookAtFromPosition(oko, cel, Vector3.Up);
+        }
+        else if (_view == ViewKind.Side)
+        {
+            // Kamera jest obok pierwszego członu, a nie przed czołem.
+            // To kadr inspekcyjny: nie wyznacza rzeczywistej strony peronu.
+            var (position, _) = _sceneAxis.CabPoint(
+                chainage - 14.0, 0.0, 2.0, DesignAssumptions.OutsideLateralM);
+            var target = _sceneAxis.CabPoint(
+                chainage - 28.0, 0.0, 1.8, 0.0).Position;
+            _chase.LookAtFromPosition(position, target, Vector3.Up);
         }
         else if (_view == ViewKind.Outside)
         {
