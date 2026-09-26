@@ -675,7 +675,7 @@ NIEROZSTRZYGNIETYCH = 69
 # 3720 -> 3725 (25.09.2026, T-400 outcome): five in-cab cue assertions.
 # 3725 -> 3727 (25.09.2026, jawne granice aktualizacji etykiet HUD i STOP).
 # 3727 -> 3730 (25.09.2026, trzy asercje planu r?cznego po integracji T-400).
-ASERCJI_RAZEM = 3730
+ASERCJI_RAZEM = 3733
 
 
 def _rozklad():
