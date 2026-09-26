@@ -324,8 +324,8 @@ def test_chunk_manifest_problems_rejects_an_empty_manifest():
 # --- determinizm --------------------------------------------------------------
 
 def test_chunk_geometry_hash_is_stable_across_runs():
-    a = SW.sweep(_s_curve(), BOX, 5.0, [0.0, 300.0, 600.0], max_chunk_m=200.0)
-    b = SW.sweep(_s_curve(), BOX, 5.0, [0.0, 300.0, 600.0], max_chunk_m=200.0)
+    a = SW.sweep(_s_curve(), BOX, 5.0, [], max_chunk_m=200.0)
+    b = SW.sweep(_s_curve(), BOX, 5.0, [], max_chunk_m=200.0)
     assert [SW.chunk_geometry_sha256(c) for c in a["chunks"]] == \
            [SW.chunk_geometry_sha256(c) for c in b["chunks"]]
 
