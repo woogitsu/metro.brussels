@@ -205,6 +205,21 @@ echo "[ZRZUTY] rendery kontrolne"
 "$BLENDER_EXE" --background --python tools/blender/render_check.py -- \
   --in "$OUT/only-schuman.glb" --out "$OUT/renders/PERON"
 
+# The platform asset alone cannot reveal a tunnel wall blocking it. Build the
+# combined chamber and inspect two shaded viewpoints from the actual scene.
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
+  --centerline "$AXIS" --profile box_double --station-layout "$OUT/platforms.json" \
+  --out "$OUT/tunnel-with-chambers.glb"
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/station_scene_preview.py -- \
+  --tunnel "$OUT/tunnel-with-chambers.glb" --station "$OUT/only-schuman.glb" \
+  --out "$OUT/station-scene.glb"
+"$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/station_scene_camera.py -- \
+  --scene "$OUT/station-scene.glb" --axis "$AXIS" --layout "$OUT/platforms.json" \
+  --station-index 10 --out "$OUT/renders/STATION" \
+  --cab-eye-height-m 2.2 --cab-eye-setback-m 1.8 --track-offset-m 2.1 --cab-fov-deg 70
+test -s "$OUT/renders/STATION_cab.png" || fail "brak zacieniowanego kadru kabiny przy stacji"
+test -s "$OUT/renders/STATION_corridor.png" || fail "brak zacieniowanego kadru korytarza"
+
 echo
 echo "[VERIFY] Python tool suite"
 python3 tools/tests/test_all.py

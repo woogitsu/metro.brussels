@@ -56,9 +56,15 @@ fi
 OUT="${1:-build/t400}"
 mkdir -p "$OUT/chunks"
 
+# The tunnel and the station kit must use the same design platform ranges.
+echo "[PRZYGOTOWANIE] rozkład peronów -> $OUT/L1_A-platforms.json"
+python3 tools/track/station_layout.py --axis data/track/L1_A.json \
+    --out "$OUT/L1_A-platforms.json" --platform-length-m design
+
 echo "[PRZYGOTOWANIE] tunel pakietu A -> $OUT/L1_A.glb"
 "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/tunnel_sweep.py -- \
-    --centerline data/track/L1_A.json --profile box_double --name L1_A \
+    --centerline data/track/L1_A.json --profile box_double \
+    --station-layout "$OUT/L1_A-platforms.json" --name L1_A \
     --out "$OUT/L1_A.glb" --metrics "$OUT/L1_A-metrics.json" \
     --chunk-dir "$OUT/chunks" --chunk-manifest "$OUT/chunks/L1_A-chunks.json"
 
@@ -148,24 +154,21 @@ echo "[PRZYGOTOWANIE] kabina kanoniczna -> $OUT/M7_cab.glb"
 # żadne publiczne źródło), więc stoi tu jawnie i jest to ta sama liczba co
 # w `tools/ci/station_details.sh`.
 #
-# Budowane są WYŁĄCZNIE `platform` i `edge`. Reszta zespołu stacji — schody, winda,
-# antresola, korytarz, portal — sięga od 1,03 m do 8,30 m nad główką szyny, a strop
-# profilu `box_double`, którym zamiatany jest tunel pakietu A, stoi na 4,70 m. Te bryły
-# przebijałyby więc strop i kończyły się w nim, bo komora stacyjna (profil `station`,
-# strop 5,30 m) nie jest jeszcze wstawiana w przebieg tunelu.
+# Tunel otrzymuje powyższy rozkład i rozszerza się do komory na długości każdego
+# peronu. Dopiero dlatego można wstawić cały projektowy zespół dostępu: schody,
+# windę, antresolę, korytarz i portal. Otwór w ścianie odpowiada dokładnie
+# korytarzowi, a kolizja pociągu nadal pozostaje zamkniętym przekrojem.
 #
 # `--platform-length-m design` bierze DECYZJĘ WŁAŚCICIELA (95,0 m, T-212)
 # ze `station_components.DESIGN_PLATFORM_LENGTH_M`, zamiast przepisywać tu liczbę po raz
 # drugi. Bez tego słowa generator brał wartość domyślną, czyli dolną granicę z R-007
 # (94,0 m = długość składu), i scena dostawała perony o metr krótsze niż decyzja.
-echo "[PRZYGOTOWANIE] rozkład peronów -> $OUT/L1_A-platforms.json"
-python3 tools/track/station_layout.py --axis data/track/L1_A.json \
-    --out "$OUT/L1_A-platforms.json" --platform-length-m design
-
 echo "[PRZYGOTOWANIE] bryły peronów -> $OUT/L1_A-platforms.glb"
 "$BLENDER_EXE" --background --python-exit-code 7 --python tools/blender/station_kit.py -- \
     --axis data/track/L1_A.json --layout "$OUT/L1_A-platforms.json" \
-    --platform-gap-m 0.08 --component platform --component edge \
+    --platform-gap-m 0.08 \
+    --component platform --component edge --component stairs --component lift \
+    --component mezzanine --component corridor --component portal \
     --out "$OUT/L1_A-platforms.glb" \
     --metrics "$OUT/L1_A-platforms-metrics.json"
 

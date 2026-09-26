@@ -402,7 +402,7 @@ których agent nie ruszy bez decyzji właściciela.
   zajmuje peron na zawsze" i to już nieprawda: nawrót wszedł w **#218** na oba końce
   osi, a jego czas jest **zmierzony z GTFS STIB**, nie zmyślony — 194 obiegi,
   4289 nawrotów, minimum 240 s, mediana 445 s, **ani jednego poniżej 240 s**
-  (`docs/21-measured-vs-assumed.md` §4f). Zostaje samo domknięcie taktu i obiegów
+  (`docs/21-measured-vs-assumed.md` §4h). Zostaje samo domknięcie taktu i obiegów
 - **Wejście z T-113:** takt 5:10 (L1/L5) i 5:40 (L2/L6), 48 kursów naraz w ruchu,
   71 obiegów pojazdów, rozkładowe czasy jazdy i postoju per odcinek (`build/timetable.json`)
 - **Pomiar granicy pakietu A (24.09.2026):** `reports/t320-package-a-capacity.md` —
@@ -428,7 +428,7 @@ których agent nie ruszy bez decyzji właściciela.
   opisane w żadnym dokumencie**. Agent zatrzymuje się i pyta, zamiast wybierać sam.
   **Turnback z tego STOP-u wyszedł** i dlatego ten punkt jest przepisany, a nie dopisany
   obok: czas nawrotu jest **zmierzony z GTFS STIB** (194 obiegi, 4289 nawrotów, minimum
-  240 s, mediana 445 s, ani jednego poniżej 240 s — `docs/21-measured-vs-assumed.md` §4f),
+  240 s, mediana 445 s, ani jednego poniżej 240 s — `docs/21-measured-vs-assumed.md` §4h),
   a sam nawrót jest w `LineCore` jako argument, którego zero wyłącza. Nawrót na Merode
   zostaje `design_assumption`, bo Merode nie jest krańcówką w żadnym źródle — to granica
   pakietu
@@ -2585,7 +2585,7 @@ co dochodzi ponad ten wspólny zakaz.
   źródła), `tools/track/timetable.py` (`--gtfs`, `--out`, `--date`, `--axis`),
   `reports/T-113-timetable.md`, `src/Sim/Line/LineCore.cs` (`Add(trainId,
   releaseStep)`, `Step()`, `TurnbackSteps`), `src/Sim/Line/LineRoute.cs`,
-  `data/network/sources.json`, `docs/21-measured-vs-assumed.md` §4d i §4f.
+  `data/network/sources.json`, `docs/21-measured-vs-assumed.md` §4d i §4h.
 - **Wyjście:** polecenie doby służby w `src/Sim.Runner`, testy w
   `tests/Sim.Tests/LineCoreTests.cs` i `reports/service-day.md`.
 - **Weryfikacja:**

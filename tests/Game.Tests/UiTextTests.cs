@@ -1543,7 +1543,8 @@ public sealed class UiTextTests
     // 738 -> 740 (25.09.2026, T-400 stop target): the same two literals.
     // 740 -> 747 (25.09.2026, wynik STOP w scenie i HUD).
     // 747 -> 750 (26.09.2026, kontrola kompletności plików chunków).
-    private const int PozycjiStaregoCzytnika = 750;
+    // 750 -> 751 (26.09.2026, osobny licznik wszystkich siatek stacji w metadanych).
+    private const int PozycjiStaregoCzytnika = 751;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -3258,15 +3259,17 @@ public sealed class UiTextTests
     /// <summary>Kluczy RÓŻNYCH w napisie metadanych zrzutu — 6.D186.</summary>
     // 31 -> 34 (24.09.2026, visual_continuation, present i seam_gap_m).
     // 34 -> 37 (24.09.2026, rodzaj, profil pionowy i skrót źródła).
-    private const int KluczyJsonWypisywanego = 37;
+    // 37 -> 38 (26.09.2026, objects_total dla pełnego modelu stacji).
+    private const int KluczyJsonWypisywanego = 38;
 
     /// <summary>Wystąpień kluczy w tym samym napisie — 6.D186.</summary>
     // 35 -> 42 (24.09.2026, siedem wystąpień pól scenerii).
     // 42 -> 45 (24.09.2026, trzy pola podglądu łącznika).
-    private const int WystapienKluczyJson = 45;
+    // 45 -> 46 (26.09.2026, jedno wystąpienie objects_total).
+    private const int WystapienKluczyJson = 46;
 
     /// <summary>
-    /// Które z tych 31 nazw w ogóle padają w korpusie zgłoszeń — i skąd — 6.D186.
+    /// Które z tych 38 nazw w ogóle padają w korpusie zgłoszeń — i skąd — 6.D186.
     ///
     /// <para>Obie są nazwami argumentów wiersza poleceń (<c>--platforms</c>,
     /// <c>--view</c>), a nie kluczami. Rodzina „klucz JSON-a wypisywanego" liczy
@@ -3573,11 +3576,10 @@ public sealed class UiTextTests
     /// <b>zero</b>, a nie trzynaście. Z 31 nazw w korpusie padają dwie — <c>platforms</c>
     /// i <c>view</c> — i obie jako nazwy argumentów wiersza poleceń.</para>
     ///
-    /// <para><b>Dwie trzydzieści jedynki, i nie mają ze sobą nic wspólnego.</b> Kluczy
-    /// w tym napisie jest 31, a 6.D181 policzyło rodzinę JSON-a też na 31 (18 + 13).
-    /// Zbieżność jest przypadkowa — tamta liczba powstała z kawałków tego samego napisu
-    /// policzonych po wierszach, a nie z jego kluczy — i stoi tu wypisana, żeby nikt
-    /// nie wyprowadził z niej wniosku.</para>
+    /// <para>Historycznie były tu dwie trzydzieści jedynki: liczba kluczy w napisie
+    /// i wynik 6.D181 dla rodziny JSON-a (18 + 13). Dziś kluczy jest 38, więc dawna
+    /// zbieżność zniknęła. Tamta liczba powstała z kawałków napisu liczonych po
+    /// wierszach, a nie z nazw jego kluczy.</para>
     /// </summary>
     [TestMethod]
     public void Klucze_JSON_wypisywanego_NIE_SA_zgloszeniami_wiec_szersza_regula_nic_by_nie_dala()
@@ -3939,7 +3941,7 @@ public sealed class UiTextTests
             "`BezDziur` zabrał napisowi metadanych wszystkie słowa — wtedy usterka "
             + "z 6.D188 ma pierwsze wystąpienie w drzewie");
 
-        // PIN NA LICZBĘ, a nie na zdanie o zagnieżdżeniu. Kluczy jest 31 (6.D186)
+        // PIN NA LICZBĘ, a nie na zdanie o zagnieżdżeniu. Kluczy jest 38 (6.D186)
         // i `BezDziur` nie zabiera ANI JEDNEGO — bo wszystkie leżą poza najgłębszymi
         // parami klamer. Bez tego pinu zdjęcie poziomu zagnieżdżenia przechodziło
         // na zielono (KN-3).

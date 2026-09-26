@@ -130,7 +130,8 @@ def _point_to_segment(point, a, b):
     return SW.norm(SW.sub(point, SW.add(a, SW.scale(d, t))))
 
 
-def select_rings(positions, station_m, first, last, max_chord_m, max_sagitta_m):
+def select_rings(positions, station_m, first, last, max_chord_m, max_sagitta_m,
+                 required_rings=()):
     """Podzbiór pierścieni [first..last] spełniający oba limity; zawsze z końcami.
 
     Zachłanne dopasowanie cięciwy: od bieżącego pierścienia idziemy tak daleko, jak
@@ -158,7 +159,7 @@ def select_rings(positions, station_m, first, last, max_chord_m, max_sagitta_m):
         current = best
     if keep[-1] != last:
         keep.append(last)
-    return keep
+    return sorted(set(keep) | {index for index in required_rings if first <= index <= last})
 
 
 # --- wielobok profilu ---------------------------------------------------------
@@ -265,9 +266,11 @@ def gauge_margin_m(polygon, gauge, track_offsets, samples=40):
 
 # --- siatka: objętość, zamknięcie, odchyłka -----------------------------------
 
-def rings_of(frames, profile, ring_indices):
+def rings_of(frames, profile, ring_indices, profiles_by_ring=None):
     """Pierścienie jako listy punktów 3D, bez zdublowanej kolumny szwu."""
-    return [SW.ring_positions(frames[index], profile) for index in ring_indices]
+    return [SW.ring_positions(frames[index],
+                              profiles_by_ring[index] if profiles_by_ring is not None else profile)
+            for index in ring_indices]
 
 
 def tube_volume_m3(rings):
@@ -348,7 +351,8 @@ def transversally_closed(chunk, columns):
     return (len(boundary) == expected and on_ends), len(boundary), expected
 
 
-def deviation_stats(frames, profile, station_m, first, last, ring_indices):
+def deviation_stats(frames, profile, station_m, first, last, ring_indices,
+                    profiles_by_ring=None):
     """Odchylenie powierzchni LOD0 od powierzchni rzadszego LOD-a, w metrach.
 
     Mierzy się w jedynym kierunku, który coś znaczy: wierzchołki LOD-a są PODZBIOREM
@@ -367,14 +371,17 @@ def deviation_stats(frames, profile, station_m, first, last, ring_indices):
         while slot + 1 < len(kept) and kept[slot + 1] < index:
             slot += 1
         low, high = kept[slot], kept[min(slot + 1, len(kept) - 1)]
-        exact = SW.ring_positions(frames[index], profile)
+        exact = SW.ring_positions(frames[index],
+                                  profiles_by_ring[index] if profiles_by_ring is not None else profile)
         if index == low or index == high or high == low:
             samples.extend([0.0] * len(exact))
             continue
         span = station_m[high] - station_m[low]
         t = 0.0 if span <= 0.0 else (station_m[index] - station_m[low]) / span
-        a = SW.ring_positions(frames[low], profile)
-        b = SW.ring_positions(frames[high], profile)
+        a = SW.ring_positions(frames[low],
+                              profiles_by_ring[low] if profiles_by_ring is not None else profile)
+        b = SW.ring_positions(frames[high],
+                              profiles_by_ring[high] if profiles_by_ring is not None else profile)
         for column in range(len(exact)):
             lerp = SW.add(a[column], SW.scale(SW.sub(b[column], a[column]), t))
             samples.append(SW.norm(SW.sub(exact[column], lerp)))
@@ -389,7 +396,8 @@ def deviation_stats(frames, profile, station_m, first, last, ring_indices):
     }
 
 
-def wall_margin_m(frames, profile_true, profile_used, station_m, first, last, ring_indices):
+def wall_margin_m(frames, profile_true, profile_used, station_m, first, last, ring_indices,
+                  true_by_ring=None, used_by_ring=None):
     """Najmniejszy zapas między powierzchnią rzadkiej rury a prawdziwym światłem tunelu.
 
     Dla każdego wyrzuconego pierścienia bierzemy punkt powierzchni rzadkiej rury
@@ -405,14 +413,17 @@ def wall_margin_m(frames, profile_true, profile_used, station_m, first, last, ri
             slot += 1
         low, high = kept[slot], kept[min(slot + 1, len(kept) - 1)]
         origin, _t, right, up = frames[index]
-        a = SW.ring_positions(frames[low], profile_used)
-        b = SW.ring_positions(frames[high], profile_used)
+        a = SW.ring_positions(frames[low],
+                              used_by_ring[low] if used_by_ring is not None else profile_used)
+        b = SW.ring_positions(frames[high],
+                              used_by_ring[high] if used_by_ring is not None else profile_used)
         span = station_m[high] - station_m[low]
         t = 0.0 if span <= 0.0 else (station_m[index] - station_m[low]) / span
         for column in range(len(profile_used)):
             point = SW.add(a[column], SW.scale(SW.sub(b[column], a[column]), t))
             local = SW.sub(point, origin)
-            worst = min(worst, polygon_signed_distance_m(profile_true,
+            true_profile = true_by_ring[index] if true_by_ring is not None else profile_true
+            worst = min(worst, polygon_signed_distance_m(true_profile,
                                                          SW.dot(local, right),
                                                          SW.dot(local, up)))
     return worst
@@ -423,7 +434,8 @@ def wall_margin_m(frames, profile_true, profile_used, station_m, first, last, ri
 def collision_solid(frames, station_m, profile, first, last,
                     max_chord_m=COLLISION_MAX_CHORD_M,
                     max_sagitta_m=COLLISION_MAX_SAGITTA_M,
-                    inset_m=COLLISION_INSET_M, uv_scale=SW.UV_METRES_PER_UNIT):
+                    inset_m=COLLISION_INSET_M, uv_scale=SW.UV_METRES_PER_UNIT,
+                    profiles_by_ring=None, required_rings=()):
     """Bryła kolizyjna chunka: WNĘTRZE tunelu, obrys zamiatany rzadziej i wcięty.
 
     Trzy decyzje i ich uzasadnienie:
@@ -449,23 +461,29 @@ def collision_solid(frames, station_m, profile, first, last,
     (Założenie implementacyjne o Godocie, do potwierdzenia w T-4xx.)
     """
     positions = [f[0] for f in frames]
-    kept = select_rings(positions, station_m, first, last, max_chord_m, max_sagitta_m)
+    kept = select_rings(positions, station_m, first, last, max_chord_m, max_sagitta_m,
+                        required_rings)
     hull = inset_polygon(profile, inset_m)
-    chunk = SW.build_chunk_from_rings(frames, station_m, hull, kept, uv_scale)
+    hulls = ([inset_polygon(ring, inset_m) for ring in profiles_by_ring]
+             if profiles_by_ring is not None else None)
+    chunk = SW.build_chunk_from_rings(frames, station_m, hull, kept, uv_scale, hulls)
     chunk["profile"] = hull
+    chunk["profiles_by_ring"] = hulls
     chunk["inset_m"] = inset_m
     chunk["max_chord_m"] = max_chord_m
     chunk["max_sagitta_m"] = max_sagitta_m
     return chunk
 
 
-def lod_chunk(frames, station_m, profile, first, last, level, uv_scale=SW.UV_METRES_PER_UNIT):
+def lod_chunk(frames, station_m, profile, first, last, level, uv_scale=SW.UV_METRES_PER_UNIT,
+              profiles_by_ring=None, face_open=None, required_rings=()):
     """Siatka wizualna chunka w podanym poziomie szczegółowości."""
     params = level_params(level)
     positions = [f[0] for f in frames]
     kept = select_rings(positions, station_m, first, last,
-                        params["max_chord_m"], params["max_sagitta_m"])
-    chunk = SW.build_chunk_from_rings(frames, station_m, profile, kept, uv_scale)
+                        params["max_chord_m"], params["max_sagitta_m"], required_rings)
+    chunk = SW.build_chunk_from_rings(frames, station_m, profile, kept, uv_scale,
+                                     profiles_by_ring, face_open)
     chunk["level"] = int(level)
     return chunk
 

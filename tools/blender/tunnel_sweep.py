@@ -32,10 +32,12 @@ import sys
 import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "track"))
 import lod as LD  # noqa: E402
 import lod_paths as LP  # noqa: E402
 import sweep as SW  # noqa: E402
 import tunnel_manifest as TM  # noqa: E402
+import station_chamber as CH  # noqa: E402
 from profiles import PROFILES, profile_points, dimensions, fits_gauge, vehicle_gauge  # noqa: E402
 
 # Nazwa pliku i pochodzenie siatki poziomu LOD mieszkają w `lod_paths`, module
@@ -49,6 +51,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Zamiatanie profilu tunelu wzdłuż osi")
     parser.add_argument("--centerline", required=True)
     parser.add_argument("--profile", default="box_double", choices=list(PROFILES))
+    parser.add_argument("--station-layout", help="projektowy rozkład peronów dla przekroju komór")
     parser.add_argument("--out", required=True)
     parser.add_argument("--name", default="tunnel")
     parser.add_argument("--ring-step", type=float, default=SW.DEFAULT_RING_STEP_M,
@@ -94,7 +97,8 @@ def drop_object(obj):
 
 
 def lod_entries(chunk, chunk_id, name_prefix, base_object, chunk_dir, frames, station_m,
-                profile, material, uv_scale):
+                profile, material, uv_scale, profiles_by_ring=None, face_open=None,
+                required_rings=()):
     """Trzy poziomy szczegółowości chunka, każdy w osobnym pliku, z ZMIERZONYM błędem.
 
     LOD 0 jest tożsamy z siatką bazową i nie jest eksportowany drugi raz — dzieli
@@ -103,7 +107,8 @@ def lod_entries(chunk, chunk_id, name_prefix, base_object, chunk_dir, frames, st
     zostaje szczelny także po przełączeniu poziomu.
     """
     first, last = chunk["first_ring"], chunk["last_ring"]
-    base_volume = LD.tube_volume_m3(LD.rings_of(frames, profile, chunk["ring_indices"]))
+    base_volume = LD.tube_volume_m3(LD.rings_of(frames, profile, chunk["ring_indices"],
+                                                profiles_by_ring))
     base_size = [round(v, 4) for v in TM.chunk_size(chunk)]
     entries, meshes = [], []
     for params in LD.LOD_LEVELS:
@@ -112,15 +117,18 @@ def lod_entries(chunk, chunk_id, name_prefix, base_object, chunk_dir, frames, st
         if is_base_level(level):
             mesh = chunk
         else:
-            mesh = LD.lod_chunk(frames, station_m, profile, first, last, level, uv_scale)
+            mesh = LD.lod_chunk(frames, station_m, profile, first, last, level, uv_scale,
+                                profiles_by_ring, face_open, required_rings)
             obj = build_object(mesh, level, chunk_id, material,
                                mesh_name=f"{chunk_id}_lod{level}",
-                               frames=frames, profile=profile)
+                               frames=frames, profile=profile,
+                               profiles_by_ring=profiles_by_ring)
             export_selected([obj], path)
             drop_object(obj)
         stats = LD.deviation_stats(frames, profile, station_m, first, last,
-                                   mesh["ring_indices"])
-        volume = LD.tube_volume_m3(LD.rings_of(frames, profile, mesh["ring_indices"]))
+                                   mesh["ring_indices"], profiles_by_ring)
+        volume = LD.tube_volume_m3(LD.rings_of(frames, profile, mesh["ring_indices"],
+                                               profiles_by_ring))
         record = TM.geometry_record(mesh, path)
         record.update({
             "level": level,
@@ -147,7 +155,7 @@ def lod_entries(chunk, chunk_id, name_prefix, base_object, chunk_dir, frames, st
 
 
 def collision_entry(chunk, chunk_id, chunk_dir, frames, station_m, profile, material,
-                    uv_scale, track_offsets):
+                    uv_scale, track_offsets, profiles_by_ring=None, required_rings=()):
     """Bryła kolizyjna chunka w osobnym pliku, z pomiarem zapasu do ściany i do skrajni.
 
     Osobny plik, a nie nazwany obiekt w GLB LOD-a, bo kolizja jest JEDNA na chunk,
@@ -156,7 +164,9 @@ def collision_entry(chunk, chunk_id, chunk_dir, frames, station_m, profile, mate
     od decyzji o rozdzielczości obrazu. Uzasadnienie w `reports/L1_A-lod.md` §4.
     """
     first, last = chunk["first_ring"], chunk["last_ring"]
-    solid = LD.collision_solid(frames, station_m, profile, first, last, uv_scale=uv_scale)
+    solid = LD.collision_solid(frames, station_m, profile, first, last, uv_scale=uv_scale,
+                               profiles_by_ring=profiles_by_ring,
+                               required_rings=required_rings)
     hull = solid["profile"]
     path = os.path.join(chunk_dir, f"{chunk_id}_col.glb")
     obj = build_object(solid, 0, chunk_id, material, mesh_name=f"{chunk_id}_col")
@@ -164,8 +174,10 @@ def collision_entry(chunk, chunk_id, chunk_dir, frames, station_m, profile, mate
     drop_object(obj)
     columns = len(hull) + 1
     closed, boundary, expected = LD.transversally_closed(solid, columns)
-    base_volume = LD.tube_volume_m3(LD.rings_of(frames, profile, chunk["ring_indices"]))
-    volume = LD.tube_volume_m3(LD.rings_of(frames, hull, solid["ring_indices"]))
+    base_volume = LD.tube_volume_m3(LD.rings_of(frames, profile, chunk["ring_indices"],
+                                                profiles_by_ring))
+    volume = LD.tube_volume_m3(LD.rings_of(frames, hull, solid["ring_indices"],
+                                           solid["profiles_by_ring"]))
     record = TM.geometry_record(solid, path)
     record.update({
         "role": "wnętrze tunelu — przestrzeń, w której może się poruszać pociąg",
@@ -181,7 +193,9 @@ def collision_entry(chunk, chunk_id, chunk_dir, frames, station_m, profile, mate
         "volume_m3": round(volume, 3),
         "volume_share_pct": round(100.0 * volume / base_volume, 3),
         "wall_margin_m": round(LD.wall_margin_m(frames, profile, hull, station_m,
-                                                first, last, solid["ring_indices"]), 6),
+                                                first, last, solid["ring_indices"],
+                                                profiles_by_ring,
+                                                solid["profiles_by_ring"]), 6),
         "gauge_margin_m": round(LD.gauge_margin_m(hull, vehicle_gauge(), track_offsets), 6),
         "triangle_share_pct": round(100.0 * len(solid["faces"]) / len(chunk["faces"]), 2),
         "normals": "do wnętrza, jak w siatce wizualnej",
@@ -192,7 +206,8 @@ def collision_entry(chunk, chunk_id, chunk_dir, frames, station_m, profile, mate
 
 
 def chunk_records(chunks, objects, stations, station_slots, name, chunk_dir, frames,
-                  station_m, profile, material, uv_scale, track_offsets):
+                  station_m, profile, material, uv_scale, track_offsets,
+                  profiles_by_ring=None, face_open=None, required_rings=()):
     """Eksportuje każdy chunk do własnych plików i opisuje go wpisem manifestu.
 
     Nazwy plików są funkcją nazwy wariantu i indeksu chunka, więc są stabilne między
@@ -206,9 +221,11 @@ def chunk_records(chunks, objects, stations, station_slots, name, chunk_dir, fra
         path = os.path.join(chunk_dir, f"{chunk_id}.glb")
         export_selected([obj], path)
         lods, meshes = lod_entries(chunk, chunk_id, name, obj, chunk_dir, frames,
-                                   station_m, profile, material, uv_scale)
+                                   station_m, profile, material, uv_scale,
+                                   profiles_by_ring, face_open, required_rings)
         collision, solid = collision_entry(chunk, chunk_id, chunk_dir, frames, station_m,
-                                           profile, material, uv_scale, track_offsets)
+                                           profile, material, uv_scale, track_offsets,
+                                           profiles_by_ring, required_rings)
         lod_meshes.append(meshes)
         collision_meshes.append(solid)
         record = TM.geometry_record(chunk, path)
@@ -252,7 +269,7 @@ def load_centerline(path):
     return [tuple(float(c) for c in p) for p in points], stations, vertical, identifier
 
 
-def boundary_normals(frames, profile, ring_index):
+def boundary_normals(frames, profile, ring_index, profiles_by_ring=None):
     """Normal of each profile wall at a ring, using both global neighbours."""
     flip = SW._needs_flip(frames[ring_index], profile)
     normals = []
@@ -262,8 +279,10 @@ def boundary_normals(frames, profile, ring_index):
                             (ring_index, ring_index + 1)):
             if first < 0 or last >= len(frames):
                 continue
-            a = SW.ring_positions(frames[first], profile)
-            b = SW.ring_positions(frames[last], profile)
+            a = SW.ring_positions(frames[first],
+                                  profiles_by_ring[first] if profiles_by_ring is not None else profile)
+            b = SW.ring_positions(frames[last],
+                                  profiles_by_ring[last] if profiles_by_ring is not None else profile)
             next_column = (column + 1) % len(profile)
             quad = (a[column], a[next_column], b[next_column], b[column])
             adjacent.append(SW.unit(SW.face_normal(quad, (3, 2, 1, 0) if flip
@@ -273,17 +292,17 @@ def boundary_normals(frames, profile, ring_index):
     return normals
 
 
-def match_seam_normals(mesh, chunk, frames, profile):
+def match_seam_normals(mesh, chunk, frames, profile, profiles_by_ring=None):
     """Set identical endpoint normals on neighbouring chunk GLBs and LODs."""
     columns = len(profile) + 1
     last_row_start = len(chunk["vertices"]) - columns
     endpoints = {
-        0: boundary_normals(frames, profile, chunk["first_ring"]),
-        last_row_start: boundary_normals(frames, profile, chunk["last_ring"]),
+        0: boundary_normals(frames, profile, chunk["first_ring"], profiles_by_ring),
+        last_row_start: boundary_normals(frames, profile, chunk["last_ring"], profiles_by_ring),
     }
     normals = [tuple(corner.vector) for corner in mesh.corner_normals]
     for polygon in mesh.polygons:
-        wall = polygon.index % len(profile)
+        wall = chunk.get("face_columns", [])[polygon.index] if "face_columns" in chunk else polygon.index % len(profile)
         for loop_index in polygon.loop_indices:
             vertex = mesh.loops[loop_index].vertex_index
             ring_start = (vertex // columns) * columns
@@ -292,7 +311,8 @@ def match_seam_normals(mesh, chunk, frames, profile):
     mesh.normals_split_custom_set(normals)
 
 
-def build_object(chunk, index, name, material, mesh_name=None, frames=None, profile=None):
+def build_object(chunk, index, name, material, mesh_name=None, frames=None, profile=None,
+                 profiles_by_ring=None):
     # Nazwa obiektu jest tym, co Godot zobaczy w zaimportowanej scenie, więc LOD-y
     # i kolizja dostają nazwę mówiącą, czym są, a nie kolejny „_chunkNN".
     mesh = bpy.data.meshes.new(mesh_name or f"{name}_chunk{index:02d}")
@@ -309,7 +329,7 @@ def build_object(chunk, index, name, material, mesh_name=None, frames=None, prof
         if abs(edge.vertices[1] - edge.vertices[0]) == columns:
             sharp.data[edge.index].value = True
     if frames is not None and profile is not None:
-        match_seam_normals(mesh, chunk, frames, profile)
+        match_seam_normals(mesh, chunk, frames, profile, profiles_by_ring)
     layer = mesh.uv_layers.new(name="UVMap")
     for loop in mesh.loops:
         layer.data[loop.index].uv = chunk["uvs"][loop.vertex_index]
@@ -351,12 +371,58 @@ def main():
 
     profile = profile_points(args.profile)
     station_m = [s["chainage_m"] for s in stations]
+    chamber = None
+    windows = []
+    anchors = []
+    profile_at_m = None
+    open_face = None
+    if args.station_layout:
+        if args.profile != "box_double":
+            raise SystemExit("BŁĄD: przekrój komory wymaga profilu box_double")
+        with open(args.station_layout, encoding="utf-8") as handle:
+            layout = json.load(handle)
+        if layout.get("axis_id") != identifier:
+            raise SystemExit("BŁĄD: rozkład peronów pochodzi z innej osi")
+        platforms = layout["platforms"]
+        station_points = profile_points("station")
+        chamber = CH.chamber_profile(station_points, layout["platform_height_m"])
+        low_chamber = CH.low_chamber_profile(station_points)
+        profile = CH.expanded_tunnel_profile(profile)
+        windows = CH.access_windows(platforms, station_points,
+                                    layout["platform_height_m"])
+        for platform in platforms:
+            anchors.extend((platform["from_m"] - CH.CHAMBER_FLARE_M,
+                            platform["from_m"], platform["to_m"],
+                            platform["to_m"] + CH.CHAMBER_FLARE_M))
+        for first, last, _side in windows:
+            anchors.extend((first, last))
+        profile_at_m = lambda value: CH.profile_at(value, profile, chamber, platforms,
+                                                  low_chamber)
+        open_face = lambda first, last, column: CH.is_open_face(first, last, column, windows)
     result = SW.sweep(points, profile, args.ring_step, station_m, args.max_chunk_m,
-                      args.station_halo_m)
+                      args.station_halo_m, profile_at_m=profile_at_m,
+                      open_face=open_face, anchor_chainages=anchors)
     chunks, frames, columns = result["chunks"], result["frames"], result["columns"]
+    profiles_by_ring = result["profiles_by_ring"]
+    def face_open_for_rings(low, high, column):
+        return open_face(result["station_m"][low], result["station_m"][high], column)
+    face_open_cb = face_open_for_rings if open_face is not None else None
+    required_rings = [SW._nearest_ring(result["station_m"], anchor)
+                      for anchor in anchors if 0.0 <= anchor <= result["axis_length_m"]]
+    if args.station_layout:
+        required_rings.extend(index for index, value in enumerate(result["station_m"])
+                              if CH.transition_weight(value, platforms) > 0.0
+                              or CH.mezzanine_weight(value, platforms) > 0.0)
+        # Keep one full-profile ring on either side of each transition. Without it,
+        # the collision chord can interpolate from a raised roof across the point
+        # where the ordinary tunnel has already resumed.
+        required_rings = sorted({neighbor for index in required_rings
+                                 for neighbor in (index - 1, index, index + 1)
+                                 if 0 <= neighbor < len(result["station_m"])})
 
     material = neutral_material()
-    objects = [build_object(chunk, i, name, material, frames=frames, profile=profile)
+    objects = [build_object(chunk, i, name, material, frames=frames, profile=profile,
+                            profiles_by_ring=profiles_by_ring)
                for i, chunk in enumerate(chunks)]
 
     gaps = [SW.chunk_gap_m(a, b, columns) for a, b in zip(chunks, chunks[1:])]
@@ -367,6 +433,8 @@ def main():
         "variant": variant,
         "production_ready": plan["production_ready"],
         "profile": args.profile,
+        "station_chamber": bool(args.station_layout),
+        "station_access_windows": len(windows),
         "profile_size_m": list(dimensions(args.profile)),
         "axis_length_m": round(result["axis_length_m"], 3),
         "source_length_m": round(result["source_length_m"], 3),
@@ -408,7 +476,8 @@ def main():
         records, lod_meshes, collision_meshes = chunk_records(
             chunks, objects, stations, slots, name, args.chunk_dir, frames,
             result["station_m"], profile, material, SW.UV_METRES_PER_UNIT,
-            PROFILES[args.profile].get("track_offsets", [0.0]))
+            PROFILES[args.profile].get("track_offsets", [0.0]),
+            profiles_by_ring, face_open_cb, required_rings)
         lod_header = TM.lod_levels_header(records)
         metrics.update(TM.lod_metrics(records, lod_meshes, collision_meshes, frames,
                                    columns, len(profile) + 1))
