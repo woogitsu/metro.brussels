@@ -50,3 +50,9 @@ Kontakt publikowany przez STIB: `relationspubliques@stib-mivb.brussels`.
 ## Reguła merge dla assetów
 
 Każdy zewnętrzny asset produkcyjny ma `source/licence/permission_ref`. Brak udokumentowanego prawa do zamierzonego użycia = neutralny oryginalny fallback albo wykluczenie assetu. Brak odpowiedzi uprawnionego **nie jest zgodą**.
+
+## Minimalny gate przed publikacją (as_of: 2026-09-26)
+
+Przed włączeniem zewnętrznego materiału do paczki wybierz `allowed`, `permission_required`, `replace_with_original` albo `excluded` i zapisz decyzję w `data/legal/rights-matrix.json` dla konkretnego użycia. Publiczna dostępność pliku ani brak odpowiedzi nie spełniają warunku `allowed`.
+
+Bez udokumentowanego uprawnienia pipeline zatrzymuje branded/world asset i używa neutralnego, oryginalnego fallbacku. Fallback nie zachowuje logo, chronionej typografii, skopiowanej mapy, signage ani reprodukcji dzieła. Atrybucję, warunki licencji, `permission_ref`, hash źródła i datę przeglądu przechowujemy razem z manifestem provenance. To opis procesu kontroli, nie porada prawna.

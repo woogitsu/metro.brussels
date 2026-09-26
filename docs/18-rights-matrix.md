@@ -177,3 +177,9 @@ Poniższy tekst jest draftem do późniejszego wysłania; samo przygotowanie dra
 ## Kryterium produkcyjne
 
 Asset może przejść z neutralnego placeholdera do branded/final tylko wtedy, gdy `data/legal/rights-matrix.json` ma dla niego status pozwalający na zamierzone użycie i konkretne `licence_or_permission_ref`. Brak wpisu jest traktowany jak `excluded_until_cleared`, nie jak zgoda.
+
+### Szybka klasyfikacja decyzji (as_of: 2026-09-26)
+
+Każdy kandydat otrzymuje jeden status: `allowed`, `permission_required`, `replace_with_original` albo `excluded`. Status dotyczy zamierzonego użycia, nie samego pliku. Open Data może uzasadniać facts-only/topologię, ale nie automatycznie logo, livery, signage ani dzieło sztuki. Niejasność kończy się neutralnym fallbackiem albo wykluczeniem.
+
+Przed dodaniem assetu zapisz `asset_id`, zamierzone użycie, źródło, licencję lub `permission_ref`, zakres dystrybucji, `redistribution_allowed`, hash źródła i datę przeglądu. Sprawdź, że plik produkcyjny nie zawiera elementu oznaczonego `permission_required` lub `excluded`; atrybucję i ograniczenia przechowuj obok manifestu provenance.
