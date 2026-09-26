@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -41,7 +41,7 @@ public sealed class FirstRunSceneContractTests
     public void FirstRunSceneDoesNotReintroduceDriverConsoleNode()
     {
         var scene = Scene();
-        Assert.IsFalse(Regex.IsMatch(scene, @"\[node name=\"(?:Console|DriverConsole|CabConsole)\"", RegexOptions.CultureInvariant),
+        Assert.IsFalse(Regex.IsMatch(scene, @"\[node name=""(?:Console|DriverConsole|CabConsole)""", RegexOptions.CultureInvariant),
             "scena nie może ponownie dodawać usuniętego pulpitu maszynisty");
     }
 }
