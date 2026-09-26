@@ -356,6 +356,11 @@ kolizja pociągu pozostaje zamkniętym przekrojem, a nawigacja piesza nie jest m
 | `MEZZANINE_FLARE_M` | 16,0 m | płynna zmiana wysokości dachu przy projektowej antresoli |
 
 Oba odcinki przejściowe są parametrami wyglądu i kolizji modelu, nie pomiarami STIB.
+Szerokość komory i wysokość dachu zmieniają się krzywą sześcienną o poziomej stycznej
+na obu końcach, bez ostrego załamania na styku z tunelem lub peronem. Generator
+wstawia pierścienie w ćwiartkach każdego odcinka przejściowego, pomijając
+próbki odległe o mniej niż 0,5 m od istniejących pierścieni osi. Chroni to
+normalne ścian przy łukach. LOD i kolizja zachowują pozostałe pierścienie.
 Skrypt gry wstawia również schody, windę, antresolę, korytarz i portal. Portal jest
 końcem lokalnego modelu dostępu; połączenie z dalszą infrastrukturą pozostaje
 niemodelowane.
