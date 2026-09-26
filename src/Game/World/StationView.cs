@@ -74,7 +74,7 @@ public sealed partial class StationView : Node3D
     /// <summary>Liczba brył peronowych trzymanych w scenie.</summary>
     public int SlabCount => _slabs.Count;
 
-    /// <summary>Obwiednie brył w układzie świata; do pomiarów i do metadanych zrzutu.</summary>
+    /// <summary>Obwiednie płyt i pasów krawędziowych, bez zabudowy dostępu.</summary>
     public IReadOnlyList<Aabb> Slabs => _slabs;
 
     /// <summary>Same płyty peronowe, bez pasów krawędziowych i wyposażenia stacji.</summary>
@@ -84,7 +84,9 @@ public sealed partial class StationView : Node3D
     public IReadOnlyList<PlatformFit.Footprint> PlatformFootprints => _platformFootprints;
 
     /// <summary>
-    /// Wczytuje GLB peronów i zapamiętuje obwiednię każdej bryły. Zwraca liczbę brył;
+    /// Wczytuje GLB stacji i zapamiętuje obwiednie płyt oraz pasów krawędziowych.
+    /// Schody, windy i antresole pozostają w scenie, lecz nie są płytą peronu.
+    /// Zwraca liczbę brył peronowych;
     /// zero znaczy „nie wczytałem nic" i wołający ma to sprawdzić.
     ///
     /// <para>Wynik wczytania NIE jest tu przemilczany ani podmieniany na wartość
@@ -121,14 +123,17 @@ public sealed partial class StationView : Node3D
         _platformFootprints.Clear();
         foreach (var instance in MeshInstances(scene))
         {
+            var bounds = instance.GlobalTransform * instance.GetAabb();
             if (IsEdgeMeshName((string)instance.Name))
             {
                 instance.MaterialOverride = edgeMaterial;
+                _slabs.Add(bounds);
             }
             else if (IsPlatformMeshName((string)instance.Name))
             {
                 instance.MaterialOverride = slabMaterial;
-                _platformSlabs.Add(instance.GlobalTransform * instance.GetAabb());
+                _slabs.Add(bounds);
+                _platformSlabs.Add(bounds);
                 if (instance.Mesh is not null)
                 {
                     var localFaces = instance.Mesh.GetFaces();
@@ -138,7 +143,7 @@ public sealed partial class StationView : Node3D
                         worldFaces.Add(instance.GlobalTransform * vertex);
                     }
                     _platformFootprints.Add(new PlatformFit.Footprint(
-                        instance.GlobalTransform * instance.GetAabb(), worldFaces));
+                        bounds, worldFaces));
                 }
             }
             else
@@ -153,8 +158,6 @@ public sealed partial class StationView : Node3D
                     _ => material,
                 };
             }
-
-            _slabs.Add(instance.GlobalTransform * instance.GetAabb());
         }
 
         return _slabs.Count;
