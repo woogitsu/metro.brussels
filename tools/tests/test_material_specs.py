@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Testy `tools/blender/material_specs.py` — modułu, który do 06.09.2026 nie miał
 ŻADNEGO pokrycia: cztery bramki tego modułu siedziały wewnątrz `material_test_scene.py`,
 tuż obok `import bpy`, a jedyny istniejący test tamtego pliku (`test_art_direction.py`)
@@ -173,12 +173,12 @@ def test_missing_ids_are_counted_separately_from_duplicates():
 
 
 def test_alpha_outside_renderable_range_is_rejected():
-    assert any("krycie" in p for p in MS.spec_id_problems([{"id": "bad", "alpha": 1.1}]))
-    assert any("krycie" in p for p in MS.spec_id_problems([{"id": "bad", "alpha": -0.1}]))
+    assert any("krycie" in p for p in MS.spec_id_problems([{'id': 'bad', 'alpha': 1.1}]), "alpha > 1 must be rejected")
+    assert any("krycie" in p for p in MS.spec_id_problems([{'id': 'bad', 'alpha': -0.1}]), "alpha < 0 must be rejected")
 
 
 def test_non_finite_alpha_is_rejected():
-    assert any("krycie" in p for p in MS.spec_id_problems([{"id": "bad", "alpha": float("nan")}]))
+    assert any("krycie" in p for p in MS.spec_id_problems([{'id': 'bad', 'alpha': float("nan")}]), "non-finite alpha must be rejected")
 
 # 6.D25: uruchomienie tego pliku WPROST idzie ta sama droga, co caly zestaw —
 # z licznikiem asercji i z odmowa przy zerze testow. Bez tej gałęzi `python3
