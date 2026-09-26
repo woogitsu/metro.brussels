@@ -251,8 +251,8 @@ public sealed class UiTextTests
     // 684 -> 686 (25.09.2026, T-400 stop target): visible label and missing-board error.
     // 686 -> 693 (25.09.2026, wynik STOP w scenie i HUD).
     // 693 -> 696 (26.09.2026, kontrola kompletności plików chunków).
-    private const int LiteralowWZasieguBramki = 696;
-
+    // 696 -> 697 (27.09.2026, błąd tworzenia sceny 3D z GLB).
+    private const int LiteralowWZasieguBramki = 697;
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
 
@@ -1544,8 +1544,8 @@ public sealed class UiTextTests
     // 740 -> 747 (25.09.2026, wynik STOP w scenie i HUD).
     // 747 -> 750 (26.09.2026, kontrola kompletności plików chunków).
     // 750 -> 751 (26.09.2026, osobny licznik wszystkich siatek stacji w metadanych).
-    private const int PozycjiStaregoCzytnika = 751;
-
+    // 751 -> 752 (27.09.2026, komunikat GenerateScene).
+    private const int PozycjiStaregoCzytnika = 752;
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
     /// </summary>
@@ -2415,8 +2415,8 @@ public sealed class UiTextTests
     // 464 -> 468 (25.09.2026, T-400): po dwa literały widoków `side` i `platform`.
     // 468 -> 469 (25.09.2026, T-400 stop target): missing-board error.
     // 469 -> 472 (25.09.2026, wynik STOP w scenie i HUD).
-    private const int LiteralowDotknietychZdejmowaniem = 472;
-
+    // 472 -> 473 (27.09.2026, komunikat GenerateScene).
+    private const int LiteralowDotknietychZdejmowaniem = 473;
     /// <summary>
     /// Ilu literałom zdejmowanie jednostek ZABIERA werdykt „to słowo" — 6.D155.
     /// </summary>
@@ -3672,8 +3672,8 @@ public sealed class UiTextTests
     // 158 -> 163 (24.09.2026, komunikaty rozkładu).
     // 163 -> 164 (25.09.2026, interpolowany log aktywnej kamery).
     // 164 -> 165 (25.09.2026, T-400 stop target): interpolated missing-board error.
-    private const int LiteralowZKlamra = 165;
-
+    // 165 -> 166 (27.09.2026, interpolowana ścieżka błędnego GLB).
+    private const int LiteralowZKlamra = 166;
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
     ///
@@ -5567,8 +5567,8 @@ public sealed class UiTextTests
     // 36 -> 37 (25.09.2026, T-400 stop target): reject a missing training board.
     // 37 -> 38 (26.09.2026, asset preflight): reject incomplete tunnel chunks.
     private const int WolajacychAbort = 38;
-    // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
-    private const int WypisowBleduPozaAbort = 6;
+    // 5 -> 6 (24.09, przeładowanie R); 6 -> 7 (27.09, GenerateScene GLB).
+    private const int WypisowBleduPozaAbort = 7;
 
     /// <summary>
     /// Dziury drogi błędu niosące tekst <b>obcy</b>, każda z wytwórcą. Zbiór, nie liczba

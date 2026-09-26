@@ -793,8 +793,8 @@ ROZKLAD_POSTACI = {
         # 539 -> 546 (24.09.2026, komunikaty rozkladu).
         # 546 -> 547 (25.09.2026, log aktywnej kamery Cab->Chase).
         # 547 -> 548: wiersz odcisku w Runnerze; scena rozbudowuje istniejący log.
-        # 548 -> 549: explicit error when the stop-target board is missing.
-        "interpolowany ($)": 550,
+        # 548 -> 549: brak tablicy; 550 -> 551: błąd GenerateScene GLB.
+        "interpolowany ($)": 551,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,
