@@ -53,7 +53,7 @@ public sealed partial class TunnelView : Node3D
     /// Keep measured route scenery visible beyond the last playable stop. This
     /// does not enter the chunk manifest, driving axis, collision or simulation.
     /// Zero means an older asset set without the optional pair; -1 means a
-    /// partial or unreadable pair.
+    /// partial, unreadable or empty pair.
     /// </summary>
     public int LoadVisualContinuation(string tunnelPath, string detailPath,
         StandardMaterial3D material)
@@ -71,6 +71,15 @@ public sealed partial class TunnelView : Node3D
         {
             tunnel?.Free();
             detail?.Free();
+            return -1;
+        }
+        // A syntactically valid GLB may still contain no visible geometry. A
+        // detail-only pair would otherwise report success while the route tunnel
+        // beyond the playable axis stays absent.
+        if (CountMeshes(tunnel) == 0 || CountMeshes(detail) == 0)
+        {
+            tunnel.Free();
+            detail.Free();
             return -1;
         }
 
