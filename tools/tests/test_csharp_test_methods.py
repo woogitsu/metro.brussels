@@ -680,9 +680,9 @@ ROZKLAD_POSTACI = {
         # 5623 -> 5631 (25.09.2026, T-400 outcome): in-cab cue texts and checks.
         # 5631 -> 5636 (25.09.2026, dwie jawne drogi etykiet oraz ratchety STOP).
         # 5636 -> 5638 (25.09.2026, dwa osobne ramiona domyślne wyniku STOP).
-        "zwykly": 5638,
-        "interpolowany ($)": 863,
-        "werbatim (@)": 102,
+        "zwykly": 5660,
+        "interpolowany ($)": 864,
+        "werbatim (@)": 103,
         "surowy interpolowany ($$\"\"\")": 13,
         # 8 -> 10 (23.09.2026): dwie probki sceny w testach.
         # 10 -> 12 (24.09.2026, T-320): dwa dokumenty syntetycznego planu.
