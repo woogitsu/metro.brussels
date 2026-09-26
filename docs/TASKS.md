@@ -17208,3 +17208,8 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 - **Poza zakresem:** rozszerzanie reguły skoku, przepisywanie czytników,
   `src/` i `data/`.
 - **Zależy od:** 6.D346 (stamtąd 41 i definicja populacji).
+
+## Roadmap execution snapshot (2026-09-26)
+
+The execution order is dependency-first: research gates (#15, #16, #17), then vertical-profile research (#29/#10), then station kit and station slice (#18/#19), and only then the playable vertical slice (#26). Legal, branding, and audio issues (#30/#31/#32) may proceed as documentation-only parallel work and must use neutral placeholders. A task is complete only when its declared artifacts exist on main and exact-SHA CI is green; open issues remain the source of truth for status. This snapshot changes no research data or runtime code.
+
