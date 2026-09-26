@@ -680,7 +680,8 @@ ROZKLAD_POSTACI = {
         # 5623 -> 5631 (25.09.2026, T-400 outcome): in-cab cue texts and checks.
         # 5631 -> 5636 (25.09.2026, dwie jawne drogi etykiet oraz ratchety STOP).
         # 5636 -> 5638 (25.09.2026, dwa osobne ramiona domyślne wyniku STOP).
-        "zwykly": 5660,
+        # 5660 -> 5676 (26.09.2026, testy kompletności LOD i komunikaty asercji).
+        "zwykly": 5676,
         "interpolowany ($)": 864,
         "werbatim (@)": 103,
         "surowy interpolowany ($$\"\"\")": 13,
@@ -773,7 +774,7 @@ ROZKLAD_POSTACI = {
         # 1623 -> 1624 (25.09.2026, T-400 stop target): STOP label.
         # 1624 -> 1628 (25.09.2026, T-400 outcome): four board state labels.
         # 1628 -> 1637 (25.09.2026, T-400 outcome): HUD cue keys and messages.
-        "zwykly": 1637,
+        "zwykly": 1639,
         # 489 -> 494 (22.09.2026, 6.D235): piec komunikatow `Abort` dla pliku ZLEGO
         # w `FirstRun.cs`. Przeliczone z drzewa, nie zsumowane.
         # 494 -> 513 (23.09.2026, 6.M1): komunikaty odmow i wiersze zapisu zdarzen
@@ -792,7 +793,7 @@ ROZKLAD_POSTACI = {
         # 546 -> 547 (25.09.2026, log aktywnej kamery Cab->Chase).
         # 547 -> 548: wiersz odcisku w Runnerze; scena rozbudowuje istniejący log.
         # 548 -> 549: explicit error when the stop-target board is missing.
-        "interpolowany ($)": 549,
+        "interpolowany ($)": 550,
         "werbatim (@)": 0,
         "surowy interpolowany ($$\"\"\")": 1,
         "surowy (\"\"\")": 1,

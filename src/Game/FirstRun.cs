@@ -1360,8 +1360,14 @@ public sealed partial class FirstRun : Node3D
         // Katalog i materiał zapamiętane, bo streamowanie dokłada chunki w KAŻDEJ
         // klatce, a nie raz przy starcie.
         _assetDirectory = Path.GetDirectoryName(manifestPath) ?? assets;
-        _hasTrackDetail = manifest.Chunks.Count > 0 && FileAccess.FileExists(
-            Path.Combine(_assetDirectory, manifest.Chunks[0].Id + "_detail.glb"));
+        var coverage = ChunkAssetCoverage.Check(manifest, _assetDirectory, FileAccess.FileExists);
+        if (coverage.Missing.Count > 0)
+        {
+            Abort(ExitMissingAssets, $"[ASSETS] brak plików tunelu: "
+                + string.Join(", ", coverage.Missing));
+            return;
+        }
+        _hasTrackDetail = coverage.HasDetails;
         _tunnelMaterial = tunnelMaterial;
         _tunnel.Stream(manifest, _assetDirectory, tunnelMaterial, _scenario.StartChainageM);
         var connectorPreview = Argument("visual-continuation") == "connector-preview";
