@@ -92,7 +92,7 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
   w rejonie Arts-Loi;
 - **stacji wynikających z danych.** Bryły stacji SĄ — T-212 jest scalone i daje na
   stacji Parc schody, windę, antresolę, korytarz i portal — ale układ jest **kanoniczny**:
-  `tools/track/station_components.py` stawia **18** wymiarów jako `design_assumption`
+  `tools/track/station_components.py` stawia **19** wymiarów jako `design_assumption`
   i ani jednego ze STIB. Rzut stacji, liczba i położenie wyjść zostają `unknown`;
 - **wielu składów W SCENIE.** Rdzeń prowadzi ich **N** — `LineCore` krokuje wszystkie
   na jednym zegarze, jednej osi i jednym planie bloków, a testy przybijają, że skład

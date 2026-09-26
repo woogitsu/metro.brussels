@@ -159,6 +159,44 @@ def test_components_corridor_starts_at_the_wall_and_the_portal_continues_it():
         assert max(abs(y) for y in p_edges) > max(abs(y) for y in c_edges)
 
 
+def test_components_corridor_and_portal_have_walkable_openings():
+    """The previous single prisms filled the entire passage volume.
+
+    Test the actual 3-D occupancy at the centre of each access component,
+    while confirming that floor, roof and both jambs still surround it.
+    """
+    level = _levels()
+    assert SC.DESIGN_CORRIDOR_WIDTH_M - 2 * SC.DESIGN_ACCESS_SHELL_M >= SC.DESIGN_STAIR_WIDTH_M, (
+        "korytarz po odjęciu dwóch ościeży nie może być węższy od schodów")
+    for side in (1, -1):
+        solids = SC.access_solids(PLATFORM, side, level, WALL_M)
+        for kind, width, clear in (("corridor", SC.DESIGN_CORRIDOR_WIDTH_M,
+                                    SC.DESIGN_CORRIDOR_CLEAR_M),
+                                   ("portal", SC.DESIGN_PORTAL_WIDTH_M,
+                                    SC.DESIGN_PORTAL_CLEAR_M)):
+            pieces = [s for s in solids if s["kind"] == kind]
+            assert len(pieces) == 4, (kind, pieces)
+            start = min(s["at_m"] for s in pieces)
+            y_min = min(y for s in pieces for y, _z in s["section"])
+            y_max = max(y for s in pieces for y, _z in s["section"])
+            centre_x = start + width / 2
+            centre_y = (y_min + y_max) / 2
+            floor = level["mezzanine_floor_m"]
+
+            def occupied(x, y, z):
+                return any(s["at_m"] <= x <= s["at_m"] + s["length_m"]
+                           and min(v[0] for v in s["section"]) <= y <= max(v[0] for v in s["section"])
+                           and min(v[1] for v in s["section"]) <= z <= max(v[1] for v in s["section"])
+                           for s in pieces)
+
+            assert not occupied(centre_x, centre_y, floor + clear / 2), kind
+            assert occupied(centre_x, centre_y, floor - SC.DESIGN_ACCESS_SHELL_M / 2), kind
+            assert occupied(centre_x, centre_y, floor + clear + SC.DESIGN_ACCESS_SHELL_M / 2), kind
+            assert occupied(start + SC.DESIGN_ACCESS_SHELL_M / 2, centre_y, floor + clear / 2), kind
+            assert occupied(start + width - SC.DESIGN_ACCESS_SHELL_M / 2,
+                            centre_y, floor + clear / 2), kind
+
+
 def test_components_mirroring_the_side_mirrors_every_solid():
     """Kontrola negatywna do wszystkiego wyżej: strona jest parametrem, nie wpisana."""
     level = _levels()
@@ -180,6 +218,21 @@ def test_components_mezzanine_spans_both_tracks():
     assert min(ys) <= -WALL_M + 1e-9 and max(ys) >= WALL_M - 1e-9, ys
     for offset in PR.PROFILES["station"]["track_offsets"]:
         assert min(ys) < offset < max(ys), offset
+
+
+def test_components_mezzanine_has_clear_headroom_between_slabs():
+    """The former mezzanine prism filled the entire 2.60 m standing space."""
+    level = _levels()
+    pieces = SC.access_solids(PLATFORM, 1, level, WALL_M)
+    floor = next(s for s in pieces if s["name"] == "mezzanine_a")
+    roof = next(s for s in pieces if s["name"] == "mezzanine_a_roof")
+    assert floor["at_m"] == roof["at_m"], (floor, roof)
+    assert floor["length_m"] == roof["length_m"], (floor, roof)
+    floor_top = max(z for _y, z in floor["section"])
+    roof_bottom = min(z for _y, z in roof["section"])
+    assert floor_top == level["mezzanine_floor_m"], (floor_top, level)
+    assert roof_bottom == level["mezzanine_ceiling_m"], (roof_bottom, level)
+    assert abs(roof_bottom - floor_top - SC.DESIGN_MEZZANINE_CLEAR_M) < 1e-9, (floor_top, roof_bottom)
 
 
 # --- wybór elementów ----------------------------------------------------------

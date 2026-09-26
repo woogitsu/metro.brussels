@@ -283,7 +283,7 @@ POMIARY_BRAKOW = {
     "profilu pionowego": (osie_plaskie, 6,
                           "osi z `vertical.status = not_modelled` i Z = 0",
                           r"Wszystkie \*\*(\w+)\*\* osi"),
-    "stacji wynikających z danych": (wymiary_stacji_z_zalozenia, 18,
+    "stacji wynikających z danych": (wymiary_stacji_z_zalozenia, 19,
                                      "wymiarów stacji jako `design_assumption`",
                                      r"\*\*(\d+)\*\* wymiarów jako `design_assumption`"),
     "wielu składów W SCENIE": (wezly_skladu_w_scenie, 1,
@@ -583,11 +583,17 @@ def test_the_absence_measurements_are_not_all_reading_the_same_thing():
     assert wymiary_stacji_z_zalozenia() == len(SC.DESIGN_ASSUMPTIONS) > 0
     assert wymiary_kabiny_z_zalozenia() == len(CAB.DESIGN_ASSUMPTIONS) > 0
 
-    # I że to są dwa RÓŻNE moduły, a nie jeden czytany dwa razy: gdyby obie
-    # funkcje sięgały po ten sam słownik, obie zwróciłyby tę samą liczbę.
-    assert wymiary_stacji_z_zalozenia() != wymiary_kabiny_z_zalozenia(), (
-        "stacja i kabina dają tę samą liczbę założeń (%d) — sprawdź, czy obie "
-        "funkcje nie czytają tego samego modułu" % wymiary_stacji_z_zalozenia())
+    # Liczby mogą się przypadkowo zrównać. Sonda zmienia tylko słownik stacji
+    # i sprawdza, że odczyt kabiny nie drgnął; to rzeczywiście rozdziela źródła.
+    original = SC.DESIGN_ASSUMPTIONS
+    try:
+        SC.DESIGN_ASSUMPTIONS = {**original, "probe_only_station": -1}
+        assert wymiary_stacji_z_zalozenia() == len(original) + 1, (
+            "pomiar stacji nie reaguje na własny słownik założeń")
+        assert wymiary_kabiny_z_zalozenia() == len(CAB.DESIGN_ASSUMPTIONS), (
+            "pomiar kabiny zmienił się po podmianie słownika stacji")
+    finally:
+        SC.DESIGN_ASSUMPTIONS = original
     assert SC.DESIGN_ASSUMPTIONS is not CAB.DESIGN_ASSUMPTIONS
 
     # Kabina musi się liczyć BEZ Blendera: ta bramka chodzi też tam, gdzie `bpy`
