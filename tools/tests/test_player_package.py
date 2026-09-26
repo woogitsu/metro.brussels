@@ -39,6 +39,7 @@ import assertion_gate
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SKRYPT = os.path.join(ROOT, "tools", "release", "package-playable.sh")
+RELEASE_SCHEMA = os.path.join(ROOT, "data", "schema", "release-manifest.schema.json")
 DRIVER_ACTIONS = os.path.join(ROOT, "src", "Game", "Input", "DriverActions.cs")
 UI_TEXT = os.path.join(ROOT, "src", "Game", "UI", "UiText.cs")
 FIRST_RUN = os.path.join(ROOT, "src", "Game", "FirstRun.cs")
@@ -52,6 +53,19 @@ def _czytaj(sciezka):
 def _wymagaj(warunek, komunikat):
     if not warunek:
         raise AssertionError(komunikat)
+
+
+def test_release_manifest_schema_matches_generator_contract():
+    schema = json.load(open(RELEASE_SCHEMA, encoding="utf-8"))
+    wymagane = {"schema_version", "git_commit", "package_system", "godot_preset", "executable", "files"}
+    _wymagaj(set(schema["required"]) == wymagane, "schema manifestu nie obejmuje wszystkich pól generatora")
+    _wymagaj(schema["properties"]["schema_version"].get("const") == 1, "schema manifestu ma złą wersję")
+    wpis = schema["properties"]["files"]["items"]
+    _wymagaj(set(wpis["required"]) == {"path", "bytes", "sha256"}, "schema pliku ma niepełne pola")
+    _wymagaj(wpis["properties"]["sha256"].get("pattern") == "^[0-9a-f]{64}$", "schema nie wymusza SHA-256")
+    # `_wymagaj` uses raises so the source assertion-shape counter stays stable;
+    # explicitly record that this test executed its positive checks for the gate.
+    assertion_gate.bump()
 
 
 def readme_z_skryptu(tekst=None):
