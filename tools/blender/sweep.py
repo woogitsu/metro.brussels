@@ -8,6 +8,7 @@ Układ: 1 jednostka = 1 metr, oś w płaszczyźnie XY, Z w górę (docs/04-conve
 Profil jest opisany w płaszczyźnie (poprzecznie, pionowo) i przenoszony na ramkę
 (prawo, góra) wyznaczoną wzdłuż osi.
 """
+import bisect
 import math
 
 UP_WORLD = (0.0, 0.0, 1.0)
@@ -561,13 +562,16 @@ def sweep(points, profile, ring_step=DEFAULT_RING_STEP_M, station_chainages=(),
         return open_face(station_m[low], station_m[high], column)
     face_open_cb = face_open_for_rings if open_face is not None else None
     total = station_m[-1]
+    stops = tuple(station_chainages)
     # A scenery-only axis can have no stops. Do not invent endpoints as stops:
     # their midpoint would split a short tail even when it fits one chunk.
-    bounds = chunk_boundaries(total, station_chainages, max_chunk_m,
+    bounds = chunk_boundaries(total, stops, max_chunk_m,
                               DEFAULT_MIN_CHUNK_M, halo_m)
     edges = [0.0] + [b for _a, b in bounds]
-    ring_index = [_nearest_ring(station_m, value) for value in edges]
-    ring_index = _strictly_increasing(ring_index, len(station_m) - 1)
+    ring_index = _ring_chunk_indices(station_m, edges, stops,
+                                     max_chunk_m, DEFAULT_MIN_CHUNK_M, halo_m)
+    actual_bounds = [(station_m[a], station_m[b])
+                     for a, b in zip(ring_index, ring_index[1:])]
     chunks = [build_chunk(frames, station_m, profile, a, b, uv_scale,
                           profiles_by_ring, face_open_cb)
               for a, b in zip(ring_index, ring_index[1:])]
@@ -587,7 +591,7 @@ def sweep(points, profile, ring_step=DEFAULT_RING_STEP_M, station_chainages=(),
         "ring_step_m": ring_step,
         "max_deviation_m": max_deviation(dense, source),
         "twist_deg": frame_twist_deg(frames),
-        "chunk_bounds": bounds,
+        "chunk_bounds": actual_bounds,
     }
 
 
@@ -598,6 +602,84 @@ def _nearest_ring(station_m, value):
         if distance < best_d:
             best, best_d = index, distance
     return best
+
+
+def _ring_chunk_indices(station_m, edges, stops, max_m, min_m, halo_m):
+    """Place planned cuts on actual rings without breaking length or station limits.
+
+    The continuous chunk planner cannot know the positions of the generated
+    rings. Usually its nearest rings are valid, so preserve those exactly.
+    When rounding a cut crosses a length limit or station halo, search the
+    discrete rings for the closest valid layout with the same cut count first.
+    """
+    last = len(station_m) - 1
+    snapped = _strictly_increasing([_nearest_ring(station_m, value)
+                                    for value in edges], last)
+
+    def valid(indices):
+        if len(indices) < 2 or indices[0] != 0 or indices[-1] != last:
+            return False
+        if any(index <= previous for previous, index in zip(indices, indices[1:])):
+            return False
+        for previous, index in zip(indices, indices[1:]):
+            length = station_m[index] - station_m[previous]
+            if length > max_m + 1e-6 or (length < min_m - 1e-6
+                                          and station_m[-1] >= min_m):
+                return False
+        return all(abs(station_m[index] - stop) >= halo_m - 1e-9
+                   for index in indices[1:-1] for stop in stops)
+
+    if valid(snapped):
+        return snapped
+
+    total = station_m[-1]
+    fewest = max(1, math.ceil((total - 1e-6) / max_m))
+    most = max(1, int((total + 1e-6) // min_m))
+    planned_chunks = len(edges) - 1
+    for count in sorted(range(fewest, most + 1),
+                        key=lambda n: (abs(n - planned_chunks), n)):
+        targets = (edges[1:-1] if count == planned_chunks else
+                   [total * cut / count for cut in range(1, count)])
+        previous = {0: (0.0, None)}
+        parents = []
+        for cut, target in enumerate(targets, 1):
+            current = {}
+            for index in range(1, last):
+                position = station_m[index]
+                if (position < cut * min_m - 1e-6 or
+                        position > cut * max_m + 1e-6 or
+                        total - position < (count - cut) * min_m - 1e-6 or
+                        total - position > (count - cut) * max_m + 1e-6 or
+                        any(abs(position - stop) < halo_m - 1e-9 for stop in stops)):
+                    continue
+                low = bisect.bisect_left(station_m, position - max_m - 1e-6)
+                high = bisect.bisect_right(station_m, position - min_m + 1e-6)
+                options = ((cost, prior) for prior, (cost, _) in previous.items()
+                           if low <= prior < high)
+                best = min(options, default=None)
+                if best is not None:
+                    current[index] = (best[0] + (position - target) ** 2, best[1])
+            if not current:
+                break
+            parents.append(current)
+            previous = current
+        else:
+            options = ((cost, index) for index, (cost, _) in previous.items()
+                       if min_m - 1e-6 <= total - station_m[index] <= max_m + 1e-6)
+            best = min(options, default=None)
+            if best is None:
+                continue
+            indices = [last]
+            index = best[1]
+            for level in reversed(parents):
+                indices.append(index)
+                index = level[index][1]
+            indices.append(0)
+            indices.reverse()
+            if valid(indices):
+                return indices
+    raise ValueError("nie da się podzielić osi na chunki po pierścieniach: "
+                     "limit długości, minimalna długość i halo stacji są sprzeczne")
 
 
 def _strictly_increasing(indices, maximum):
