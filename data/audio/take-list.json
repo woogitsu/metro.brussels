@@ -1,0 +1,15 @@
+﻿{
+  "$schema": "https://metro.brussels/schema/audio-take-list.schema.json",
+  "as_of": "2026-08-31",
+  "policy": "neutral_placeholders_until_rights_confirmed",
+  "categories": [
+    {"id":"m7_traction","layers":["traction_motor","rolling_noise","wheel_rail_squeal","braking_regen","hvac_auxiliary","body_rattle"],"source":"synthesized","field_recording_allowed":false},
+    {"id":"doors","layers":["warning_generic","unlock_open_close","seal_impact"],"source":"synthesized","field_recording_allowed":false},
+    {"id":"station_ambience","layers":["ventilation","reverb","crowd_bed","street_at_entrance","escalator_lift"],"source":"controlled_original_or_licensed","field_recording_allowed":true,"constraints":["no intelligible third-party speech","public position only","permission_ref required"]},
+    {"id":"announcements","layers":["station_name_fr_nl","service_message"],"source":"commissioned_or_licensed_tts","field_recording_allowed":false,"constraints":["no official STIB voice or jingle"]},
+    {"id":"cab_signalling","layers":["generic_ack","generic_warning","generic_control_feedback"],"source":"synthesized","field_recording_allowed":false}
+  ],
+  "take_metadata_required":["asset_id","source_type","creator","recorded_at","location","permission_ref","license","source_file_hash","processing_chain","contains_voice","redistribution_allowed"],
+  "raw_recordings_storage":"outside_git",
+  "reject_if":["unknown_provenance","ripped_from_web_app_video","intelligible_third_party_speech_without_review","unconfirmed_stib_brand_audio"]
+}

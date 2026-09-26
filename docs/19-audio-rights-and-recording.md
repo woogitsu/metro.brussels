@@ -232,3 +232,8 @@ Kontakt publikowany przez STIB dla zdjęć/filmowania: `relationspubliques@stib-
 ## Skończone technicznie przed realistycznym audio
 
 T-400 może użyć `data/audio/placeholders.json` bez żadnego realnego nagrania STIB. Realistyczny pass może zacząć się dopiero, gdy konkretne pliki mają provenance i `rights_status: cleared` zgodnie ze schema.
+
+## Neutral take-list
+
+The auditable category list is in data/audio/take-list.json. It defines synthetic defaults, the limited conditions for original ambience recordings, required metadata, and rejection rules. It contains no audio assets.
+
