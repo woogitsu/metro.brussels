@@ -162,9 +162,7 @@ def mesh_object(name, solids, mat, smooth=False):
 
 
 def positions(start, end, pitch):
-    first = math.ceil((start + 0.001) / pitch)
-    last = math.floor((end - 0.001) / pitch)
-    return (index * pitch for index in range(first, last + 1))
+    return SW.periodic_detail_positions(start, end, pitch)
 
 
 def outside_of_curve(frames, chainages, at):

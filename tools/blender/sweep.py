@@ -22,6 +22,20 @@ UV_METRES_PER_UNIT = 4.0
 DEGENERATE_AREA_M2 = 1e-6
 
 
+def periodic_detail_positions(start, end, pitch):
+    """Global rhythm on [start, end), assigning a seam marker to its next chunk.
+
+    The axis origin has no preceding tunnel, so the first detail starts at
+    one pitch. The half-open chunk intervals keep every later seam marker
+    exactly once instead of omitting it from both neighbouring chunks.
+    """
+    if pitch <= 0.0:
+        raise ValueError("detail pitch must be positive")
+    first = max(1, math.ceil(start / pitch))
+    last = math.ceil(end / pitch)
+    return (index * pitch for index in range(first, last))
+
+
 # --- wektory ------------------------------------------------------------------
 
 def sub(a, b):
