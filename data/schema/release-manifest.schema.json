@@ -5,6 +5,10 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "git_commit", "package_system", "godot_preset", "executable", "files"],
+  "allOf": [
+    {"if": {"properties": {"package_system": {"const": "linux"}}, "required": ["package_system"]}, "then": {"properties": {"godot_preset": {"const": "Linux"}, "executable": {"const": "MetroBXL.x86_64"}}}},
+    {"if": {"properties": {"package_system": {"const": "windows"}}, "required": ["package_system"]}, "then": {"properties": {"godot_preset": {"const": "Windows Desktop"}, "executable": {"const": "MetroBXL.exe"}}}}
+  ],
   "properties": {
     "schema_version": {"const": 1},
     "git_commit": {"type": "string", "minLength": 1},

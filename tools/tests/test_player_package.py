@@ -63,6 +63,7 @@ def test_release_manifest_schema_matches_generator_contract():
     wpis = schema["properties"]["files"]["items"]
     _wymagaj(set(wpis["required"]) == {"path", "bytes", "sha256"}, "schema pliku ma niepełne pola")
     _wymagaj(wpis["properties"]["sha256"].get("pattern") == "^[0-9a-f]{64}$", "schema nie wymusza SHA-256")
+    _wymagaj(len(schema.get("allOf", [])) == 2, "schema nie wiąże platformy z presetem i binarką")
     # `_wymagaj` uses raises so the source assertion-shape counter stays stable;
     # explicitly record that this test executed its positive checks for the gate.
     assertion_gate.bump()
