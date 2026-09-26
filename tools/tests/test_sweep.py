@@ -8,6 +8,7 @@ obecna w repo, żeby testy nie zależały od artefaktu.
 import json
 import math
 import os
+import random
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -91,6 +92,52 @@ def test_sweep_chunk_boundaries_respect_the_length_cap():
     assert max(b - a for a, b in bounds) <= 600.0 + 1e-6
 
 
+def test_short_cut_removal_does_not_leave_an_oversized_chunk():
+    # Station halos move the midpoint cut to 110 m. Removing that short
+    # leading chunk used to leave a single 900 m chunk above the 800 m cap.
+    bounds = SW.chunk_boundaries(900.0, [200.0, 300.0])
+    assert bounds == [(0.0, 450.0), (450.0, 900.0)], (
+        f"krótki pierwszy chunk zostawił niepoprawny podział: {bounds}")
+    assert SW.splits_station(bounds, [200.0, 300.0]) == [], (
+        f"szew przecina halo stacji: {bounds}")
+
+
+def test_overlapping_station_halos_allow_a_cut_beyond_the_group():
+    stops = [100.0, 250.0, 400.0, 450.0]
+    bounds = SW.chunk_boundaries(900.0, stops)
+    assert max(b - a for a, b in bounds) <= 800.0, (
+        f"halo grupy zostawiło chunk ponad 800 m: {bounds}")
+    assert SW.splits_station(bounds, stops) == [], (
+        f"szew po naprawie grupy przecina halo: {bounds}")
+
+
+def test_repaired_chunk_layout_respects_feasible_length_and_station_constraints():
+    rng = random.Random(1)
+    feasible = 0
+    for _ in range(1000):
+        total = rng.uniform(500.0, 5000.0)
+        stops = sorted(rng.uniform(0.0, total) for _ in range(rng.randrange(16)))
+        if SW._feasible_chunk_cuts(total, stops, 800.0, 120.0, 90.0) is None:
+            continue
+        feasible += 1
+        bounds = SW.chunk_boundaries(total, stops)
+        assert all(120.0 - 1e-6 <= b - a <= 800.0 + 1e-6 for a, b in bounds), (
+            f"legalny układ zwrócił chunk poza przedziałem 120–800 m: {bounds}")
+        assert SW.splits_station(bounds, stops) == [], (
+            f"legalny układ przecina halo stacji: {bounds}, {stops}")
+    assert feasible > 800, f"próbka ma za mało legalnych osi: {feasible}"
+
+
+def test_impossible_station_halos_refuse_an_oversized_chunk():
+    try:
+        SW.chunk_boundaries(900.0, [150.0, 300.0, 450.0, 600.0, 750.0])
+    except ValueError as error:
+        assert "nie da się podzielić osi" in str(error), (
+            f"odmowa nie nazywa sprzecznych limitów: {error}")
+    else:
+        raise AssertionError("sprzeczne limity nie mogą dawać chunka 900 m")
+
+
 def test_sweep_chunk_lengths_sum_to_the_axis_length():
     stops = [0.0, 900.0, 2600.0, 4000.0]
     bounds = SW.chunk_boundaries(4000.0, stops)
@@ -111,7 +158,7 @@ def test_sweep_without_stations_keeps_a_short_visual_tail_in_one_chunk():
 # --- siatka -------------------------------------------------------------------
 
 def test_sweep_mesh_has_no_gap_between_chunks():
-    result = SW.sweep(_s_curve(), BOX, 5.0, [0.0, 200.0, 400.0, 600.0], max_chunk_m=150.0)
+    result = SW.sweep(_s_curve(), BOX, 5.0, [], max_chunk_m=150.0)
     chunks, columns = result["chunks"], result["columns"]
     assert len(chunks) >= 3
     for a, b in zip(chunks, chunks[1:]):
@@ -143,7 +190,7 @@ def test_sweep_seam_column_is_duplicated_so_uv_does_not_wrap():
 
 
 def test_sweep_uv_density_is_uniform_along_the_axis():
-    result = SW.sweep(_s_curve(), BOX, 5.0, [0.0, 300.0, 600.0], max_chunk_m=200.0)
+    result = SW.sweep(_s_curve(), BOX, 5.0, [], max_chunk_m=200.0)
     columns = result["columns"]
     for chunk in result["chunks"]:
         low, high = SW.uv_stretch(chunk, columns)
@@ -151,7 +198,7 @@ def test_sweep_uv_density_is_uniform_along_the_axis():
 
 
 def test_sweep_uv_v_is_continuous_across_a_chunk_seam():
-    result = SW.sweep(_s_curve(), BOX, 5.0, [0.0, 300.0, 600.0], max_chunk_m=200.0)
+    result = SW.sweep(_s_curve(), BOX, 5.0, [], max_chunk_m=200.0)
     columns = result["columns"]
     for a, b in zip(result["chunks"], result["chunks"][1:]):
         assert abs(a["uvs"][-columns][1] - b["uvs"][0][1]) < 1e-9
