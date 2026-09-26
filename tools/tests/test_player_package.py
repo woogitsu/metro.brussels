@@ -60,6 +60,7 @@ def test_release_manifest_schema_matches_generator_contract():
     wymagane = {"schema_version", "git_commit", "package_system", "godot_preset", "executable", "files"}
     _wymagaj(set(schema["required"]) == wymagane, "schema manifestu nie obejmuje wszystkich pól generatora")
     _wymagaj(schema["properties"]["schema_version"].get("const") == 1, "schema manifestu ma złą wersję")
+    _wymagaj(schema["properties"]["files"].get("minItems") == 1, "schema dopuszcza pustą paczkę bez plików")
     wpis = schema["properties"]["files"]["items"]
     _wymagaj(set(wpis["required"]) == {"path", "bytes", "sha256"}, "schema pliku ma niepełne pola")
     _wymagaj(wpis["properties"]["sha256"].get("pattern") == "^[0-9a-f]{64}$", "schema nie wymusza SHA-256")

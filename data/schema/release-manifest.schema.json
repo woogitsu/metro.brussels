@@ -17,6 +17,7 @@
     "executable": {"enum": ["MetroBXL.x86_64", "MetroBXL.exe"]},
     "files": {
       "type": "array",
+      "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
