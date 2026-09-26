@@ -250,8 +250,7 @@ public sealed class UiTextTests
     // 680 -> 684 (25.09.2026, T-400): po dwa literały widoków `side` i `platform` w RunPlan.
     // 684 -> 686 (25.09.2026, T-400 stop target): visible label and missing-board error.
     // 686 -> 693 (25.09.2026, wynik STOP w scenie i HUD).
-    // 693 -> 696 (26.09.2026, kontrola kompletności plików chunków).
-    // 696 -> 697 (27.09.2026, błąd tworzenia sceny 3D z GLB).
+    // 693 -> 696 (26.09, chunki); 696 -> 697 (27.09, błąd GenerateScene GLB).
     private const int LiteralowWZasieguBramki = 697;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
@@ -1544,8 +1543,7 @@ public sealed class UiTextTests
     // 738 -> 740 (25.09.2026, T-400 stop target): the same two literals.
     // 740 -> 747 (25.09.2026, wynik STOP w scenie i HUD).
     // 747 -> 750 (26.09.2026, kontrola kompletności plików chunków).
-    // 750 -> 751 (26.09.2026, osobny licznik wszystkich siatek stacji w metadanych).
-    // 751 -> 752 (27.09.2026, ten sam komunikat GenerateScene).
+    // 750 -> 751 (26.09, siatki stacji); 751 -> 752 (27.09, GenerateScene).
     private const int PozycjiStaregoCzytnika = 752;
 
     /// <summary>
@@ -2416,8 +2414,7 @@ public sealed class UiTextTests
     // 463 -> 464 (25.09.2026, log przejścia aktywnej kamery).
     // 464 -> 468 (25.09.2026, T-400): po dwa literały widoków `side` i `platform`.
     // 468 -> 469 (25.09.2026, T-400 stop target): missing-board error.
-    // 469 -> 472 (25.09.2026, wynik STOP w scenie i HUD).
-    // 472 -> 473 (27.09.2026, ten sam komunikat GenerateScene).
+    // 469 -> 472 (25.09, wynik STOP); 472 -> 473 (27.09, GenerateScene).
     private const int LiteralowDotknietychZdejmowaniem = 473;
 
     /// <summary>
@@ -3674,8 +3671,7 @@ public sealed class UiTextTests
     // 156 -> 158 (24.09.2026, osobne pola metadanych ogona).
     // 158 -> 163 (24.09.2026, komunikaty rozkładu).
     // 163 -> 164 (25.09.2026, interpolowany log aktywnej kamery).
-    // 164 -> 165 (25.09.2026, T-400 stop target): interpolated missing-board error.
-    // 165 -> 166 (27.09.2026, interpolowana ścieżka błędnego GLB).
+    // 164 -> 165 (25.09, brak tablicy); 165 -> 166 (27.09, ścieżka GLB).
     private const int LiteralowZKlamra = 166;
 
     /// <summary>
@@ -5571,8 +5567,7 @@ public sealed class UiTextTests
     // 36 -> 37 (25.09.2026, T-400 stop target): reject a missing training board.
     // 37 -> 38 (26.09.2026, asset preflight): reject incomplete tunnel chunks.
     private const int WolajacychAbort = 38;
-    // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
-    // 6 -> 7 (27.09.2026, błąd GenerateScene w czytniku GLB).
+    // 5 -> 6 (24.09, przeładowanie R); 6 -> 7 (27.09, GenerateScene GLB).
     private const int WypisowBleduPozaAbort = 7;
 
     /// <summary>
