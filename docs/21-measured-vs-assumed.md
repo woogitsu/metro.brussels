@@ -298,6 +298,7 @@ w `not_modelled` metryk oraz w `reports/T-212-station.md`.
 | `DESIGN_PORTAL_WIDTH_M` | 4,00 m | szerokość portalu wejściowego |
 | `DESIGN_PORTAL_CLEAR_M` | 2,60 m | wysokość portalu w świetle |
 | `DESIGN_PORTAL_DEPTH_M` | 1,50 m | głębokość portalu |
+| `DESIGN_ACCESS_SHELL_M` | 0,18 m | grubość projektowej powłoki korytarza i portalu; przy szerokości korytarza 3,00 m zostawia 2,64 m w świetle, więcej niż 2,40 m schodów |
 | `DESIGN_ACCESS_SETBACK_M` | 4,0 m | odsunięcie zespołu dostępu od końca peronu |
 | `DESIGN_VOID_MARGIN_M` | 0,30 m | zapas otworu antresoli wokół obrysu schodów i windy |
 | `DESIGN_PLATFORM_LENGTH_M` | 95,0 m | długość peronu, na której stoi zespół dostępu — decyzja właściciela z 04.09.2026 (patrz akapit niżej) |
