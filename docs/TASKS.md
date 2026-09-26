@@ -17033,9 +17033,7 @@ w drzewie**, a nie tylko w rozmowie — z tego samego powodu, co dwie sekcje wy�
 
 ##### 6.D367 · Paczka treningu na Windows x64
 
-- **Skąd:** `src/Game/export_presets.cfg` ma tylko preset Linux, a
-  `tools/release/package-playable.sh` zawsze tworzy binarkę Linux. Odbiór Windows
-  pozostaje otwarty w `docs/PLAYABILITY.md`.
+- **Skąd:** historyczny audyt opisywał wyłącznie preset Linux i skrypt bez wyboru platformy; oba ograniczenia usunięto w #768 (23.09.2026). Skrypt przyjmuje `PACZKA_SYSTEM=linux|windows`, a preset Windows i instrukcja startu są już w repo. Ręczny playtest Windows pozostaje osobnym zadaniem opisanym w `docs/PLAYABILITY.md`.
 - **Wejście:** `src/Game/export_presets.cfg`, `tools/release/package-playable.sh`,
   `tools/tests/test_player_package.py`.
 - **Wyjście:** drugi preset Godota oraz paczka z plikiem wykonywalnym Windows i
