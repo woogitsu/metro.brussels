@@ -428,11 +428,22 @@ def check_platforms(metadata, layout, metrics, spec_path):
         return ["metadane nie mają bloku `platforms` — nie ma czym udowodnić, "
                 "że peron jest w scenie"]
 
-    declared = int(metrics["objects"])
+    # StationView deliberately records only platform slabs and warning strips
+    # in Slabs. Access stairs, lifts, mezzanines and corridors are loaded into
+    # the scene, but they are not horizontal platform surfaces at the doors.
+    components = metrics.get("objects_per_component") or {}
+    declared = (int(components["platform"]) + int(components["edge"])
+                if "platform" in components and "edge" in components
+                else int(metrics["objects"]))
+    imported_total = platforms.get("objects_total")
+    if imported_total != int(metrics["objects"]):
+        problems.append(
+            f"platforms.objects_total = {imported_total}, a generator zbudował "
+            f"{metrics['objects']} brył stacji; część dostępu mogła nie zostać wczytana")
     slabs = platforms.get("slabs")
     if slabs != declared:
         problems.append(
-            f"platforms.slabs = {slabs}, a generator zbudował {declared} brył "
+            f"platforms.slabs = {slabs}, a generator zbudował {declared} brył peronu i krawędzi "
             f"({metrics.get('objects_per_component')}) — scena trzyma inny peron")
 
     floor_m = platform_floor_height_m(spec_path)

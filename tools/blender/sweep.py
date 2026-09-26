@@ -78,6 +78,25 @@ def chainages(points):
     return out
 
 
+def insert_chainage_points(points, anchors):
+    """Insert exact stations on an already sampled polyline without moving its path."""
+    distances = chainages(points)
+    targets = sorted(set(float(value) for value in anchors
+                         if 0.0 < float(value) < distances[-1]))
+    result = [points[0]]
+    cursor = 0
+    for index, (start, end) in enumerate(zip(distances, distances[1:])):
+        while cursor < len(targets) and targets[cursor] <= end + 1e-9:
+            target = targets[cursor]
+            if target > start + 1e-9 and target < end - 1e-9:
+                fraction = (target - start) / (end - start)
+                result.append(add(points[index], scale(sub(points[index + 1], points[index]),
+                                                       fraction)))
+            cursor += 1
+        result.append(points[index + 1])
+    return result
+
+
 def catmull_rom(points, step):
     """Zagęszcza oś krzywą centripetal Catmull-Rom przechodzącą przez WSZYSTKIE punkty.
 
@@ -353,14 +372,17 @@ def ring_positions(frame, profile):
     return [add(origin, add(scale(right, px), scale(up, py))) for px, py in profile]
 
 
-def build_chunk(frames, station_m, profile, first, last, uv_scale=UV_METRES_PER_UNIT):
+def build_chunk(frames, station_m, profile, first, last, uv_scale=UV_METRES_PER_UNIT,
+                profiles_by_ring=None, face_open=None):
     """Buduje jeden chunk jako rurę na ramkach [first, last] włącznie."""
     return build_chunk_from_rings(frames, station_m, profile,
-                                  list(range(first, last + 1)), uv_scale)
+                                  list(range(first, last + 1)), uv_scale,
+                                  profiles_by_ring, face_open)
 
 
 def build_chunk_from_rings(frames, station_m, profile, ring_indices,
-                           uv_scale=UV_METRES_PER_UNIT):
+                           uv_scale=UV_METRES_PER_UNIT, profiles_by_ring=None,
+                           face_open=None):
     """Buduje rurę na DOWOLNYM podzbiorze ramek podanym rosnąco w `ring_indices`.
 
     Podzbiór, a nie zakres, bo na tym stoją poziomy szczegółowości (T-210 LOD):
@@ -382,23 +404,31 @@ def build_chunk_from_rings(frames, station_m, profile, ring_indices,
     columns = len(profile) + 1
     vertices, uvs = [], []
     for index in ring_indices:
-        ring = ring_positions(frames[index], profile)
+        ring_profile = profiles_by_ring[index] if profiles_by_ring is not None else profile
+        ring = ring_positions(frames[index], ring_profile)
+        ring_arc = profile_arc(ring_profile) if profiles_by_ring is not None else arc
         v = station_m[index] / uv_scale
         for column in range(columns):
             vertices.append(ring[column % len(profile)])
-            uvs.append((arc[column] / uv_scale, v))
+            uvs.append((ring_arc[column] / uv_scale, v))
     first, last = ring_indices[0], ring_indices[-1]
     flip = _needs_flip(frames[first], profile)
     faces = []
+    face_columns = []
     for row in range(len(ring_indices) - 1):
         base = row * columns
         for column in range(columns - 1):
+            if face_open is not None and face_open(ring_indices[row], ring_indices[row + 1],
+                                                  column):
+                continue
             a = base + column
             quad = (a, a + 1, a + columns + 1, a + columns)
             faces.append(quad[::-1] if flip else quad)
+            face_columns.append(column)
     return {
         "vertices": vertices,
         "faces": faces,
+        "face_columns": face_columns,
         "uvs": uvs,
         "ring_indices": list(ring_indices),
         "first_ring": first,
@@ -516,12 +546,20 @@ def non_finite(chunks):
 
 def sweep(points, profile, ring_step=DEFAULT_RING_STEP_M, station_chainages=(),
           max_chunk_m=DEFAULT_MAX_CHUNK_M, halo_m=DEFAULT_STATION_HALO_M,
-          uv_scale=UV_METRES_PER_UNIT):
+          uv_scale=UV_METRES_PER_UNIT, profile_at_m=None, open_face=None,
+          anchor_chainages=()):
     """Pełny przebieg: oś -> zagęszczenie -> ramki -> chunki -> siatki + metryki."""
     source = dedupe(points)
     dense = catmull_rom(source, ring_step)
+    if anchor_chainages:
+        dense = insert_chainage_points(dense, anchor_chainages)
     frames = rmf_frames(dense)
     station_m = chainages(dense)
+    profiles_by_ring = ([profile_at_m(value) for value in station_m]
+                        if profile_at_m is not None else None)
+    def face_open_for_rings(low, high, column):
+        return open_face(station_m[low], station_m[high], column)
+    face_open_cb = face_open_for_rings if open_face is not None else None
     total = station_m[-1]
     # A scenery-only axis can have no stops. Do not invent endpoints as stops:
     # their midpoint would split a short tail even when it fits one chunk.
@@ -530,7 +568,8 @@ def sweep(points, profile, ring_step=DEFAULT_RING_STEP_M, station_chainages=(),
     edges = [0.0] + [b for _a, b in bounds]
     ring_index = [_nearest_ring(station_m, value) for value in edges]
     ring_index = _strictly_increasing(ring_index, len(station_m) - 1)
-    chunks = [build_chunk(frames, station_m, profile, a, b, uv_scale)
+    chunks = [build_chunk(frames, station_m, profile, a, b, uv_scale,
+                          profiles_by_ring, face_open_cb)
               for a, b in zip(ring_index, ring_index[1:])]
     columns = len(profile) + 1
     return {
@@ -539,6 +578,7 @@ def sweep(points, profile, ring_step=DEFAULT_RING_STEP_M, station_chainages=(),
         # chainage KAŻDEJ ramki, nie tylko granic chunków: na tym stoi wybór pierścieni
         # dla rzadszych LOD-ów, który musi zostać na tym samym zestawie ramek
         "station_m": station_m,
+        "profiles_by_ring": profiles_by_ring,
         "columns": columns,
         "source_points": len(source),
         "ring_points": len(dense),

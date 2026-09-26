@@ -214,6 +214,35 @@ def test_healthy_metadata_passes():
     assert "policzone niezależnie" in result.stdout, result.stdout
 
 
+def test_access_solids_do_not_inflate_platform_near_shot_count():
+    """The scene loads access solids, while door proximity counts platform surfaces."""
+    layout = {"platforms": [
+        {"from_m": 100.0 + i * 300.0, "to_m": 195.0 + i * 300.0,
+         "minimum_edge_offset_m": 1.4}
+        for i in range(12)]}
+    metrics = {"objects": 540, "profile": "box_double", "platform_gap_m": 0.08,
+               "objects_per_component": {"platform": 24, "edge": 24, "stairs": 336,
+                                         "lift": 12, "mezzanine": 48,
+                                         "corridor": 48, "portal": 48}}
+    metadata = {"last_shot": {"chainage_m": 150.0}, "platforms": {
+        "slabs": 48, "objects_total": 540, "bbox_min": [0.0, 0.0, 0.0],
+        "bbox_max": [100.0, 1.031, 100.0], "top_m": 1.031,
+        "near_shot": {"radius_m": 5.0, "slabs": 4, "top_m": 1.031}}}
+    spec = os.path.join(ROOT, "data", "vehicle", "m7-spec.json")
+    assert G.check_platforms(metadata, layout, metrics, spec) == [], (
+        "full station asset must preserve the separate platform surface count")
+    inflated = json.loads(json.dumps(metadata))
+    inflated["platforms"]["near_shot"]["slabs"] = 45
+    assert any("near_shot.slabs" in issue for issue in
+               G.check_platforms(inflated, layout, metrics, spec)), (
+        "access meshes must not inflate surfaces beside the train")
+    missing_access = json.loads(json.dumps(metadata))
+    missing_access["platforms"]["objects_total"] = 48
+    assert any("objects_total" in issue for issue in
+               G.check_platforms(missing_access, layout, metrics, spec)), (
+        "missing access meshes must fail the full station asset check")
+
+
 # --- każda z siedmiu mutacji, które przeżyły audyt -----------------------------
 
 

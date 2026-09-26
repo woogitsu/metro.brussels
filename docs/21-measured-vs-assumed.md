@@ -340,6 +340,26 @@ Dwurzędna kończy się na 4,95 m: 0,35 m pod stropem komory (5,30 m).
 Położenie 15 m za osią stacji i neutralny wygląd są wyborem dla czytelności z kabiny,
 nie odwzorowaniem oznakowania STIB/MIVB.
 
+## 4f. Przekrój komory w grywalnym tunelu (`tools/track/station_chamber.py`)
+
+To również **założenie projektowe**, nie przekrój którejkolwiek rzeczywistej stacji.
+Generator rozszerza `box_double` do szerokości profilu `station` na całym projektowym
+peronie, a jego dach pozostawia na poziomie 5,30 m poza antresolą. Nad kanonicznymi
+24 m antresoli podnosi dach do wierzchu jej płyty; tylko przy projektowym korytarzu
+wycina pas ściany od 5,70 do 8,10 m. Przedziały peronów pochodzą z tego samego
+`station_layout`, z którego budowane są bryły dostępu. Otwór jest wizualny:
+kolizja pociągu pozostaje zamkniętym przekrojem, a nawigacja piesza nie jest modelowana.
+
+| stała | wartość | rola |
+|---|---:|---|
+| `CHAMBER_FLARE_M` | 8,0 m | płynne rozszerzenie/zwężenie przekroju przed i za peronem |
+| `MEZZANINE_FLARE_M` | 16,0 m | płynna zmiana wysokości dachu przy projektowej antresoli |
+
+Oba odcinki przejściowe są parametrami wyglądu i kolizji modelu, nie pomiarami STIB.
+Skrypt gry wstawia również schody, windę, antresolę, korytarz i portal. Portal jest
+końcem lokalnego modelu dostępu; połączenie z dalszą infrastrukturą pozostaje
+niemodelowane.
+
 ## 4g. Kabina maszynisty — układ kanoniczny (`tools/blender/m7_cab.py`, 6.D119)
 
 **Wszystkie wartości w tej sekcji mają status `design_assumption`. Żadna nie pochodzi
@@ -385,7 +405,7 @@ kształt fotela, przyrządy i wskaźniki, rzeczywiste wymiary kabiny M7. Wycięc
 w skorupie należy do generatora skorupy i nie jest zrobione — otwory są tu policzone
 jako dane i sprawdzone, że mieszczą się w przekroju pudła.
 
-## 4f. Czas nawrotu na krańcówce (`src/Sim/Line/LineCore.cs`, turnback, T-320)
+## 4h. Czas nawrotu na krańcówce (`src/Sim/Line/LineCore.cs`, turnback, T-320)
 
 `docs/TASKS.md` mówił o tym: „**logika turnback**, model perturbacji i polityka dyspozytora
 **nie są opisane w żadnym dokumencie**". Dla samego czasu nawrotu to już **nieprawda**
@@ -459,7 +479,7 @@ obieg.
 | udział osi hamowanych, rozdział hamulca ED/P, krzywe bezpieczeństwa STIB | brak w publicznych materiałach; §4b modeluje wyłącznie sam udział osi i to jako parametr o dwóch wariantach skrajnych | T-311 zostawia otwarte, T-313 (#22) będzie tego potrzebować |
 | prędkość dopuszczalna na torze | brak źródła; `speed_limits` puste we wszystkich sześciu osiach. §4d daje wyłącznie ograniczenie **dolne** (57,65 km/h), warunkowe względem modelu | T-011, T-320; wpis do `data/track/` wymaga źródła STIB |
 | czas wymiany pasażerów | brak źródła; §4d daje wyłącznie ograniczenie **górne** z postoju rozkładowego | T-312 zostawia jako argument |
-| ~~czas nawrotu na krańcówce~~ | **zmierzony 04.09.2026 z GTFS**: 194 obiegi, 4289 nawrotów, minimum 240 s, mediana 445 s, ani jednego poniżej 240 s. Ograniczenie **na rozkład**, nie techniczne minimum manewru — §4f | `LineCore` przyjmuje jako argument |
+| ~~czas nawrotu na krańcówce~~ | **zmierzony 04.09.2026 z GTFS**: 194 obiegi, 4289 nawrotów, minimum 240 s, mediana 445 s, ani jednego poniżej 240 s. Ograniczenie **na rozkład**, nie techniczne minimum manewru — §4h | `LineCore` przyjmuje jako argument |
 | model perturbacji, polityka dyspozytora | brak w jakimkolwiek dokumencie; to **zostaje** ze STOP-u T-320, mimo że czas nawrotu z niego wyszedł | T-320 |
 
 Dopóki te pozycje są otwarte, **geometria produkcyjna nie może powstać** — obecny tunel

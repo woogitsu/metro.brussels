@@ -74,6 +74,9 @@ public sealed partial class StationView : Node3D
     /// <summary>Liczba brył peronowych trzymanych w scenie.</summary>
     public int SlabCount => _slabs.Count;
 
+    /// <summary>All imported station meshes, including access structures.</summary>
+    public int LoadedMeshCount { get; private set; }
+
     /// <summary>Obwiednie płyt i pasów krawędziowych, bez zabudowy dostępu.</summary>
     public IReadOnlyList<Aabb> Slabs => _slabs;
 
@@ -121,8 +124,10 @@ public sealed partial class StationView : Node3D
         _slabs.Clear();
         _platformSlabs.Clear();
         _platformFootprints.Clear();
+        LoadedMeshCount = default;
         foreach (var instance in MeshInstances(scene))
         {
+            LoadedMeshCount++;
             var bounds = instance.GlobalTransform * instance.GetAabb();
             if (IsEdgeMeshName((string)instance.Name))
             {

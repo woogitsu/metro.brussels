@@ -3602,6 +3602,7 @@ public sealed partial class FirstRun : Node3D
          },
          "platforms": {
           "slabs": {{_platforms.SlabCount}},
+          "objects_total": {{_platforms.LoadedMeshCount}},
           "bbox_min": [{{plo.X:F4}}, {{plo.Y:F4}}, {{plo.Z:F4}}],
           "bbox_max": [{{phi.X:F4}}, {{phi.Y:F4}}, {{phi.Z:F4}}],
           "top_m": {{peronBox.End.Y:F4}},
