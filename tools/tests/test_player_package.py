@@ -170,6 +170,16 @@ def test_README_nie_nazywa_klawisza_INACZEJ_niz_gra():
         )
 
 
+def test_README_paczki_wymienia_azerty_alternate_power_key():
+    """Instrukcja paczki musi wymienić Z, bo Power czyta W i Z na AZERTY."""
+    readme = readme_z_skryptu()
+    assert readme is not None
+    wiersz = [w for w in readme.splitlines() if "ciąg" in w]
+    assert any(re.search(r"(?<![\w])Z(?![\w])", w) for w in wiersz), (
+        "README paczki pomija Z — alternatywny fizyczny klawisz ciągu dla układu AZERTY"
+    )
+
+
 def test_katalog_zasobow_ma_JEDNA_nazwe_po_obu_stronach():
     """Skrypt kopiuje tam, gdzie scena szuka.
 
