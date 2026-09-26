@@ -17,4 +17,18 @@ public sealed class StationEdgeVisibilityTests
         Assert.IsFalse(StationView.IsEdgeMeshName("Beekkant_negative_platform"), contract);
         Assert.IsFalse(StationView.IsEdgeMeshName("Beekkant_edge_platform"), contract);
     }
+
+    [TestMethod]
+    public void AccessKitMeshesKeepDistinctVisualRoles()
+    {
+        var contract = nameof(AccessKitMeshesKeepDistinctVisualRoles);
+        Assert.IsTrue(StationView.AccessKindForMesh("Beekkant_stairs0_00") == StationAccessKind.Stairs, contract);
+        Assert.IsTrue(StationView.AccessKindForMesh("Beekkant_stairs1_landing") == StationAccessKind.Stairs, contract);
+        Assert.IsTrue(StationView.AccessKindForMesh("Beekkant_lift") == StationAccessKind.Lift, contract);
+        Assert.IsTrue(StationView.AccessKindForMesh("Beekkant_mezzanine_near") == StationAccessKind.Mezzanine, contract);
+        Assert.IsTrue(StationView.AccessKindForMesh("Beekkant_corridor") == StationAccessKind.Corridor, contract);
+        Assert.IsTrue(StationView.AccessKindForMesh("Beekkant_portal") == StationAccessKind.Portal, contract);
+        Assert.IsTrue(StationView.AccessKindForMesh("Beekkant_positive_platform") == StationAccessKind.None, contract);
+        Assert.IsTrue(StationView.AccessKindForMesh("Beekkant_positive_edge") == StationAccessKind.None, contract);
+    }
 }

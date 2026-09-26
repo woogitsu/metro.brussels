@@ -4238,7 +4238,8 @@ public sealed class UiTextTests
     // 20 -> 21 (23.09.2026, 6.M1): `LineEventKind` w `src/Sim/Train/InputLog.cs`. CZWARTY ruch.
     // 21 -> 22 (24.09.2026, wskazówka hamowania): `BrakingCueStage` zatrzaskuje fazę wskazówki hamowania.
     // 22 -> 23 (25.09.2026, StopTargetOutcome).
-    private const int WyliczenWSrc = 23;
+    // 23 -> 24 (26.09.2026, StationAccessKind: role wykończenia brył dostępu stacji).
+    private const int WyliczenWSrc = 24;
 
     // 22 -> 24 (13.09.2026, MB-02): `Ending` i `ending` z `TrainingEnding`.
     // 24 -> 25 (14.09.2026, MB-06): `Owner` z `ControlOwner`. JEDNA nazwa, a nie dwie
