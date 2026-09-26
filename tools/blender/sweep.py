@@ -205,8 +205,80 @@ def chunk_boundaries(total_m, station_chainages, max_chunk_m=DEFAULT_MAX_CHUNK_M
             cuts.append(cut)
     cuts = _split_long(sorted(set(cuts)), total_m, max_chunk_m, stops, halo_m)
     cuts = _drop_short(cuts, total_m, min_chunk_m)
+    # Dropping a short first/last chunk can join its neighbour into a span above
+    # max_chunk_m. Re-split the resulting spans, then discard any new short ones.
+    cuts = _drop_short(_split_long(cuts, total_m, max_chunk_m, stops, halo_m),
+                       total_m, min_chunk_m)
+    if any(b - a > max_chunk_m + 1e-6
+           for a, b in zip([0.0] + cuts, cuts + [total_m])):
+        repaired = _feasible_chunk_cuts(total_m, stops, max_chunk_m,
+                                        min_chunk_m, halo_m)
+        if repaired is None:
+            raise ValueError("nie da się podzielić osi na chunki: limit długości, "
+                             "minimalna długość i halo stacji są sprzeczne")
+        cuts = repaired
     bounds = [0.0] + cuts + [total_m]
     return [(a, b) for a, b in zip(bounds, bounds[1:])]
+
+
+def _merge_intervals(intervals, merge_touching=True):
+    merged = []
+    for low, high in sorted(intervals):
+        if merged and (low <= merged[-1][1] if merge_touching
+                       else low < merged[-1][1]):
+            merged[-1] = (merged[-1][0], max(merged[-1][1], high))
+        else:
+            merged.append((low, high))
+    return merged
+
+
+def _feasible_chunk_cuts(total_m, stops, max_chunk_m, min_chunk_m, halo_m):
+    """Find cuts satisfying both length limits and every station halo, if possible.
+
+    This only runs when the usual midpoint layout has left an oversized chunk.
+    Reachable cut positions are intervals, so there is no metre-grid rounding
+    that could miss a narrow but valid gap between station halos.
+    """
+    if min_chunk_m <= 0.0 or max_chunk_m < min_chunk_m:
+        return None
+    blocked = _merge_intervals([(max(0.0, s - halo_m), min(total_m, s + halo_m))
+                                for s in stops if s + halo_m > 0.0
+                                and s - halo_m < total_m], merge_touching=False)
+    allowed = []
+    cursor = 0.0
+    for low, high in blocked:
+        if low >= cursor:
+            allowed.append((cursor, low))
+        cursor = max(cursor, high)
+    if cursor <= total_m:
+        allowed.append((cursor, total_m))
+    levels = [[(0.0, 0.0)]]
+    max_cuts = int(total_m // min_chunk_m)
+    for _ in range(max_cuts + 1):
+        final_low, final_high = total_m - max_chunk_m, total_m - min_chunk_m
+        matches = [(max(low, final_low), min(high, final_high))
+                   for low, high in levels[-1]
+                   if max(low, final_low) <= min(high, final_high)]
+        if matches:
+            position = sum(matches[0]) / 2.0
+            cuts = []
+            for prior in reversed(levels[:-1]):
+                cuts.append(position)
+                options = [(max(low, position - max_chunk_m),
+                            min(high, position - min_chunk_m))
+                           for low, high in prior
+                           if max(low, position - max_chunk_m)
+                           <= min(high, position - min_chunk_m)]
+                position = sum(options[0]) / 2.0
+            return list(reversed(cuts))
+        next_reachable = _merge_intervals(
+            (max(low + min_chunk_m, start), min(high + max_chunk_m, end))
+            for low, high in levels[-1] for start, end in allowed
+            if max(low + min_chunk_m, start) <= min(high + max_chunk_m, end))
+        if not next_reachable:
+            break
+        levels.append(next_reachable)
+    return None
 
 
 def _split_long(cuts, total_m, max_chunk_m, stops, halo_m):
@@ -234,6 +306,13 @@ def _push_out_of_stations(value, stops, halo_m, low, high):
         if abs(value - stop) >= halo_m:
             continue
         for shifted in (stop - halo_m, stop + halo_m):
+            if low + 1e-6 < shifted < high - 1e-6 and all(abs(shifted - s) >= halo_m for s in stops):
+                return shifted
+        # Overlapping station halos can make both boundaries of this station
+        # invalid while the outer boundary of the group is still available.
+        for shifted in sorted((s + direction * halo_m for s in stops
+                               for direction in (-1, 1)),
+                              key=lambda candidate: (abs(candidate - value), candidate)):
             if low + 1e-6 < shifted < high - 1e-6 and all(abs(shifted - s) >= halo_m for s in stops):
                 return shifted
         return None

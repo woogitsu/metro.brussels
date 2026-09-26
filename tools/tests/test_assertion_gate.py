@@ -1756,7 +1756,9 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # 943 -> 945 (25.09.2026, 6.D168): dwie asercje czytają komunikat WYJŚCIOWY
 # `data_freshness.py` po nowym oknie i zbędnym wyjątku. Sprawdzają zachowanie
 # uruchomionej kontroli, a nie cytat ze źródła Pythona.
-ASERCJI_NAPISOWYCH_RAZEM = 945
+# 945 -> 946 (26.09.2026, #845): odmowa niewykonalnego podziału tunelu jest sprawdzana na
+# wyjątku w czasie wykonania (`str(error)`), nie na tekście źródła.
+ASERCJI_NAPISOWYCH_RAZEM = 946
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
