@@ -44,7 +44,13 @@ public static class GlbLoader
             return null;
         }
 
-        return document.GenerateScene(state) as Node3D;
+        var generated = document.GenerateScene(state);
+        if (generated is Node3D scene)
+            return scene;
+
+        generated?.Free();
+        GD.PushError($"[ASSETS] {absolutePath}: GenerateScene -> brak sceny 3D");
+        return null;
     }
 
     /// <summary>
