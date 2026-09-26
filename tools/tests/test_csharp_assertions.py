@@ -513,7 +513,8 @@ BEZ_KOMUNIKATU_RAZEM = sum(BEZ_KOMUNIKATU.values())
 # 2250 -> 2258 (25.09.2026, T-400 outcome): lifecycle assertions explain each transition.
 # 2258 -> 2263 (25.09.2026, T-400 outcome): cab cue lifecycle assertions.
 # 2263 -> 2265 (25.09.2026, liczność przypisań HUD i tablicy STOP).
-# 2265 -> 2268 (26.09.2026, trzy asercje FirstRunSceneContractTests).`r`nZ_KOMUNIKATEM_RAZEM = 2268
+# 2265 -> 2268 (26.09.2026, trzy asercje FirstRunSceneContractTests).
+Z_KOMUNIKATEM_RAZEM = 2268
 NIEROZSTRZYGNIETYCH = 69
 #: **3093 -> 3099 (14.09.2026, 6.D210).** Sześć asercji nowego pliku
 #: `tests/Sim.Tests/DefaultArmAuditTests.cs` — bramki na ramionach domyślnych
@@ -675,7 +676,8 @@ NIEROZSTRZYGNIETYCH = 69
 # 3720 -> 3725 (25.09.2026, T-400 outcome): five in-cab cue assertions.
 # 3725 -> 3727 (25.09.2026, jawne granice aktualizacji etykiet HUD i STOP).
 # 3727 -> 3730 (25.09.2026, trzy asercje planu r?cznego po integracji T-400).
-# 3730 -> 3733 (26.09.2026, FirstRunSceneContractTests: trzy asercje kontraktu sceny).`r`nASERCJI_RAZEM = 3733
+# 3730 -> 3733 (26.09.2026, FirstRunSceneContractTests: trzy asercje kontraktu sceny).
+ASERCJI_RAZEM = 3733
 
 
 def _rozklad():
