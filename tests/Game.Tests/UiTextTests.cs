@@ -3675,7 +3675,8 @@ public sealed class UiTextTests
     // 158 -> 163 (24.09.2026, komunikaty rozkładu).
     // 163 -> 164 (25.09.2026, interpolowany log aktywnej kamery).
     // 164 -> 165 (25.09.2026, T-400 stop target): interpolated missing-board error.
-    private const int LiteralowZKlamra = 165;
+    // 165 -> 166 (27.09.2026, interpolowana ścieżka błędnego GLB).
+    private const int LiteralowZKlamra = 166;
 
     /// <summary>
     /// Ilu literałom <see cref="BezDziur"/> zabiera WSZYSTKIE słowa — 6.D188.
