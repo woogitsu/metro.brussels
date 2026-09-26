@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Testy `tools/blender/material_specs.py` — modułu, który do 06.09.2026 nie miał
 ŻADNEGO pokrycia: cztery bramki tego modułu siedziały wewnątrz `material_test_scene.py`,
 tuż obok `import bpy`, a jedyny istniejący test tamtego pliku (`test_art_direction.py`)
