@@ -36,6 +36,29 @@ def test_chamber_uses_platform_limits_and_tapers_continuously():
         assert max(abs(a[1] - b[1]) for a, b in zip(before, after)) < 0.01, "roof transition remains continuous"
 
 
+def test_chamber_and_mezzanine_flares_have_level_ends_and_sampled_rings():
+    anchors = CH.transition_anchors([PLATFORM])
+    for value in (92.0, 94.0, 96.0, 98.0, 100.0,
+                  151.0, 155.0, 159.0, 163.0, 167.0,
+                  191.0, 195.0, 199.0, 203.0, 207.0):
+        assert value in anchors, "both curved flares retain their sampled rings"
+    assert abs(CH.transition_weight(94.0, [PLATFORM]) - 0.15625) < 1e-9, (
+        "platform flare uses the cubic easing curve")
+    assert abs(CH.mezzanine_weight(155.0, [PLATFORM]) - 0.15625) < 1e-9, (
+        "roof flare uses the same easing curve")
+    assert CH.transition_weight(92.01, [PLATFORM]) < 0.00001, (
+        "platform flare begins with an almost level tangent")
+    assert 1.0 - CH.transition_weight(99.99, [PLATFORM]) < 0.00001, (
+        "platform flare reaches its final width with an almost level tangent")
+    assert CH.mezzanine_weight(151.01, [PLATFORM]) < 0.00001, (
+        "roof flare begins with an almost level tangent")
+    filtered = CH.transition_anchors([PLATFORM], [94.1, 155.1])
+    assert 94.0 not in filtered and 155.0 not in filtered, (
+        "optional taper rings cannot nearly duplicate sampled axis rings")
+    assert 92.0 in filtered and 100.0 in filtered, (
+        "platform taper boundaries remain available for exact geometry")
+
+
 def test_chamber_band_matches_corridor_and_window_only_opens_its_wall():
     windows = CH.access_windows([PLATFORM], STATION, 1.03)
     assert len(windows) == 1, "one canonical corridor per full platform"
@@ -51,7 +74,7 @@ def test_chamber_band_matches_corridor_and_window_only_opens_its_wall():
 def test_chamber_mesh_lod_and_train_collision_keep_safe_sections():
     points = [(float(x), 0.0, 0.0) for x in range(0, 301, 2)]
     windows = CH.access_windows([PLATFORM], STATION, 1.03)
-    anchors = [92.0, 100.0, 195.0, 203.0] + [v for w in windows for v in w[:2]]
+    anchors = CH.transition_anchors([PLATFORM]) + [v for w in windows for v in w[:2]]
     def profile_at(value):
         return CH.profile_at(value, TUNNEL, CHAMBER, [PLATFORM], LOW_CHAMBER)
     def open_face(low, high, column):

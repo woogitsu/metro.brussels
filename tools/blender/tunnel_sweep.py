@@ -390,12 +390,14 @@ def main():
         profile = CH.expanded_tunnel_profile(profile)
         windows = CH.access_windows(platforms, station_points,
                                     layout["platform_height_m"])
-        for platform in platforms:
-            anchors.extend((platform["from_m"] - CH.CHAMBER_FLARE_M,
-                            platform["from_m"], platform["to_m"],
-                            platform["to_m"] + CH.CHAMBER_FLARE_M))
+        sampled_chainages = SW.chainages(SW.catmull_rom(SW.dedupe(points), args.ring_step))
+        anchors.extend(CH.transition_anchors(platforms, sampled_chainages))
         for first, last, _side in windows:
             anchors.extend((first, last))
+        # Dense axis samples can land centimetres from a station boundary.
+        # A second, almost coincident ring makes bent station quads invert.
+        anchors = [value for value in anchors
+                   if all(abs(value - sample) >= 0.5 for sample in sampled_chainages)]
         profile_at_m = lambda value: CH.profile_at(value, profile, chamber, platforms,
                                                   low_chamber)
         open_face = lambda first, last, column: CH.is_open_face(first, last, column, windows)

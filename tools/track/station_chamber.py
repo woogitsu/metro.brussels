@@ -51,6 +51,36 @@ def low_chamber_profile(station_points):
     return expanded_tunnel_profile(station_points)
 
 
+def _ease(value):
+    """Cubic taper with a level tangent at both ends of a transition."""
+    return value * value * (3.0 - 2.0 * value)
+
+
+def transition_anchors(platforms, existing_chainages=(), min_spacing_m=0.5):
+    """Sample both curved flares densely enough for the swept mesh and its LODs."""
+    anchors = set()
+    optional = set()
+    for platform in platforms:
+        start, end = platform["from_m"], platform["to_m"]
+        for edge, direction, length in ((start, -1, CHAMBER_FLARE_M),
+                                        (end, 1, CHAMBER_FLARE_M)):
+            for quarter in range(5):
+                (anchors if quarter in (0, 4) else optional).add(
+                    edge + direction * length * quarter / 4.0)
+        if platform["length_m"] < SC.DESIGN_MEZZANINE_LENGTH_M + SC.DESIGN_ACCESS_SETBACK_M:
+            continue
+        mezz_end = end - SC.DESIGN_ACCESS_SETBACK_M
+        mezz_start = mezz_end - SC.DESIGN_MEZZANINE_LENGTH_M
+        for edge, direction in ((mezz_start, -1), (mezz_end, 1)):
+            for quarter in range(5):
+                (anchors if quarter in (0, 4) else optional).add(
+                    edge + direction * MEZZANINE_FLARE_M * quarter / 4.0)
+    for value in sorted(optional):
+        if all(abs(value - existing) >= min_spacing_m for existing in existing_chainages):
+            anchors.add(value)
+    return sorted(anchors)
+
+
 def transition_weight(chainage_m, platforms, flare_m=CHAMBER_FLARE_M):
     """0 in the ordinary tunnel and 1 throughout each platform."""
     if flare_m <= 0:
@@ -61,9 +91,9 @@ def transition_weight(chainage_m, platforms, flare_m=CHAMBER_FLARE_M):
         if start <= chainage_m <= end:
             return 1.0
         if start - flare_m < chainage_m < start:
-            weight = max(weight, (chainage_m - start + flare_m) / flare_m)
+            weight = max(weight, _ease((chainage_m - start + flare_m) / flare_m))
         if end < chainage_m < end + flare_m:
-            weight = max(weight, (end + flare_m - chainage_m) / flare_m)
+            weight = max(weight, _ease((end + flare_m - chainage_m) / flare_m))
     return weight
 
 
@@ -80,9 +110,9 @@ def mezzanine_weight(chainage_m, platforms, flare_m=MEZZANINE_FLARE_M):
         if start <= chainage_m <= end:
             return 1.0
         if start - flare_m < chainage_m < start:
-            weight = max(weight, (chainage_m - start + flare_m) / flare_m)
+            weight = max(weight, _ease((chainage_m - start + flare_m) / flare_m))
         if end < chainage_m < end + flare_m:
-            weight = max(weight, (end + flare_m - chainage_m) / flare_m)
+            weight = max(weight, _ease((end + flare_m - chainage_m) / flare_m))
     return weight
 
 
@@ -94,8 +124,13 @@ def profile_at(chainage_m, tunnel, chamber, platforms, low_chamber=None):
     height_weight = mezzanine_weight(chainage_m, platforms)
     low = [(a[0] + width_weight * (b[0] - a[0]),
             a[1] + width_weight * (b[1] - a[1])) for a, b in zip(tunnel, low_chamber)]
-    return [(a[0] + height_weight * (b[0] - a[0]),
-             a[1] + height_weight * (b[1] - a[1])) for a, b in zip(low, chamber)]
+    # The roof flare may overlap the width flare beyond a platform. Interpolating
+    # toward the full-width high chamber there would push roof corners past the
+    # narrowing wall and fold faces inside out. Lift the current-width profile
+    # instead; the small roof inset scales with its available width.
+    return [(a[0] + height_weight * width_weight * (b[0] - base[0]),
+             a[1] + height_weight * (b[1] - base[1]))
+            for a, b, base in zip(low, chamber, low_chamber)]
 
 
 def access_windows(platforms, station_points, platform_height_m, side=1):
