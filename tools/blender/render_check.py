@@ -221,7 +221,11 @@ def resolve_window(points,args):
     except ValueError as bad: raise SystemExit(f"BŁĄD: {bad}")
 
 def main():
-    args=parse_args(); clear_scene(); bpy.ops.import_scene.gltf(filepath=args.inp); setup_world(); setup_verification_material(); scn=bpy.context.scene
+    args=parse_args()
+    # Blender resolves a relative render.filepath from its own project directory
+    # on Windows, while frame_verdict opens it from the shell working directory.
+    args.out=os.path.abspath(args.out)
+    clear_scene(); bpy.ops.import_scene.gltf(filepath=args.inp); setup_world(); setup_verification_material(); scn=bpy.context.scene
     try: scn.render.engine="BLENDER_EEVEE_NEXT"
     except Exception: scn.render.engine="BLENDER_EEVEE"
     scn.render.resolution_x=args.res; scn.render.resolution_y=int(args.res*0.6)
