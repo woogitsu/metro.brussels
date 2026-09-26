@@ -250,7 +250,8 @@ public sealed class UiTextTests
     // 680 -> 684 (25.09.2026, T-400): po dwa literały widoków `side` i `platform` w RunPlan.
     // 684 -> 686 (25.09.2026, T-400 stop target): visible label and missing-board error.
     // 686 -> 693 (25.09.2026, wynik STOP w scenie i HUD).
-    private const int LiteralowWZasieguBramki = 693;
+    // 693 -> 696 (26.09.2026, kontrola kompletności plików chunków).
+    private const int LiteralowWZasieguBramki = 696;
 
     /// <summary>Ile różnych — dolne ostrze, zmierzone 12.09.2026.</summary>
     private const int RoznychLiteralowWZasieguBramki = 362;
@@ -1541,7 +1542,8 @@ public sealed class UiTextTests
     // 734 -> 738 (25.09.2026, T-400): po dwa jawne literały widoków `side` i `platform`.
     // 738 -> 740 (25.09.2026, T-400 stop target): the same two literals.
     // 740 -> 747 (25.09.2026, wynik STOP w scenie i HUD).
-    private const int PozycjiStaregoCzytnika = 747;
+    // 747 -> 750 (26.09.2026, kontrola kompletności plików chunków).
+    private const int PozycjiStaregoCzytnika = 750;
 
     /// <summary>
     /// Ile PLIKÓW korpusu stary czytnik czytał inaczej niż leksykalny — 6.D182.
@@ -5560,7 +5562,8 @@ public sealed class UiTextTests
     // 28 -> 31 (24.09.2026): trzy odmowy przy pliku osi scenerii.
     // 33 -> 36 (25.09.2026, odmowy błędnego rozkładu).
     // 36 -> 37 (25.09.2026, T-400 stop target): reject a missing training board.
-    private const int WolajacychAbort = 37;
+    // 37 -> 38 (26.09.2026, asset preflight): reject incomplete tunnel chunks.
+    private const int WolajacychAbort = 38;
     // 5 -> 6 (24.09.2026, interaktywne R): błąd przeładowania poza Abort.
     private const int WypisowBleduPozaAbort = 6;
 
