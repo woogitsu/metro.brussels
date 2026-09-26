@@ -121,6 +121,25 @@ def test_sweep_generator_of_stations_keeps_the_same_ring_halos():
         "jednorazowy iterator stacji zmienił granice po snapowaniu")
 
 
+def test_periodic_detail_on_a_chunk_seam_is_owned_once():
+    left = list(SW.periodic_detail_positions(0.0, 150.0, 1.5))
+    right = list(SW.periodic_detail_positions(150.0, 300.0, 1.5))
+    assert 150.0 not in left and right[0] == 150.0, (
+        f"detal na szwie 150 m zniknął lub został zdublowany: {left[-2:]}, {right[:2]}")
+    assert left[0] == 1.5, f"detal wystaje przed początek tunelu: {left[:2]}"
+    assert len(left + right) == len(set(left + right)), (
+        "każda pozycja globalnego rytmu ma należeć do jednego chunka")
+
+
+def test_periodic_detail_rejects_nonpositive_pitch():
+    try:
+        list(SW.periodic_detail_positions(0.0, 10.0, 0.0))
+    except ValueError as error:
+        assert "pitch" in str(error), f"odmowa nie nazywa złego rytmu: {error}"
+    else:
+        raise AssertionError("zerowy rytm nie może generować detali")
+
+
 def test_sweep_chunk_boundaries_never_land_inside_a_station():
     stops = [0.0, 500.0, 1400.0, 3000.0, 3100.0, 5000.0]
     bounds = SW.chunk_boundaries(5000.0, stops, max_chunk_m=400.0)

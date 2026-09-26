@@ -1760,7 +1760,9 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # wyjątku w czasie wykonania (`str(error)`), nie na tekście źródła.
 # 946 -> 947 (26.09.2026, pierścienie chunków): odmowa niewykonalnego cięcia
 # po rzeczywistych pierścieniach jest sprawdzana na wyjątku wykonania.
-ASERCJI_NAPISOWYCH_RAZEM = 947
+# 947 -> 948 (26.09.2026, rytm detali tunelu): test odmowy zerowego rytmu
+# czyta komunikat wyjątku z wykonania, a nie tekst źródła Pythona.
+ASERCJI_NAPISOWYCH_RAZEM = 948
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
