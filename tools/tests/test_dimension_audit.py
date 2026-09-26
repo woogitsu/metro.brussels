@@ -257,7 +257,7 @@ NAZWA_W_TABELI = re.compile(r"^\| `([A-Z][A-Z0-9_]*)` \|", re.M)
 #: Sekcje audytu i moduły, których dotyczą. Nagłówek podany dokładnie tak, jak stoi
 #: w dokumencie — bez tego skan brałby tabele z sekcji sąsiednich.
 SEKCJE_WYMIAROW = (
-    ("## 4e.", "station_components", 18),
+    ("## 4e.", "station_components", 19),
     ("## 4g.", "m7_cab", 19),
 )
 
@@ -317,7 +317,7 @@ def test_audyt_i_moduly_wymieniaja_TE_SAME_wymiary_a_nie_tyle_samo():
             % (naglowek.strip("# ."), nazwa_modulu,
                sorted(w_dokumencie - w_module), sorted(w_module - w_dokumencie)))
         assert len(w_dokumencie) == ile, (
-            "sekcja %s wymienia %d wymiarów, a pomiar z 11.09.2026 mówił %d — "
+            "sekcja %s wymienia %d wymiarów, a aktualny audyt wymaga %d — "
             "jeśli to zmiana świadoma, popraw liczbę tutaj i w README w tym samym "
             "commicie" % (naglowek.strip("# ."), len(w_dokumencie), ile))
 
@@ -341,7 +341,7 @@ def test_odwzorowanie_kluczy_kabiny_na_nazwy_stalych_jest_BIJEKCJA():
     assert set(station_components.DESIGN_ASSUMPTIONS) == nazwy_modulu(station_components), (
         "klucze `station_components.DESIGN_ASSUMPTIONS` przestały być tymi samymi "
         "nazwami, co stałe modułowe")
-    assert len(station_components.DESIGN_ASSUMPTIONS) == 18, (
+    assert len(station_components.DESIGN_ASSUMPTIONS) == 19, (
         len(station_components.DESIGN_ASSUMPTIONS))
 
 
