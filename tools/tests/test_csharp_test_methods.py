@@ -681,7 +681,8 @@ ROZKLAD_POSTACI = {
         # 5631 -> 5636 (25.09.2026, dwie jawne drogi etykiet oraz ratchety STOP).
         # 5636 -> 5638 (25.09.2026, dwa osobne ramiona domyślne wyniku STOP).
         # 5660 -> 5676 (26.09.2026, testy kompletności LOD i komunikaty asercji).
-        "zwykly": 5676,
+        # 5676 -> 5684 (26.09.2026, nazwy ośmiu brył zestawu dostępu stacji w teście ról).
+        "zwykly": 5684,
         "interpolowany ($)": 864,
         "werbatim (@)": 103,
         "surowy interpolowany ($$\"\"\")": 13,

@@ -20,6 +20,23 @@ public enum StopTargetOutcome
     Missed,
 }
 
+/// <summary>Visual role encoded by the procedural station access mesh name.</summary>
+public enum StationAccessKind
+{
+    /// <summary>Mesh has no access kit role.</summary>
+    None,
+    /// <summary>Stair flight or landing.</summary>
+    Stairs,
+    /// <summary>Lift shaft.</summary>
+    Lift,
+    /// <summary>Mezzanine slab.</summary>
+    Mezzanine,
+    /// <summary>Connecting corridor.</summary>
+    Corridor,
+    /// <summary>Entrance portal.</summary>
+    Portal,
+}
+
 /// <summary>
 /// Widok peronów: płyty i pasy ostrzegawcze wszystkich stacji pakietu, wczytane
 /// z jednego GLB wyprodukowanego przez <c>tools/blender/station_kit.py</c>, oraz
@@ -90,6 +107,14 @@ public sealed partial class StationView : Node3D
         // a readable, unbranded color instead of the slab's gray override.
         using var edgeMaterial = GlbLoader.NeutralMaterial(new Color(0.76f, 0.60f, 0.24f), 0.90f);
         using var slabMaterial = GlbLoader.NeutralMaterial(new Color(0.48f, 0.48f, 0.46f), 0.95f);
+        // These are generic training-kit finishes, not surveyed station decor.
+        // The generator names every access mesh by role, so the visual treatment
+        // remains stable when the same kit is generated for another station.
+        using var stairMaterial = GlbLoader.NeutralMaterial(new Color(0.61f, 0.59f, 0.54f), 0.92f);
+        using var liftMaterial = GlbLoader.NeutralMaterial(new Color(0.39f, 0.49f, 0.53f), 0.62f);
+        using var mezzanineMaterial = GlbLoader.NeutralMaterial(new Color(0.55f, 0.56f, 0.54f), 0.94f);
+        using var corridorMaterial = GlbLoader.NeutralMaterial(new Color(0.46f, 0.49f, 0.49f), 0.92f);
+        using var portalMaterial = GlbLoader.NeutralMaterial(new Color(0.60f, 0.59f, 0.55f), 0.86f);
 
         _slabs.Clear();
         _platformSlabs.Clear();
@@ -116,6 +141,18 @@ public sealed partial class StationView : Node3D
                         instance.GlobalTransform * instance.GetAabb(), worldFaces));
                 }
             }
+            else
+            {
+                instance.MaterialOverride = AccessKindForMesh((string)instance.Name) switch
+                {
+                    StationAccessKind.Stairs => stairMaterial,
+                    StationAccessKind.Lift => liftMaterial,
+                    StationAccessKind.Mezzanine => mezzanineMaterial,
+                    StationAccessKind.Corridor => corridorMaterial,
+                    StationAccessKind.Portal => portalMaterial,
+                    _ => material,
+                };
+            }
 
             _slabs.Add(instance.GlobalTransform * instance.GetAabb());
         }
@@ -130,6 +167,20 @@ public sealed partial class StationView : Node3D
     /// <summary>Generator station_kit oznacza płyty peronowe sufiksem `_platform`.</summary>
     private static bool IsPlatformMeshName(string name) =>
         name.AsSpan().EndsWith(['_', 'p', 'l', 'a', 't', 'f', 'o', 'r', 'm']);
+
+    /// <summary>Read the role encoded by station_kit.py without interpreting a station name.</summary>
+    public static StationAccessKind AccessKindForMesh(string name)
+    {
+        // Stairs and mezzanine names contain additional step/section suffixes.
+        var chars = name.AsSpan();
+        if (chars.IndexOf(['_', 's', 't', 'a', 'i', 'r', 's']) >= 0) return StationAccessKind.Stairs;
+        if (chars.EndsWith(['_', 'l', 'i', 'f', 't'])) return StationAccessKind.Lift;
+        if (chars.IndexOf(['_', 'm', 'e', 'z', 'z', 'a', 'n', 'i', 'n', 'e', '_']) >= 0)
+            return StationAccessKind.Mezzanine;
+        if (chars.EndsWith(['_', 'c', 'o', 'r', 'r', 'i', 'd', 'o', 'r'])) return StationAccessKind.Corridor;
+        if (chars.EndsWith(['_', 'p', 'o', 'r', 't', 'a', 'l'])) return StationAccessKind.Portal;
+        return StationAccessKind.None;
+    }
 
     /// <summary>Use the complete bilingual name, never abbreviated feed fields.</summary>
     public static string NameMarkerText(string axisName) => axisName.Replace('|', '\n');
