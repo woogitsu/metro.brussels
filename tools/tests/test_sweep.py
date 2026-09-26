@@ -80,6 +80,47 @@ def test_sweep_smoothing_deviation_is_bounded_and_reported():
 
 # --- podział na chunki --------------------------------------------------------
 
+def test_sweep_snaps_chunk_cuts_without_exceeding_the_exported_limit():
+    # Planned cut 661.578..1461.283 m is legal, but the old nearest-ring
+    # conversion exported 659.474..1462.743 m as an 803.269 m GLB chunk.
+    total = 3619.670235630794
+    stops = [387.7652513074448, 935.3898392576822, 1987.1753225926366]
+    points = [(total * index / 10, 0.0, 0.0) for index in range(11)]
+    result = SW.sweep(points, BOX, station_chainages=stops)
+    lengths = [chunk["length_m"] for chunk in result["chunks"]]
+    assert max(lengths) <= SW.DEFAULT_MAX_CHUNK_M + 1e-6, (
+        f"rzeczywisty chunk GLB przekracza limit: {lengths}")
+    assert result["chunk_bounds"] == [
+        (chunk["start_m"], chunk["end_m"]) for chunk in result["chunks"]], (
+        "manifest musi opisywać rzeczywiste szwy siatki, a nie plan przed snapowaniem")
+    actual_cuts = [chunk["end_m"] for chunk in result["chunks"][:-1]]
+    assert all(abs(cut - stop) >= SW.DEFAULT_STATION_HALO_M - 1e-6
+               for cut in actual_cuts for stop in stops), (
+        f"pierścień szwu wszedł w halo stacji: {actual_cuts}, {stops}")
+
+
+def test_sweep_refuses_an_axis_without_a_feasible_ring_cut():
+    try:
+        SW.sweep([(0.0, 0.0, 0.0), (1000.0, 0.0, 0.0)], BOX)
+    except ValueError as error:
+        assert "pierścieniach" in str(error), f"niejasna odmowa podziału: {error}"
+    else:
+        raise AssertionError("rzadka oś nie może eksportować chunka ponad 800 m")
+
+
+def test_sweep_generator_of_stations_keeps_the_same_ring_halos():
+    total = 860.7582524949937
+    stops = [122.13868271045082, 311.45930073842936,
+             536.7761202078603, 765.7280183791096]
+    points = [(total * index / 10, 0.0, 0.0) for index in range(11)]
+    expected = SW.sweep(points, BOX, ring_step=20.0, station_chainages=stops)
+    actual = SW.sweep(points, BOX, ring_step=20.0,
+                      station_chainages=(stop for stop in stops))
+    assert [chunk["end_m"] for chunk in actual["chunks"]] == [
+        chunk["end_m"] for chunk in expected["chunks"]], (
+        "jednorazowy iterator stacji zmienił granice po snapowaniu")
+
+
 def test_sweep_chunk_boundaries_never_land_inside_a_station():
     stops = [0.0, 500.0, 1400.0, 3000.0, 3100.0, 5000.0]
     bounds = SW.chunk_boundaries(5000.0, stops, max_chunk_m=400.0)

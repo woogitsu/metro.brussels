@@ -1758,7 +1758,9 @@ def test_wzorzec_rodziny_lapie_zdanie_ktore_ma_lapac_i_nie_bierze_sasiedztwa():
 # uruchomionej kontroli, a nie cytat ze źródła Pythona.
 # 945 -> 946 (26.09.2026, #845): odmowa niewykonalnego podziału tunelu jest sprawdzana na
 # wyjątku w czasie wykonania (`str(error)`), nie na tekście źródła.
-ASERCJI_NAPISOWYCH_RAZEM = 946
+# 946 -> 947 (26.09.2026, pierścienie chunków): odmowa niewykonalnego cięcia
+# po rzeczywistych pierścieniach jest sprawdzana na wyjątku wykonania.
+ASERCJI_NAPISOWYCH_RAZEM = 947
 
 #: **Kotwica wpisu to `(plik, funkcja, operator, literał)`, a NIE numer wiersza.**
 #: Numer przesuwa się przy każdej edycji pliku i lista rozjechałaby się sama z siebie.
