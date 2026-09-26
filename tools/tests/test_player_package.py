@@ -285,6 +285,7 @@ def test_paczka_windows_ma_osobny_preset_i_instrukcje_startu():
                 _wymagaj(manifest["executable"] == plik, "zła binarka w manifeście")
                 wpisy = {w["path"]: w for w in manifest["files"]}
                 _wymagaj("release-manifest.json" not in wpisy, "manifest opisuje sam siebie")
+                _wymagaj(len(wpisy) == len(manifest["files"]), "manifest zawiera zduplikowaną ścieżkę pliku")
                 rzeczywiste = {
                     sciezka.relative_to(Path(paczka)).as_posix(): str(sciezka)
                     for sciezka in Path(paczka).rglob("*")
