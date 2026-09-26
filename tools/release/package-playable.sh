@@ -173,7 +173,7 @@ STEROWANIE
     tego `tools/tests/test_player_package.py`, bo rozjechana tabela sterowania
     już raz w tym projekcie powstała.
 
-    W / strzałka w górę   ciąg
+    W / Z / strzałka w górę   ciąg
     S / strzałka w dół    hamulec
     X                     wybieg
     Spacja                hamulec awaryjny (= pełny służbowy)
