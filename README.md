@@ -38,7 +38,7 @@ dotnet test tests/Sim.Tests          # rdzeń symulacji, bez Godota
 
 **Warstwa silnika — `src/Game/`, projekt Godot 4.7 mono:**
 
-- jeden skład M7 jedzie 6,56 km po pakiecie A, napędzany rdzeniem;
+- jeden skład M7 jedzie 6,69 km po pakiecie A, napędzany rdzeniem;
 - **przejazd gracza KOŃCZY SIĘ SAM**: po obsłużeniu dwóch celów (albo po minięciu
   jednego z nich) na HUD-zie staje panel wyniku, a `R` zaczyna od nowa. Ticki stoją,
   klawisze działają — koniec sesji i koniec procesu to dwie różne rzeczy;

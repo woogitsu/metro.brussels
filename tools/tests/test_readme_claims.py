@@ -66,6 +66,19 @@ def _read(path):
         return handle.read()
 
 
+def test_readme_package_a_distance_matches_track_data():
+    """README nie może utrzymywać starego, krótszego kilometrażu pakietu A."""
+    text = _read(README)
+    match = re.search(r"jeden skład M7 jedzie ([0-9]+,[0-9]+) km po pakiecie A", text)
+    assert match, "README nie podaje kilometrażu pakietu A w oczekiwanym zdaniu"
+    with open(os.path.join(ROOT, "data", "track", "L1_A.json"), encoding="utf-8") as handle:
+        length_m = json.load(handle)["length_m"]
+    expected = f"{length_m / 1000:.2f}".replace(".", ",")
+    assert match.group(1) == expected, (
+        f"README podaje {match.group(1)} km, a data/track/L1_A.json wskazuje {expected} km"
+    )
+
+
 # --- prawda z repozytorium -------------------------------------------------
 
 def core_files():
