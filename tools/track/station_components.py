@@ -58,6 +58,10 @@ DESIGN_CORRIDOR_LENGTH_M = 12.0
 DESIGN_PORTAL_WIDTH_M = 4.00
 DESIGN_PORTAL_CLEAR_M = 2.60
 DESIGN_PORTAL_DEPTH_M = 1.50
+#: Cienka projektowa powłoka przejścia. Daje 2,64 m w świetle w korytarzu
+#: szerokości 3,00 m — więcej niż 2,40 m schodów; grubsza płyta 0,40 m
+#: zwęziłaby przejście do 2,20 m. To założenie modelu, nie pomiar STIB.
+DESIGN_ACCESS_SHELL_M = 0.18
 #: Odsunięcie zespołu schody+winda od końca peronu, żeby nie stał na samej krawędzi.
 DESIGN_ACCESS_SETBACK_M = 4.0
 #: Zapas otworu w antresoli wokół obrysu schodów i windy — na balustradę i na to,
@@ -102,6 +106,7 @@ DESIGN_ASSUMPTIONS = {
     "DESIGN_PORTAL_WIDTH_M": DESIGN_PORTAL_WIDTH_M,
     "DESIGN_PORTAL_CLEAR_M": DESIGN_PORTAL_CLEAR_M,
     "DESIGN_PORTAL_DEPTH_M": DESIGN_PORTAL_DEPTH_M,
+    "DESIGN_ACCESS_SHELL_M": DESIGN_ACCESS_SHELL_M,
     "DESIGN_ACCESS_SETBACK_M": DESIGN_ACCESS_SETBACK_M,
     "DESIGN_VOID_MARGIN_M": DESIGN_VOID_MARGIN_M,
     "DESIGN_PLATFORM_LENGTH_M": DESIGN_PLATFORM_LENGTH_M,
@@ -210,6 +215,42 @@ def _solid(name, kind, at_m, length_m, section, follows_axis=False):
             "follows_axis": follows_axis}
 
 
+def hollow_access_shell(name, kind, at_m, width_m, y_from, y_to, floor_m, clear_m,
+                        thickness_m=DESIGN_ACCESS_SHELL_M):
+    """Four prisms form an open passage instead of a solid obstacle.
+
+    The axis span is the passage width. The cross section spans the passage
+    length and height; the two jambs occupy only the outer strips of that
+    axis span. Every solid keeps the component suffix for runtime styling.
+    """
+    if width_m <= 2 * thickness_m or clear_m <= 0 or y_to <= y_from:
+        raise ValueError("access shell requires positive interior clearance")
+    top_m = floor_m + clear_m
+    return [
+        _solid(f"{name}_floor_{kind}", kind, at_m, width_m,
+               rectangle(y_from, y_to, floor_m - thickness_m, floor_m)),
+        _solid(f"{name}_roof_{kind}", kind, at_m, width_m,
+               rectangle(y_from, y_to, top_m, top_m + thickness_m)),
+        _solid(f"{name}_jamb_a_{kind}", kind, at_m, thickness_m,
+               rectangle(y_from, y_to, floor_m, top_m)),
+        _solid(f"{name}_jamb_b_{kind}", kind,
+               at_m + width_m - thickness_m, thickness_m,
+               rectangle(y_from, y_to, floor_m, top_m)),
+    ]
+
+
+def mezzanine_slabs(name, at_m, length_m, y_from, y_to, floor_m, ceiling_m):
+    """Keep the measured clear height open between separate floor and roof slabs."""
+    return [
+        _solid(name, "mezzanine", at_m, length_m,
+               rectangle(y_from, y_to, floor_m - DESIGN_SLAB_THICKNESS_M, floor_m),
+               follows_axis=True),
+        _solid(f"{name}_roof", "mezzanine", at_m, length_m,
+               rectangle(y_from, y_to, ceiling_m, ceiling_m + DESIGN_SLAB_THICKNESS_M),
+               follows_axis=True),
+    ]
+
+
 def access_solids(platform, side, level, wall_m, prefix=""):
     """Zespół dostępu przy JEDNYM końcu peronu: schody, winda, antresola, korytarz, portal.
 
@@ -279,9 +320,9 @@ def access_solids(platform, side, level, wall_m, prefix=""):
     void_y_to = min(my_to, max(void_ys) + DESIGN_VOID_MARGIN_M)
 
     if void_from - mez_from > 1e-6:
-        solids.append(_solid(
-            f"{prefix}mezzanine_a", "mezzanine", mez_from, void_from - mez_from,
-            rectangle(my_from, my_to, floor_z, ceiling_z), follows_axis=True))
+        solids.extend(mezzanine_slabs(
+            f"{prefix}mezzanine_a", mez_from, void_from - mez_from,
+            my_from, my_to, floor_z, ceiling_z))
     # Pasy przy otworze nazywane ROLĄ, nie stroną osi. Pierwsza wersja nazywała je
     # `l` i `r` po algebraicznym znaku `y` — i wtedy odbicie lustrzane zespołu
     # przestawało być odbiciem, bo pas „lewy" po jednej stronie odpowiadał „prawemu"
@@ -290,31 +331,29 @@ def access_solids(platform, side, level, wall_m, prefix=""):
         if y_b - y_a <= 1e-6:
             continue
         near = y_a <= side * wall_m <= y_b
-        solids.append(_solid(
-            f"{prefix}mezzanine_{'near' if near else 'far'}", "mezzanine",
+        solids.extend(mezzanine_slabs(
+            f"{prefix}mezzanine_{'near' if near else 'far'}",
             void_from, void_to - void_from,
-            rectangle(y_a, y_b, floor_z, ceiling_z), follows_axis=True))
+            y_a, y_b, floor_z, ceiling_z))
     if top_m - void_to > 1e-6:
-        solids.append(_solid(
-            f"{prefix}mezzanine_b", "mezzanine", void_to, top_m - void_to,
-            rectangle(my_from, my_to, floor_z, ceiling_z), follows_axis=True))
+        solids.extend(mezzanine_slabs(
+            f"{prefix}mezzanine_b", void_to, top_m - void_to,
+            my_from, my_to, floor_z, ceiling_z))
 
     corridor_far = side * (wall_m + DESIGN_CORRIDOR_LENGTH_M)
     cy_from, cy_to = span(outer, corridor_far)
     corridor_at = top_m - DESIGN_MEZZANINE_LENGTH_M / 2.0 - DESIGN_CORRIDOR_WIDTH_M / 2.0
-    solids.append(_solid(
+    solids.extend(hollow_access_shell(
         f"{prefix}corridor", "corridor", corridor_at, DESIGN_CORRIDOR_WIDTH_M,
-        rectangle(cy_from, cy_to, level["mezzanine_floor_m"],
-                  level["mezzanine_floor_m"] + DESIGN_CORRIDOR_CLEAR_M)))
+        cy_from, cy_to, level["mezzanine_floor_m"], DESIGN_CORRIDOR_CLEAR_M))
 
     portal_far = side * (wall_m + DESIGN_CORRIDOR_LENGTH_M + DESIGN_PORTAL_DEPTH_M)
     py_from, py_to = span(corridor_far, portal_far)
-    solids.append(_solid(
+    solids.extend(hollow_access_shell(
         f"{prefix}portal", "portal",
         top_m - DESIGN_MEZZANINE_LENGTH_M / 2.0 - DESIGN_PORTAL_WIDTH_M / 2.0,
-        DESIGN_PORTAL_WIDTH_M,
-        rectangle(py_from, py_to, level["mezzanine_floor_m"],
-                  level["mezzanine_floor_m"] + DESIGN_PORTAL_CLEAR_M)))
+        DESIGN_PORTAL_WIDTH_M, py_from, py_to,
+        level["mezzanine_floor_m"], DESIGN_PORTAL_CLEAR_M))
 
     _ = inner
     return solids
